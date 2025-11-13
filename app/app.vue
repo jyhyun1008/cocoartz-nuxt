@@ -24,6 +24,7 @@
 
 :root {
   --accent: #FA4E79;
+  --mapbg: gray;
   --bgaccent: #FA4E7922;
 }
 

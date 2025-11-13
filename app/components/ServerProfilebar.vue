@@ -18,23 +18,33 @@
 <script setup>
 const config = useRuntimeConfig();
 const apiBaseUrl = config.public.apiBaseUrl;
+const route = useRoute();
+const slug = route.params.slug
 
 const session = {
     email: "howeverina@proton.me",
 }
 
-const response = await fetch(`${apiBaseUrl}/api/getUserByEmail`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: session.email
-      }),
-    })
-    
-const results = await response.json()
-const i = results[0]
+const { data: iData, error } = await useAsyncData(
+    'i-data', async () => {
+
+        const response = await $fetch(`${apiBaseUrl}/api/getUserByEmail`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                email: session.email
+            }),
+        })
+
+        return response[0]
+    }, {
+        watch: [() => route.params.slug ]
+    }
+)
+
+const i = iData.value
 
 </script>
 

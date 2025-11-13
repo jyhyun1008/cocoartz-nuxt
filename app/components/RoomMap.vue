@@ -1,7 +1,8 @@
 <template>
     <div id="map-wrapper">
         <div id="map">
-            <NuxtImg class="maptempimg" src="https://cdn.gamedevmarket.net/wp-content/uploads/20220218150438/9ef1e4313ca21fdf53f4956d608c8093.png" />
+            <NuxtImg v-if="mapType == 'string'" class="maptempimg" :src=mapInfo />
+            <div v-else></div>
         </div>
         <CharacterMoving :character=character />
         <div v-if="props.page == 'none' || props.page == 'room'" id="chatroom-wrapper" class="little">
@@ -13,11 +14,11 @@
                     </div>
                     <div class="userchatbox">
                         <div class="userinfo">
-                            <span class="knownas">{{ chat.user.knownAs }}</span>
+                            <span class="knownas">{{ chat.user.knownas }}</span>
                             <span class="datetime" v-if="chat.createdAt.split('T')[0]==today" >{{ chat.createdAt.split('T')[1].slice(0,5) }}</span>
                             <span class="datetime" v-else>{{ chat.createdAt.split('T')[0] }}</span>
                         </div>
-                        <div class="msg">{{ chat.msg }}</div>
+                        <div class="msg">{{ chat.content }}</div>
                     </div>
                 </div>
             </div>
@@ -31,53 +32,122 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, computed } from 'vue';
+const route = useRoute();
 import WindowInfo from './WindowInfo.vue';
+const config = useRuntimeConfig();
+const apiBaseUrl = config.public.apiBaseUrl;
+
+function isJSON(str) {
+  try {
+    JSON.parse(str);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+const roomKey = computed(() => {
+  const slug = route.params.slug;
+  const page = route.params.page || 'default'; // page가 undefined일 경우
+  return `room-data-${slug}-${page}`;
+});
+
+const chatKey = computed(() => {
+  const slug = route.params.slug;
+  const page = route.params.page || 'default'; // page가 undefined일 경우
+  return `chat-data-${slug}-${page}`;
+});
 
 const character = "/defcharacter.png"
 const props = defineProps({
-  page: {
-    type: String,
-    required: true
-  },
-  path: {
-    type: String,
-    required: true
-  }
+    id: {
+        type: Number,
+        required: true
+    },
+    page: {
+        type: String,
+        required: true
+    },
+    path: {
+        type: String,
+        required: true
+    }
 });
+const slug = route.params.slug
 let now = new Date()
 let today = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`
 
-const chats = [
-    {
-        id: 0,
-        user: {
-            id: 0,
-            username: 'howeverina',
-            knownAs: '연이나',
-            avatar: "https://zfagftpyotjtopheclwh.supabase.co/storage/v1/object/public/avatars/profile/profile1_c0b3dce9b8e4c8da2bad7efb3c376a780ae61bffcbddf5ce6f0903a8133b93da.png",
-        },
-        msg: '안녕하세요!!',
-        createdAt: '2025-11-12T15:08:00'
+let mapType = "object"
+let mapInfo
+
+const { data: roomData, error } = await useAsyncData(
+    roomKey, async () => {
+        const apiPath = `/${route.params.slug}/${route.params.page ? route.params.page : ''}`
+        const response = await $fetch(`${apiBaseUrl}/api/getRoomsByPath`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                path: apiPath
+            }),
+        })
+        if (response && Array.isArray(response) && response.length > 0) {
+            return response[0]; // 데이터가 있으면 첫 번째 항목 반환
+        } else {
+            return null; // 데이터가 없으면 null을 반환하여 roomData를 초기화
+        }
     }, {
-        id: 1,
-        user: {
-            id: 0,
-            username: 'howeverina',
-            knownAs: '연이나',
-            avatar: "https://zfagftpyotjtopheclwh.supabase.co/storage/v1/object/public/avatars/profile/profile1_c0b3dce9b8e4c8da2bad7efb3c376a780ae61bffcbddf5ce6f0903a8133b93da.png",
-        },
-        msg: '아주아주 마음에드는군요 문제는 마크다운이 아직 적용이 안되는...',
-        createdAt: '2025-11-12T16:08:00'
+        watch: [
+            () => route.params.slug,
+            () => route.params.page
+        ]
     }
-]
+)
+
+
+const { data: chatData } = await useAsyncData(
+    chatKey, async () => {
+        const response = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                serverid: props.id,
+                roomid: route.params.page?roomData.value.id:0
+            }),
+        })
+        if (response && Array.isArray(response) && response.length > 0) {
+            console.log(response)
+            return response
+        } else {
+            return null; // 데이터가 없으면 null을 반환하여 roomData를 초기화
+        }
+    }, {
+        watch: [
+            () => route.params.slug,
+            () => route.params.page
+        ]
+    }
+)
+
+console.log(chatData.value)
+mapInfo = roomData.value.map
+
+
+if (isJSON(mapInfo) == false) {
+    mapType = 'string'
+}
+
+const chats = chatData.value
 
 onMounted(() => {
 
     var positionStorage
 
     if (localStorage.getItem('position')) {
-        console.log(JSON.parse(localStorage.getItem('position')), props.path)
         if (JSON.parse(localStorage.getItem('position')).roomPath !== props.path) {
             positionStorage = {
                 roomPath: props.path,
@@ -103,8 +173,6 @@ onMounted(() => {
 
     document.querySelector('#enlarge')?.addEventListener('click', (e)=>{
         if (document.querySelector('#page-wrapper')) {
-            let result = new URL(location.href).pathname.split('/')[1]
-            location.href = `/${result}`;
         } else {
             if (document.querySelector('#chatroom-wrapper').classList.contains('little')) {
                 document.querySelector('#chatroom-wrapper').classList.add('large')
@@ -149,7 +217,7 @@ onMounted(() => {
     bottom: 0;
     right: 0;
     overflow: hidden;
-    background-color: gray;
+    background-color: var(--mapbg);
 }
 
 #map {
@@ -229,7 +297,7 @@ onMounted(() => {
 
 .datetime {
     font-size: 0.8rem;
-    color: gray;
+    color: lightgray;
 }
 
 .avatar {

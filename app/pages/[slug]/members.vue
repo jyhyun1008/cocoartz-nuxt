@@ -1,33 +1,55 @@
 <script setup>
+import { computed } from 'vue';
+const route = useRoute();
+
+const slug = route.params.slug
+const path = computed(() => {
+    return `/${slug}/` 
+});
+const serverKey = computed(() => {
+  return `server-data-${route.params.slug}`
+});
+
+console.log(serverKey.value)
+
+const config = useRuntimeConfig();
+const apiBaseUrl = config.public.apiBaseUrl;
 import ServerHeader from '~/components/ServerHeader.vue';
 import ServerSidebar from '~/components/ServerSidebar.vue';
 
-const slug = useRoute().params.slug
-const path = `/${slug}/`
-const serverInfo = {
-    id: 0,
-    slug: slug,
-    title: '연이나 놀이터',
-    themeColor: '#FA4E79',
-    avatar: "https://zfagftpyotjtopheclwh.supabase.co/storage/v1/object/public/avatars/profile/profile1_c0b3dce9b8e4c8da2bad7efb3c376a780ae61bffcbddf5ce6f0903a8133b93da.png",
-    members: [{
-        id: 0,
-        username: 'howeverina',
-        knownAs: '연이나'
-    }],
-}
+const { data: serverData, error } = await useAsyncData(
+    serverKey.value, async () => {
 
-const accent = serverInfo.themeColor?serverInfo.themeColor:'var(--accent)'
-const bgaccent = serverInfo.themeColor?`${accent}22`:'var(--bgaccent)'
+        const response = await $fetch(`${apiBaseUrl}/api/getServerBySlug`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                slug: slug
+            }),
+        })
+
+        return response[0]
+    }, {
+        watch: [() => route.params.slug ]
+    }
+)
+
+const serverInfo = serverData.value
+
+const accent = serverInfo.themecolor?serverInfo.themecolor:'var(--accent)'
+const mapbg = serverInfo.themecolor?`${accent}55`:'var(--mapbg)'
+const bgaccent = serverInfo.themecolor?`${accent}22`:'var(--bgaccent)'
 
 </script>
 
 <template>
     <div class="parant-wrapper">
-        <ServerHeader :title=serverInfo.title :slug=serverInfo.slug :avatar="serverInfo.avatar" />
-        <ServerSidebar :id="serverInfo.id" :slug=serverInfo.slug :rooms=serverInfo.rooms :path=path />
+        <ServerHeader :title=serverInfo.title :slug=route.params.slug :avatar=serverInfo.avatar />
+        <ServerSidebar :id=serverInfo.id :slug=route.params.slug :rooms=serverInfo.rooms :path=path />
         <ServerProfilebar />
-        <RoomMap page="members" :path=path />
+        <RoomMap page="members" :id=serverInfo.id :path=path />
     </div>
 </template>
 
@@ -35,6 +57,7 @@ const bgaccent = serverInfo.themeColor?`${accent}22`:'var(--bgaccent)'
 
 .parant-wrapper {
     --accent: v-bind(accent);
+    /* --mapbg: v-bind(mapbg); */
     --bgaccent: v-bind(bgaccent);
 }
 

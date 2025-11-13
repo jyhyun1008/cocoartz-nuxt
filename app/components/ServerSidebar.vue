@@ -45,6 +45,7 @@
 </template>
 
 <script setup>
+const route = useRoute();
 const config = useRuntimeConfig();
 const apiBaseUrl = config.public.apiBaseUrl;
 
@@ -53,34 +54,38 @@ const props = defineProps({
     type: Number,
     required: true
   },
-  slug: {
-    type: String,
-    required: true
-  },
   path: String,
   rooms: String,
 });
 
-const response = await fetch(`${apiBaseUrl}/api/getRoomsBySlug`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        slug: props.slug
-      }),
-    })
-    
-const results = await response.json()
+let rooms = JSON.parse(props.rooms)
 
-const rooms = JSON.parse(props.rooms)
-for await (let result of results) {
-    let roomid = result.id
-    let index = rooms.indexOf(roomid)
-    rooms[index] = result
-}
+const { data: roomsData, error } = await useAsyncData(
+    'rooms-data', async () => $fetch(`${apiBaseUrl}/api/getRoomsBySlug`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            slug: route.params.slug
+        }),
+    }))
+    watch(roomsData, (newResults)=> {
 
-const fullPath = `/${props.slug}/`
+        if (Array.isArray(newResults)) {
+            for (let result of newResults) {
+                let roomid = result.id
+                let index = rooms.indexOf(roomid)
+                rooms[index] = result
+            }
+
+        }
+    }, { 
+        immediate: true // 5. (선택사항) 페이지 로드 시에도 한 번 즉시 실행
+    }
+)
+
+const fullPath = `/${route.params.slug}/`
 
 </script>
 
