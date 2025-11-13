@@ -2,7 +2,9 @@
     <div id="map-wrapper">
         <div id="map">
             <NuxtImg v-if="mapType == 'string'" class="maptempimg" :src=mapInfo />
-            <div v-else></div>
+            <div v-else class="maptiles1">
+                <NuxtImg v-for="tile in mapInfo[0]" :src=getFilePath(tile) :style=getScreenPosition(tile) class="tile" />
+            </div>
         </div>
         <CharacterMoving :character=character />
         <div v-if="props.page == 'none' || props.page == 'room'" id="chatroom-wrapper" class="little">
@@ -27,7 +29,8 @@
                 <div id="sendchat">전송</div>
             </div>
         </div>
-        <WindowInfo v-if="props.page == 'info'" />
+        <WindowInfo v-else-if="props.page == 'info'" />
+        <WindowBoard v-else-if="props.page == 'board'" :ids=serverAndRoomId />
     </div>
 </template>
 
@@ -35,6 +38,7 @@
 import { onMounted, computed } from 'vue';
 const route = useRoute();
 import WindowInfo from './WindowInfo.vue';
+import WindowBoard from './WindowBoard.vue';
 const config = useRuntimeConfig();
 const apiBaseUrl = config.public.apiBaseUrl;
 
@@ -106,6 +110,10 @@ const { data: roomData, error } = await useAsyncData(
     }
 )
 
+const serverAndRoomId = {
+    serverid: props.id,
+    roomid: route.params.page?roomData.value.id:0
+}
 
 const { data: chatData } = await useAsyncData(
     chatKey, async () => {
@@ -114,13 +122,9 @@ const { data: chatData } = await useAsyncData(
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-                serverid: props.id,
-                roomid: route.params.page?roomData.value.id:0
-            }),
+            body: JSON.stringify(serverAndRoomId),
         })
         if (response && Array.isArray(response) && response.length > 0) {
-            console.log(response)
             return response
         } else {
             return null; // 데이터가 없으면 null을 반환하여 roomData를 초기화
@@ -133,14 +137,83 @@ const { data: chatData } = await useAsyncData(
     }
 )
 
-console.log(chatData.value)
 mapInfo = roomData.value.map
 
+mapInfo = `[[
+    {
+        "itemid": 1,
+        "position": {
+            "x": 0,
+            "y": 0
+        }
+    }, {
+        "itemid": 1,
+        "position": {
+            "x": 1,
+            "y": 0
+        }
+    }, {
+        "itemid": 1,
+        "position": {
+            "x": 0,
+            "y": -1
+        }
+    }, {
+        "itemid": 2,
+        "position": {
+            "x": 1,
+            "y": -1
+        }
+    }, {
+        "itemid": 3,
+        "position": {
+            "x": 2,
+            "y": 0
+        }
+    }, {
+        "itemid": 4,
+        "position": {
+            "x": 0,
+            "y": -2
+        }
+    }, {
+        "itemid": 2,
+        "position": {
+            "x": 2,
+            "y": -1
+        }
+    }, {
+        "itemid": 4,
+        "position": {
+            "x": 1,
+            "y": -2
+        }
+    }, {
+        "itemid": 3,
+        "position": {
+            "x": 2,
+            "y": -2
+        }
+    }
+]]`
 
 if (isJSON(mapInfo) == false) {
     mapType = 'string'
 }
+mapInfo = JSON.parse(mapInfo)
 
+const getFilePath = (tile) => {
+    const path = `/tileset/${tile.itemid}.png`
+    return path
+}
+
+const getScreenPosition = (tile) => {
+  const style = {
+    top: `calc(50dvh - 1.5rem - ${-24 + tile.position.y*32 + tile.position.x*(-32)}px)`,
+    left: `calc(50vw - ${214 - tile.position.y*64 - tile.position.x*64}px)`
+  }
+  return style
+}
 const chats = chatData.value
 
 onMounted(() => {
@@ -211,7 +284,7 @@ onMounted(() => {
 
 <style>
 #map-wrapper {
-    width: calc(100vw - 220px);
+    width: calc(100vw - 300px);
     height: calc(100dvh - 3rem);
     position: fixed;
     bottom: 0;
@@ -239,8 +312,17 @@ onMounted(() => {
     object-position: center;
 }
 
+.maptiles1, .maptiles2, .maptiles3 {
+    position: relative;
+}
+
+.tile {
+    position: absolute;
+    width: 128px;
+}
+
 #chatroom-wrapper.little {
-    width: calc(100% - 260px);
+    width: calc(100% - 340px);
     max-width: 600px;
     height: 200px;
     position: relative;
@@ -254,7 +336,7 @@ onMounted(() => {
 }
 
 .large {
-    width: calc(100% - 260px);
+    width: calc(100% - 340px);
     max-width: 800px;
     height: 200px;
     position: relative;

@@ -70,7 +70,7 @@ const settingsPath = fullPath + 'settings'
 
 #title-wrapper {
     font-weight: 700;
-    width: 220px;
+    width: 300px;
     font-size: 1.2rem;
     overflow-x: hidden;
 }

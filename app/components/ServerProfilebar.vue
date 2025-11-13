@@ -52,7 +52,7 @@ const i = iData.value
 
 #profile-bg {
     background-color: white;
-    width: 220px;
+    width: 300px;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -60,7 +60,7 @@ const i = iData.value
 }
 
 #profile-wrapper {
-    width: 220px;
+    width: 300px;
     z-index: 999;
     display: flex;
     gap: 10px;

@@ -10,8 +10,6 @@ const serverKey = computed(() => {
   return `server-data-${route.params.slug}`
 });
 
-console.log(serverKey.value)
-
 const config = useRuntimeConfig();
 const apiBaseUrl = config.public.apiBaseUrl;
 import ServerHeader from '~/components/ServerHeader.vue';

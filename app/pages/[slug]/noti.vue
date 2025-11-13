@@ -3,9 +3,8 @@ import { computed } from 'vue';
 const route = useRoute();
 
 const slug = route.params.slug
-const page = route.params.page
 const path = computed(() => {
-    return `/${slug}/${page}` 
+    return `/${slug}/noti`
 });
 const serverKey = computed(() => {
   return `server-data-${route.params.slug}`
@@ -37,29 +36,6 @@ const { data: serverData, error } = await useAsyncData(
 
 const serverInfo = serverData.value
 
-let pageInfo = {
-        id: 0,
-        path: `/${slug}/random`,
-        knownAs: '랜덤',
-        type: 'room'
-    }
-
-if (page == 'practiceroom') {
-    pageInfo = {
-        id: 3,
-        path: `/${slug}/practiceroom`,
-        knownAs: '합주실',
-        type: 'room'
-    }
-} else if (page == 'gallery') {
-    pageInfo = {
-        id: 2,
-        path: `/${slug}/gallery`,
-        knownAs: '갤러리',
-        type: 'board'
-    }
-}
-
 const accent = serverInfo.themecolor?serverInfo.themecolor:'var(--accent)'
 const mapbg = serverInfo.themecolor?`${accent}55`:'var(--mapbg)'
 const bgaccent = serverInfo.themecolor?`${accent}22`:'var(--bgaccent)'
@@ -68,10 +44,10 @@ const bgaccent = serverInfo.themecolor?`${accent}22`:'var(--bgaccent)'
 
 <template>
     <div class="parant-wrapper">
-        <ServerHeader :title=serverInfo.title :slug=serverInfo.slug :avatar=serverInfo.avatar />
-        <ServerSidebar :id="serverInfo.id" :slug=serverInfo.slug :rooms=serverInfo.rooms :path=path />
+        <ServerHeader :title=serverInfo.title :slug=route.params.slug :avatar=serverInfo.avatar />
+        <ServerSidebar :id=serverInfo.id :slug=route.params.slug :rooms=serverInfo.rooms :path=path />
         <ServerProfilebar />
-        <RoomMap :page=pageInfo.type :id=serverInfo.id :path=path />
+        <RoomMap page="board" :id=serverInfo.id :path=path />
     </div>
 </template>
 

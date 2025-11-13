@@ -12,10 +12,16 @@
                     <span>마을</span>
                 </div>
             </NuxtLink>
-            <div class="side-items">
-                <i class="hgi hgi-stroke hgi-notification-01"></i>
-                <span>공지 게시판</span>
-            </div>
+            <NuxtLink :to=notiPath>
+                <div class="side-items thispage" v-if="props.path==notiPath">
+                    <i class="hgi hgi-stroke hgi-notification-01"></i>
+                    <span>공지 게시판</span>
+                </div>
+                <div class="side-items" v-else>
+                    <i class="hgi hgi-stroke hgi-notification-01"></i>
+                    <span>공지 게시판</span>
+                </div>
+            </NuxtLink>
         </div>
         <hr />
         <div id="pages-wrapper">
@@ -86,12 +92,13 @@ const { data: roomsData, error } = await useAsyncData(
 )
 
 const fullPath = `/${route.params.slug}/`
+const notiPath = `/${route.params.slug}/noti`
 
 </script>
 
 <style>
 #sidebar-wrapper {
-    width: 220px;
+    width: 300px;
     height: calc(100dvh - 3rem);
     background-color: #f3f5f7;
     position: fixed;
@@ -122,7 +129,7 @@ const fullPath = `/${route.params.slug}/`
 hr {
     background-color: #00000022;
     height: 1px;
-    width: 180px;
+    width: 260px;
     border: 0;
 }
 

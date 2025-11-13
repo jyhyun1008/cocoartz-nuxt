@@ -22,6 +22,20 @@
       "when": 1762959826701,
       "tag": "0002_slimy_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1763004474922,
+      "tag": "0003_flippant_arclight",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1763004930963,
+      "tag": "0004_kind_vargas",
+      "breakpoints": true
     }
   ]
 }

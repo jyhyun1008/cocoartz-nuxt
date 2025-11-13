@@ -25,41 +25,27 @@ onMounted(() => {
                     document.querySelector('#characterimg').setAttribute('style', 'top:0; left:0;')
                     isodd = 1
                 } else if (isodd == 1) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-64px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-128px;')
                     isodd = 2
                 } else if (isodd == 2) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-128px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-256px;')
                     isodd = 3
                 } else {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-64px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-128px;')
                     isodd = 0
                 }
             } else if (e.code == 'KeyW' && e.repeat === false) {
                 if (isodd == 0) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-192px; left:0;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-384px; left:0;')
                     isodd = 1
                 } else if (isodd == 1) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-192px; left:-64px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-384px; left:-128px;')
                     isodd = 2
                 } else if (isodd == 2) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-192px; left:-128px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-384px; left:-256px;')
                     isodd = 3
                 } else {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-192px; left:-64px;')
-                    isodd = 0
-                }
-            } else if (e.code == 'KeyA' && e.repeat === false) {
-                if (isodd == 0) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-64px; left:0;')
-                    isodd = 1
-                } else if (isodd == 1) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-64px; left:-64px;')
-                    isodd = 2
-                } else if (isodd == 2) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-64px; left:-128px;')
-                    isodd = 3
-                } else {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-64px; left:-64px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-384px; left:-128px;')
                     isodd = 0
                 }
             } else if (e.code == 'KeyD' && e.repeat === false) {
@@ -67,13 +53,27 @@ onMounted(() => {
                     document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:0;')
                     isodd = 1
                 } else if (isodd == 1) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:-64px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:-128px;')
                     isodd = 2
                 } else if (isodd == 2) {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:-128px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:-256px;')
                     isodd = 3
                 } else {
-                    document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:-64px;')
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-128px; left:-128px;')
+                    isodd = 0
+                }
+            } else if (e.code == 'KeyA' && e.repeat === false) {
+                if (isodd == 0) {
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-256px; left:0;')
+                    isodd = 1
+                } else if (isodd == 1) {
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-256px; left:-128px;')
+                    isodd = 2
+                } else if (isodd == 2) {
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-256px; left:-256px;')
+                    isodd = 3
+                } else {
+                    document.querySelector('#characterimg').setAttribute('style', 'top:-256px; left:-128px;')
                     isodd = 0
                 }
             }
@@ -81,12 +81,9 @@ onMounted(() => {
 
         window.addEventListener('keyup', (e)=>{
             clearInterval(interval)
-            document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-64px;')
+            document.querySelector('#characterimg').setAttribute('style', 'top:0; left:-128px;')
         })
     })
-            
-
-    
 });
 
 
@@ -94,7 +91,7 @@ onMounted(() => {
 
 <style>
 #character-wrapper {
-    width: calc(100vw - 220px);
+    width: calc(100vw - 300px);
     height: calc(100dvh - 3rem);
     position: fixed;
     bottom: 0;
@@ -107,18 +104,18 @@ onMounted(() => {
 
 #character {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: 128px;
+    height: 128px;
     overflow: hidden;
 }
 
 #character img {
     position: absolute;
     aspect-ratio: 1;
-    width: 192px;
-    height: 256px;
+    width: 384px;
+    height: 512px;
     top:0;
-    left: -64px;
+    left: -128px;
 }
 
 </style>

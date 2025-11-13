@@ -56,4 +56,17 @@ export const chats = pgTable('chats', {
   content: text().notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   history: text(),
+  replyto: text(),
+})
+
+export const posts = pgTable('posts', {
+	id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  serverid: integer().notNull(),
+  roomid: integer().notNull(),
+  userid: integer().notNull(),
+  title: text().notNull(),
+  content: text().notNull(),
+	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  history: text(),
+  replyto: text(),
 })
