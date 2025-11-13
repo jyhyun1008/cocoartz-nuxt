@@ -139,68 +139,11 @@ const { data: chatData } = await useAsyncData(
 
 mapInfo = roomData.value.map
 
-mapInfo = `[[
-    {
-        "itemid": 1,
-        "position": {
-            "x": 0,
-            "y": 0
-        }
-    }, {
-        "itemid": 1,
-        "position": {
-            "x": 1,
-            "y": 0
-        }
-    }, {
-        "itemid": 1,
-        "position": {
-            "x": 0,
-            "y": -1
-        }
-    }, {
-        "itemid": 2,
-        "position": {
-            "x": 1,
-            "y": -1
-        }
-    }, {
-        "itemid": 3,
-        "position": {
-            "x": 2,
-            "y": 0
-        }
-    }, {
-        "itemid": 4,
-        "position": {
-            "x": 0,
-            "y": -2
-        }
-    }, {
-        "itemid": 2,
-        "position": {
-            "x": 2,
-            "y": -1
-        }
-    }, {
-        "itemid": 4,
-        "position": {
-            "x": 1,
-            "y": -2
-        }
-    }, {
-        "itemid": 3,
-        "position": {
-            "x": 2,
-            "y": -2
-        }
-    }
-]]`
-
 if (isJSON(mapInfo) == false) {
     mapType = 'string'
+} else {
+    mapInfo = JSON.parse(mapInfo)
 }
-mapInfo = JSON.parse(mapInfo)
 
 const getFilePath = (tile) => {
     const path = `/tileset/${tile.itemid}.png`
