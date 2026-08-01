@@ -7,6 +7,7 @@
             <span v-if="currentView === 'list'" class="board-header-title">게시판</span>
             <span v-else-if="currentView === 'create'" class="board-header-title">새 글 작성</span>
             <span v-else-if="currentView === 'detail'" class="board-header-title">{{ currentPost?.title }}</span>
+            <span v-else-if="currentView === 'remote-detail'" class="board-header-title">{{ currentRemotePost?.summary || stripHtml(currentRemotePost?.content) }}</span>
             <div class="board-header-actions">
                 <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'">+ 새 글</button>
                 <button v-else class="back-btn-header" @click="currentView = 'list'">← 목록</button>
@@ -27,7 +28,7 @@
                         </div>
                     </div>
                     <!-- 연합 팔로잉 피드(외부) 글 -->
-                    <a v-else class="post-card external-post-card" :href="entry.post.sourceActorUrl" target="_blank" rel="noopener noreferrer">
+                    <div v-else class="post-card external-post-card" @click="openRemotePost(entry.post)">
                         <div class="post-card-title">
                             <i class="hgi hgi-stroke hgi-globe-02"></i>
                             <template v-if="entry.post.summary">
@@ -40,7 +41,7 @@
                             <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
                             <span class="datetime">{{ formatDate(entry.post.published) }}</span>
                         </div>
-                    </a>
+                    </div>
                 </template>
             </div>
             <div v-else class="empty">게시물이 없습니다.</div>
@@ -120,6 +121,30 @@
             </div>
         </div>
 
+        <!-- 연합 팔로잉 피드 글 상세 (원격) -->
+        <div v-else-if="currentView === 'remote-detail' && currentRemotePost" id="board-wrapper">
+            <div class="post-detail">
+                <div class="post-meta">
+                    <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
+                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                        {{ currentRemotePost.sourceName || currentRemotePost.sourceHandle }}
+                        <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
+                    </a>
+                    <span class="datetime">{{ formatDate(currentRemotePost.published) }}</span>
+                </div>
+
+                <div v-if="currentRemotePost.summary && !showRemoteContent" class="remote-cw-gate">
+                    <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> {{ currentRemotePost.summary }}</div>
+                    <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
+                </div>
+                <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
+
+                <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
+                    원 계정에서 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
+                </a>
+            </div>
+        </div>
+
     </div>
 </template>
 
@@ -183,6 +208,8 @@ const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉',
 
 const currentView = ref('list')
 const currentPost = ref(null)
+const currentRemotePost = ref(null)
+const showRemoteContent = ref(false)
 const newTitle = ref('')
 const newContent = ref('')
 const commentContent = ref('')
@@ -203,6 +230,12 @@ async function openPost(postid) {
     })
     currentPost.value = data
     currentView.value = 'detail'
+}
+
+function openRemotePost(post) {
+    currentRemotePost.value = post
+    showRemoteContent.value = false
+    currentView.value = 'remote-detail'
 }
 
 async function submitPost() {
@@ -530,6 +563,37 @@ onMounted(() => {
     font-weight: 400;
     color: rgba(255,255,255,0.35);
 }
+
+.remote-cw-gate {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 16px;
+    border-radius: 10px;
+    background: rgba(255,180,84,0.08);
+    border: 1px solid rgba(255,180,84,0.25);
+}
+
+.remote-cw-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #ffb454;
+}
+
+.remote-original-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.4);
+    text-decoration: none;
+}
+.remote-original-link:hover { color: rgba(255,255,255,0.7); text-decoration: underline; }
 
 .post-content {
     line-height: 1.8;
