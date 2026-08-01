@@ -145,11 +145,19 @@ body {
     height: 60dvh;
 }
 
-/* 모바일에서는 좌우 여백을 줄여서 화면 폭을 최대한 활용 (조이스틱과 겹칠 일이 없는
-   큰 모달들이라 그냥 넓혀도 됨 — 겹칠 수 있는 채팅 작은창은 RoomMap.vue에서 별도 처리) */
+/* 모바일에서는 좌우 여백을 줄여서 화면 폭을 최대한 활용하고(조이스틱과 겹칠 일이 없는
+   큰 모달들이라 그냥 넓혀도 됨 — 겹칠 수 있는 채팅 작은창은 RoomMap.vue에서 별도 처리),
+   위아래로도 길게 늘여서 작은창의 아래쪽 선(bottom:14px)과 맞춤 */
 @media (max-width: 768px) {
     .modal-base {
-        width: calc(100% - 24px);
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        bottom: 14px;
+        transform: none;
+        width: auto;
+        max-width: none;
+        height: auto;
     }
 }
 

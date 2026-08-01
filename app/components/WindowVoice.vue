@@ -201,7 +201,14 @@ onUnmounted(() => {
     }
 
     #voice-wrapper.large {
-        width: calc(100% - 24px);
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        bottom: 14px;
+        transform: none;
+        width: auto;
+        max-width: none;
+        height: auto;
     }
 }
 

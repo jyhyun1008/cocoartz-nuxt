@@ -815,8 +815,9 @@ onMounted(() => {
     width: 110px;
     height: 110px;
     border-radius: 50%;
-    background: rgba(var(--fg-rgb),0.12);
-    border: 1px solid rgba(var(--fg-rgb),0.25);
+    background: var(--surface-1-blur);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(var(--fg-rgb),0.15);
     z-index: 150;
     touch-action: none;
 }
@@ -951,9 +952,9 @@ onMounted(() => {
     z-index: 99;
     bottom: 14px;
     left: 14px;
-    background-color: rgba(20,20,28,0.75);
+    background-color: var(--surface-1-blur);
     backdrop-filter: blur(8px);
-    color: white;
+    color: rgba(var(--fg-rgb),0.85);
     display: flex;
     flex-direction: column;
     border-radius: 12px;
@@ -1130,7 +1131,14 @@ onMounted(() => {
     }
 
     #chatroom-wrapper.large {
-        width: calc(100% - 24px);
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        bottom: 14px;
+        transform: none;
+        width: auto;
+        max-width: none;
+        height: auto;
     }
 }
 </style>
