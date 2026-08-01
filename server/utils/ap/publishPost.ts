@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm'
 import { ensureActor } from './ensureActor'
 import { actorUrl, postObjectUrl, buildCreateActivity } from './activitypub'
 import { deliverToFollowers, deliverToInbox } from './deliver'
+import { extractMarkdownImages } from './attachments'
 import { marked } from 'marked'
 
 type Post = typeof posts.$inferSelect
@@ -36,13 +37,17 @@ export async function publishPostIfFederated(post: Post, domain: string) {
     const objectId = postObjectUrl(domain, author.username, post.id)
     await db.update(posts).set({ objectId }).where(eq(posts.id, post.id))
 
+    // 본문의 마크다운 이미지(![]())는 본문에서 떼어내고 AP attachment로 따로 보냄
+    const { text, attachments } = extractMarkdownImages(post.content)
+
     const activity = buildCreateActivity(domain, author.username, {
         objectId,
-        content: String(marked.parse(post.content)),
+        content: String(marked.parse(text)),
         published: post.createdAt,
         inReplyTo: parent?.objectId ?? null,
         // 최상위 글에 직접 붙인 제목만 CW로 취급 — 댓글의 title은 content에서 자동으로 잘라낸 것이라 진짜 제목이 아님
         summary: post.replyto ? null : post.title,
+        attachment: attachments,
     })
 
     const followerRows = await db.select().from(follows)

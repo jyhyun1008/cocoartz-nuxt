@@ -2,6 +2,7 @@ import { db } from '../../../utils/db'
 import { users, actors, posts } from '../../../db/schema'
 import { eq, and, isNotNull, isNull, desc } from 'drizzle-orm'
 import { actorUrl, buildCreateActivity, AP_CONTENT_TYPE } from '../../../utils/ap/activitypub'
+import { extractMarkdownImages } from '../../../utils/ap/attachments'
 import { marked } from 'marked'
 
 export default defineEventHandler(async (event) => {
@@ -25,12 +26,16 @@ export default defineEventHandler(async (event) => {
         .limit(20)
 
     const base = actorUrl(domain, username)
-    const items = rows.map((p) => buildCreateActivity(domain, username, {
-        objectId: p.objectId!,
-        content: String(marked.parse(p.content)),
-        published: p.createdAt,
-        summary: p.title,
-    }))
+    const items = rows.map((p) => {
+        const { text, attachments } = extractMarkdownImages(p.content)
+        return buildCreateActivity(domain, username, {
+            objectId: p.objectId!,
+            content: String(marked.parse(text)),
+            published: p.createdAt,
+            summary: p.title,
+            attachment: attachments,
+        })
+    })
 
     setHeader(event, 'Content-Type', AP_CONTENT_TYPE)
     return {

@@ -59,6 +59,7 @@ export function buildCreateActivity(domain: string, username: string, note: {
     published: Date
     inReplyTo?: string | null
     summary?: string | null
+    attachment?: unknown[]
     to?: string[]
     cc?: string[]
 }) {
@@ -79,6 +80,7 @@ export function buildCreateActivity(domain: string, username: string, note: {
             // summary = 마스토돈 등에서 CW(열람주의) 문구로 취급되는 필드. 있으면 본문이 접혀서 보임
             summary: note.summary ?? null,
             sensitive: !!note.summary,
+            attachment: note.attachment ?? [],
             published: note.published.toISOString(),
             inReplyTo: note.inReplyTo ?? null,
             to: note.to ?? [AS_PUBLIC],
