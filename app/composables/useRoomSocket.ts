@@ -84,14 +84,19 @@ export function useRoomSocket() {
     rawSend({ type: 'join', roomPath, userId, x, y })
   }
 
-  // Throttle: only send if moved by at least 0.1 units or 150ms elapsed
+  // Throttle: only send if moved by at least 0.1 units or 150ms elapsed.
+  // dir === null은 "이동 정지" 신호라 스로틀에서 제외해야 함 — 마지막 이동과 좌표가
+  // 같고 150ms 이내에 키를 떼는 흔한 경우(짧게 눌렀다 뗄 때) 스로틀에 걸려 씹히면
+  // 다른 유저 화면에서 정지 모션으로 안 바뀌고 걷기 애니메이션이 멈추지 않는 버그가 생김.
   let _lastSentPos = { x: 0, y: 0 }
   let _lastSentTime = 0
   function sendPosition(x: number, y: number, dir: string | null = null) {
     const now = Date.now()
-    const dx = Math.abs(x - _lastSentPos.x)
-    const dy = Math.abs(y - _lastSentPos.y)
-    if (dx < 0.1 && dy < 0.1 && now - _lastSentTime < 150 && dir === null) return
+    if (dir !== null) {
+      const dx = Math.abs(x - _lastSentPos.x)
+      const dy = Math.abs(y - _lastSentPos.y)
+      if (dx < 0.1 && dy < 0.1 && now - _lastSentTime < 150) return
+    }
     _lastSentPos = { x, y }
     _lastSentTime = now
     rawSend({ type: 'position', x, y, dir })
