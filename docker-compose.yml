@@ -6,8 +6,11 @@ services:
       POSTGRES_USER: cocoartz
       POSTGRES_PASSWORD: cocoartz
       POSTGRES_DB: cocoartz
-    ports:
-      - "5432:5432"
+    # db는 app 컨테이너에서 내부 도커 네트워크(db:5432)로만 접속하면 되므로
+    # 호스트에 포트를 열어둘 필요가 없어서 아예 뺐습니다. 외부에서 DB에 직접 붙어야 하면
+    # (예: pgAdmin/TablePlus) 아래처럼 원하는 호스트 포트로 열어주세요.
+    # ports:
+    #   - "15432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -17,7 +20,7 @@ services:
     # build: .
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       DATABASE_URL: postgresql://cocoartz:cocoartz@db:5432/cocoartz
       # 실제 배포 시 아래 두 값을 진짜 도메인으로 바꾸세요 (DOMAIN은 프로토콜 제외, HTTPS로 외부 접근 가능해야 함)
