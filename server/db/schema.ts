@@ -174,29 +174,7 @@ export const wikiPages = pgTable('wiki_pages', {
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 
-// 연합 타임라인 — 서버 전체가 공유하는 "@timeline" 서비스 액터가 팔로우하는 외부 계정들의 글 피드
-export const timelineActor = pgTable('timeline_actor', {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    publicKey: text().notNull(),
-    privateKey: text().notNull(),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-})
-
-export const timelineFollows = pgTable('timeline_follows', {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    targetActorUrl: text().notNull(),
-    targetInbox: text().notNull(),
-    targetHandle: text(),
-    targetName: text(),
-    targetIconUrl: text(),
-    accepted: boolean().default(false).notNull(),
-    followActivityId: text(),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (table) => [
-    uniqueIndex('timeline_follows_target_url_idx').on(table.targetActorUrl),
-])
-
-// 유저 개인이 팔로우하는 원격(fediverse) 계정 — timelineFollows의 유저별 버전
+// 유저 개인이 팔로우하는 원격(fediverse) 계정
 export const remoteFollows = pgTable('remote_follows', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userid: integer().notNull(),
@@ -212,7 +190,7 @@ export const remoteFollows = pgTable('remote_follows', {
     uniqueIndex('remote_follows_userid_target_idx').on(table.userid, table.targetActorUrl),
 ])
 
-// 유저 개인 팔로잉 피드에 들어오는 원격 글 — timelinePosts의 유저별 버전
+// 유저 개인 팔로잉 피드에 들어오는 원격 글
 export const remoteFeedPosts = pgTable('remote_feed_posts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userid: integer().notNull(),
@@ -226,18 +204,4 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('remote_feed_posts_userid_object_idx').on(table.userid, table.objectId),
-])
-
-export const timelinePosts = pgTable('timeline_posts', {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    sourceActorUrl: text().notNull(),
-    sourceHandle: text(),
-    sourceName: text(),
-    sourceIconUrl: text(),
-    objectId: text().notNull(),
-    content: text().notNull(),
-    published: timestamp({ withTimezone: true }).notNull(),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (table) => [
-    uniqueIndex('timeline_posts_object_id_idx').on(table.objectId),
 ])

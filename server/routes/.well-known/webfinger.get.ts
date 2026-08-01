@@ -20,26 +20,6 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, message: '이 도메인의 계정이 아닙니다' })
     }
 
-    // "timeline"은 실제 유저가 아니라 연합 타임라인 전용 서비스 액터를 위한 예약어
-    if (username === 'timeline') {
-        setHeader(event, 'Content-Type', 'application/jrd+json')
-        return {
-            subject: `acct:timeline@${domain}`,
-            links: [
-                {
-                    rel: 'self',
-                    type: 'application/activity+json',
-                    href: `https://${domain}/ap/timeline`,
-                },
-                {
-                    rel: 'http://webfinger.net/rel/profile-page',
-                    type: 'text/html',
-                    href: `https://${domain}/timeline`,
-                },
-            ],
-        }
-    }
-
     const [user] = await db.select().from(users).where(eq(users.username, username))
     if (!user) throw createError({ statusCode: 404, message: '존재하지 않는 계정입니다' })
 

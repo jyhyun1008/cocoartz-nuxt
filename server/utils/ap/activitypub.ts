@@ -9,12 +9,6 @@ export function actorUrl(domain: string, username: string) {
     return `https://${domain}/users/${username}`
 }
 
-// AP 액터 문서/inbox 등 기계용 경로는 /ap/timeline — 사람이 보는 페이지(/timeline)와 겹치면
-// Nitro 서버 라우트가 Nuxt 페이지 렌더링을 가로채버려서 분리함
-export function timelineActorUrl(domain: string) {
-    return `https://${domain}/ap/timeline`
-}
-
 export function postObjectUrl(domain: string, username: string, postId: number) {
     return `${actorUrl(domain, username)}/posts/${postId}`
 }

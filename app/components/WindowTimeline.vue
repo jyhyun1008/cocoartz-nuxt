@@ -67,64 +67,6 @@
                     <div v-if="!remoteFollowsList.length" class="empty" style="padding:14px 0">아직 팔로우한 원격 계정이 없습니다.</div>
                 </div>
             </div>
-
-            <!-- 팔로우 관리 -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    <span class="admin-section-title">팔로우 중인 계정</span>
-                </div>
-
-                <div class="admin-icon-row">
-                    <input v-model="followHandle" placeholder="user@mastodon.social" class="post-input" style="flex:1" @keydown.enter="submitFollow" />
-                    <button class="admin-add-btn" style="margin-left:0" @click="submitFollow" :disabled="!followHandle.trim() || followSaving">
-                        {{ followSaving ? '팔로우 중...' : '팔로우' }}
-                    </button>
-                </div>
-                <p v-if="followError" class="admin-error">{{ followError }}</p>
-
-                <div class="admin-channel-list" style="margin-top:10px">
-                    <div v-for="f in follows" :key="f.id" class="admin-channel-item">
-                        <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
-                            <NuxtImg v-if="f.targetIconUrl" :src="f.targetIconUrl" class="admin-icon-preview-img" />
-                            <i v-else class="hgi hgi-stroke hgi-user-group"></i>
-                        </div>
-                        <span class="admin-ch-name">{{ f.targetName || f.targetHandle }}</span>
-                        <code class="admin-ch-path">{{ f.targetHandle }}</code>
-                        <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': f.accepted }">
-                            {{ f.accepted ? '팔로잉' : '대기중' }}
-                        </span>
-                        <div class="admin-ch-actions">
-                            <button class="admin-icon-btn danger" @click="unfollow(f.id)" title="언팔로우">
-                                <i class="hgi hgi-stroke hgi-delete-02"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div v-if="!follows.length" class="empty" style="padding:14px 0">아직 팔로우한 계정이 없습니다.</div>
-                </div>
-            </div>
-
-            <!-- 타임라인 -->
-            <div class="admin-section">
-                <div class="admin-section-header">
-                    <span class="admin-section-title">타임라인</span>
-                </div>
-
-                <div v-for="p in posts" :key="p.id" class="timeline-post">
-                    <div class="timeline-post-meta">
-                        <div class="admin-icon-preview" style="width:32px;height:32px;border-radius:50%">
-                            <NuxtImg v-if="p.sourceIconUrl" :src="p.sourceIconUrl" class="admin-icon-preview-img" />
-                            <i v-else class="hgi hgi-stroke hgi-user-group"></i>
-                        </div>
-                        <div class="timeline-post-author">
-                            <a :href="p.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author">{{ p.sourceName || p.sourceHandle }}</a>
-                            <span class="remote-handle">{{ p.sourceHandle }}</span>
-                        </div>
-                        <span class="datetime">{{ formatDate(p.published) }}</span>
-                    </div>
-                    <div class="timeline-post-body" v-html="p.content"></div>
-                </div>
-                <div v-if="!posts.length" class="empty" style="padding:14px 0">아직 들어온 글이 없습니다.</div>
-            </div>
         </div>
     </div>
 </template>
@@ -136,14 +78,6 @@ defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
 
-const { data: followsData, refresh: refreshFollows } = await useAsyncData(
-    'timeline-follows',
-    () => $fetch(`${apiBaseUrl}/api/getTimelineFollows`).then(res => Array.isArray(res) ? res : []),
-)
-const { data: postsData, refresh: refreshPosts } = await useAsyncData(
-    'timeline-posts',
-    () => $fetch(`${apiBaseUrl}/api/getTimelinePosts`).then(res => Array.isArray(res) ? res : []),
-)
 const { data: followingFeedData, refresh: refreshFollowingFeed } = await useAsyncData(
     'following-feed',
     () => userId.value
@@ -159,14 +93,8 @@ const { data: remoteFollowsData, refresh: refreshRemoteFollows } = await useAsyn
     { watch: [userId] },
 )
 
-const follows = computed(() => followsData.value ?? [])
-const posts = computed(() => postsData.value ?? [])
 const followingFeed = computed(() => followingFeedData.value ?? [])
 const remoteFollowsList = computed(() => remoteFollowsData.value ?? [])
-
-const followHandle = ref('')
-const followSaving = ref(false)
-const followError = ref('')
 
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -176,35 +104,6 @@ function formatDate(str) {
     return str.split('T')[0] === today
         ? str.split('T')[1].slice(0, 5)
         : str.split('T')[0]
-}
-
-async function submitFollow() {
-    if (!followHandle.value.trim()) return
-    followSaving.value = true
-    followError.value = ''
-    try {
-        await $fetch(`${apiBaseUrl}/api/admin/followTimelineAccount`, {
-            method: 'POST',
-            body: { userid: userId.value, handle: followHandle.value.trim() },
-        })
-        followHandle.value = ''
-        await refreshFollows()
-    } catch (e) {
-        followError.value = e?.data?.message ?? '팔로우에 실패했습니다'
-    }
-    followSaving.value = false
-}
-
-async function unfollow(id) {
-    try {
-        await $fetch(`${apiBaseUrl}/api/admin/unfollowTimelineAccount`, {
-            method: 'POST',
-            body: { userid: userId.value, id },
-        })
-        await refreshFollows()
-    } catch (e) {
-        followError.value = e?.data?.message ?? '언팔로우에 실패했습니다'
-    }
 }
 
 const remoteFollowHandle = ref('')
