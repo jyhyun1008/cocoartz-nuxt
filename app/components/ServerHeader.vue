@@ -160,7 +160,15 @@ const settingsPath = '/settings'
 
     #title-wrapper {
         width: auto;
+        max-width: 40%;
+        flex-grow: 0;
+        flex-shrink: 1;
+        min-width: 0;
+    }
+
+    #shortcut-wrapper {
         flex-grow: 1;
+        justify-content: flex-end;
     }
 
     .bycocoartz {

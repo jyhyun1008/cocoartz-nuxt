@@ -621,14 +621,25 @@ onMounted(() => {
     }
 
     function onKeydown(e) {
+        if (e.isSynthetic) return  // 조이스틱이 캐릭터 걷기 애니메이션만 재생시키려고 쏘는 합성 이벤트 — 이동은 moveStep이 직접 처리하므로 여기선 무시
         if (controlsBlocked.value) return
         const tag = document.activeElement?.tagName
         if (tag === 'INPUT' || tag === 'TEXTAREA') return
         moveStep(e.code)
     }
     function onKeyup(e) {
+        if (e.isSynthetic) return
         if (!MOVE_KEYS.has(e.code)) return
         sendPosition(position.x, position.y, null)
+    }
+
+    // CharacterMoving.vue는 실제 keydown/keyup(window)을 직접 리스닝해서 걷기 애니메이션을 재생함.
+    // 조이스틱은 키보드가 아니라 터치라 그 이벤트가 발생하지 않으므로, 이동(moveStep)과는 별개로
+    // 애니메이션 트리거용 합성 키 이벤트를 쏴서 같은 애니메이션 로직을 그대로 재사용한다.
+    function dispatchSyntheticKey(type, code) {
+        const ev = new KeyboardEvent(type, { code, bubbles: true })
+        ev.isSynthetic = true
+        window.dispatchEvent(ev)
     }
 
     // 휠/핀치 줌 (같은 clamp 로직 공유)
@@ -692,6 +703,7 @@ onMounted(() => {
     }
 
     function startJoystickMove(code) {
+        dispatchSyntheticKey('keydown', code)
         moveStep(code)
         clearInterval(joyInterval)
         joyInterval = setInterval(() => {
@@ -700,11 +712,12 @@ onMounted(() => {
         }, JOY_REPEAT_MS)
     }
 
-    function stopJoystickMove() {
+    function stopJoystickMove(code) {
         clearInterval(joyInterval)
         joyInterval = null
         joystickKnobOffset.value = { x: 0, y: 0 }
         sendPosition(position.x, position.y, null)
+        if (code) dispatchSyntheticKey('keyup', code)
     }
 
     function onJoystickTouchStart(e) {
@@ -732,6 +745,7 @@ onMounted(() => {
         if (dir !== joyActiveDir) {
             clearInterval(joyInterval)
             joyInterval = null
+            if (joyActiveDir) dispatchSyntheticKey('keyup', joyActiveDir)
             joyActiveDir = dir
             if (dir && !controlsBlocked.value) startJoystickMove(dir)
         }
@@ -742,8 +756,9 @@ onMounted(() => {
         const touch = Array.from(e.changedTouches).find(t => t.identifier === joyTouchId)
         if (!touch) return
         joyTouchId = null
+        const dir = joyActiveDir
         joyActiveDir = null
-        stopJoystickMove()
+        stopJoystickMove(dir)
     }
 
     const joyEl = joystickBase.value
@@ -815,17 +830,6 @@ onMounted(() => {
 
     #mobile-joystick {
         display: block;
-    }
-
-    /* 조이스틱과 겹치지 않도록 채팅 패널(작은 상태)을 우측에 여유를 두고 좁힘 */
-    #chatroom-wrapper.little {
-        width: calc(100% - 140px);
-        max-width: 400px;
-        left: 12px;
-    }
-
-    #chatroom-wrapper.large {
-        width: calc(100% - 24px);
     }
 }
 
@@ -1099,4 +1103,18 @@ onMounted(() => {
 
 #chatroom-wrapper .datetime { color: rgba(255,255,255,0.38); }
 #chatroom-wrapper.large #chatsender-wrapper { border-top: 1px solid rgba(255,255,255,0.08); }
+
+/* 모바일 채팅 패널 폭 보정: 위쪽 #chatroom-wrapper.little/.large 기본 규칙과
+   동일 우선순위라 소스 순서상 반드시 뒤에 와야 이 값이 적용됨 */
+@media (max-width: 768px) {
+    #chatroom-wrapper.little {
+        width: calc(100% - 154px);
+        max-width: 400px;
+        left: 12px;
+    }
+
+    #chatroom-wrapper.large {
+        width: calc(100% - 24px);
+    }
+}
 </style>

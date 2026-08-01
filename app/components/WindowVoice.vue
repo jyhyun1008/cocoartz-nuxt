@@ -224,7 +224,7 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
     #voice-wrapper.little {
-        width: calc(100% - 140px);
+        width: calc(100% - 154px);
         max-width: 400px;
     }
 
