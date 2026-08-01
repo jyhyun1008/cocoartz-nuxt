@@ -1,123 +1,600 @@
 <template>
-    <div id ="page-wrapper" class="large">
-        <NuxtLink :to=slugpath><div id="enlarge"><i class="hgi hgi-stroke hgi-arrow-diagonal"></i></div></NuxtLink>
-        <div id="board-wrapper">
-            <h1>게시판</h1>
-            <div class="board">
-                <div v-for="post in postList" class="postlist">
+    <div class="modal-base">
+
+        <!-- 헤더 (뷰에 따라 변경) -->
+        <div class="window-header">
+            <i class="hgi hgi-stroke hgi-grid"></i>
+            <span v-if="currentView === 'list'" class="board-header-title">게시판</span>
+            <span v-else-if="currentView === 'create'" class="board-header-title">새 글 작성</span>
+            <span v-else-if="currentView === 'detail'" class="board-header-title">{{ currentPost?.title }}</span>
+            <div class="board-header-actions">
+                <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'">+ 새 글</button>
+                <button v-else class="back-btn-header" @click="currentView = 'list'">← 목록</button>
+                <button class="window-close-btn board-close-btn" @click="$emit('close')">✕</button>
+            </div>
+        </div>
+
+        <!-- 목록 -->
+        <div v-if="currentView === 'list'" id="board-wrapper">
+            <div v-if="topLevelPosts.length" class="board">
+                <div v-for="post in topLevelPosts" :key="post.id" class="postlist" @click="openPost(post.id)">
                     <div class="posttitle">
                         <div>{{ post.title }}</div>
-                        <div class="datetime" v-if="post.createdAt.split('T')[0]==today" >{{ post.createdAt.split('T')[1].slice(0,5) }}</div>
-                    <div class="datetime" v-else>{{ post.createdAt.split('T')[0] }}</div>
+                        <span class="datetime">{{ formatDate(post.createdAt) }}</span>
                     </div>
-                    <div class="knownas">{{ post.user.knownas }}</div>
+                    <NuxtLink :to="post.user?.username ? `/@${post.user.username}` : '#'" class="post-author user-name-link">{{ post.user?.knownas ?? post.user?.username }}</NuxtLink>
+                </div>
+            </div>
+            <div v-else class="empty">게시물이 없습니다.</div>
+        </div>
+
+        <!-- 글 작성 -->
+        <div v-else-if="currentView === 'create'" id="board-wrapper">
+            <div class="create-form">
+                <input v-model="newTitle" placeholder="제목" class="post-input" />
+                <textarea v-model="newContent" placeholder="내용을 입력하세요..." class="post-textarea"></textarea>
+                <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">작성 완료</button>
+            </div>
+        </div>
+
+        <!-- 게시물 상세 -->
+        <div v-else-if="currentView === 'detail' && currentPost" id="board-wrapper">
+            <div class="post-detail">
+                <div class="post-meta">
+                    <NuxtLink :to="currentPost.user?.username ? `/@${currentPost.user.username}` : '#'" class="post-author user-name-link">{{ currentPost.user?.knownas ?? currentPost.user?.username }}</NuxtLink>
+                    <span class="datetime">{{ formatDate(currentPost.createdAt) }}</span>
+                    <button class="like-btn" :class="{ liked: currentPost.isLiked }" @click="toggleLike">
+                        ♥ {{ currentPost.likeCount }}
+                    </button>
+                    <span v-if="currentPost.boostCount" class="boost-count" title="fediverse 부스트"><i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i> {{ currentPost.boostCount }}</span>
+                </div>
+                <div class="post-content md-content" v-html="String(marked.parse(currentPost.content ?? ''))"></div>
+
+                <!-- 이모지 리액션 -->
+                <div class="reactions-row">
+                    <button
+                        v-for="r in currentPost.reactions"
+                        :key="r.emoji"
+                        class="reaction-pill"
+                        :class="{ reacted: r.reacted }"
+                        @click="toggleReaction(r.emoji)"
+                    >
+                        {{ r.emoji }} {{ r.count }}
+                    </button>
+                    <div class="emoji-picker-wrap" ref="pickerWrapRef">
+                        <button class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
+                        <div v-if="showPicker" class="emoji-picker">
+                            <button
+                                v-for="e in EMOJI_PRESETS"
+                                :key="e"
+                                class="emoji-preset"
+                                :class="{ reacted: currentPost.reactions?.some(r => r.emoji === e && r.reacted) }"
+                                @click="toggleReaction(e); showPicker = false"
+                            >{{ e }}</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="comments-section">
+                    <div class="comments-title">댓글 {{ currentPost.comments?.length ?? 0 }}</div>
+                    <div v-for="comment in currentPost.comments" :key="comment.id" class="comment">
+                        <div class="comment-meta">
+                            <template v-if="comment.remoteActorHandle">
+                                <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
+                                    <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
+                                </a>
+                            </template>
+                            <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
+                            <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
+                        </div>
+                        <div v-if="comment.remoteActorHandle" class="comment-body" v-html="comment.content"></div>
+                        <div v-else class="comment-body">{{ comment.content }}</div>
+                    </div>
+                    <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
+                </div>
+
+                <div class="comment-form">
+                    <input v-model="commentContent" placeholder="댓글 작성..." class="post-input" @keydown.enter="submitComment" />
+                    <button class="submit-btn" @click="submitComment" :disabled="!commentContent.trim()">작성</button>
                 </div>
             </div>
         </div>
+
     </div>
 </template>
 
 <script setup>
-
-const config = useRuntimeConfig();
-const apiBaseUrl = config.public.apiBaseUrl;
-const route = useRoute();
-const fullpath = route.fullPath
-const slug = route.params.slug
-const slugpath = `/${slug}/`
-const page = fullpath.split('/')[2]
+import { marked } from 'marked'
+const config = useRuntimeConfig()
+const apiBaseUrl = config.public.apiBaseUrl
+const route = useRoute()
+defineEmits(['close'])
 
 const props = defineProps({
     ids: {
         type: Object,
-        // 객체나 배열의 기본값은 반드시
-        // 팩토리 함수에서 반환해야 합니다. 이 함수는
-        // 컴포넌트가 받은 원시 props를 인자로 받습니다.
-        default(rawProps) {
-            return { 
-                serverid: 0,
-                roomid: 0,
-            }
-        }
+        default: () => ({ serverid: 0, roomid: 0 }),
     },
 })
 
-const postKey = computed(() => {
-  const slug = route.params.slug;
-  const page = route.params.page || 'default'; // page가 undefined일 경우
-  return `post-data-${slug}-${page}`;
-});
+const { userId } = useCurrentUser()
+const now = new Date()
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
-console.log(postKey)
+const postKey = computed(() => `post-data-${route.params.page ?? 'default'}`)
 
-const { data: postData } = await useAsyncData(
-    postKey, async () => {
-        const response = await $fetch(`${apiBaseUrl}/api/getPostsByRoomId`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(props.ids),
-        })
-
-        if (response && Array.isArray(response) && response.length > 0) {
-            return response
-        } else {
-            return null; // 데이터가 없으면 null을 반환하여 roomData를 초기화
-        }
-    }, {
-        watch: [
-            () => route.params.slug,
-            () => route.params.page
-        ]
-    }
+const { data: postData, refresh: refreshPosts } = await useAsyncData(
+    postKey,
+    () => $fetch(`${apiBaseUrl}/api/getPostsByRoomId`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(props.ids),
+    }).then(res => (Array.isArray(res) ? res : [])),
+    { watch: [() => route.params.page] }
 )
 
-const postList = postData.value
-console.log(postData.value)
+const topLevelPosts = computed(() => (postData.value ?? []).filter(p => !p.replyto))
+
+const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '👀', '✅', '💯', '🥰']
+
+const currentView = ref('list')
+const currentPost = ref(null)
+const newTitle = ref('')
+const newContent = ref('')
+const commentContent = ref('')
+const showPicker = ref(false)
+const pickerWrapRef = ref(null)
+
+function formatDate(str) {
+    if (!str) return ''
+    return str.split('T')[0] === today
+        ? str.split('T')[1].slice(0, 5)
+        : str.split('T')[0]
+}
+
+async function openPost(postid) {
+    const data = await $fetch(`${apiBaseUrl}/api/getPostById`, {
+        method: 'POST',
+        body: { postid, userid: userId.value },
+    })
+    currentPost.value = data
+    currentView.value = 'detail'
+}
+
+async function submitPost() {
+    if (!newTitle.value.trim() || !newContent.value.trim()) return
+    await $fetch(`${apiBaseUrl}/api/createPost`, {
+        method: 'POST',
+        body: {
+            ...props.ids,
+            userid: userId.value,
+            title: newTitle.value.trim(),
+            content: newContent.value.trim(),
+        },
+    })
+    newTitle.value = ''
+    newContent.value = ''
+    await refreshPosts()
+    currentView.value = 'list'
+}
+
+async function submitComment() {
+    if (!commentContent.value.trim() || !currentPost.value) return
+    const content = commentContent.value.trim()
+    commentContent.value = ''
+    await $fetch(`${apiBaseUrl}/api/createPost`, {
+        method: 'POST',
+        body: {
+            ...props.ids,
+            userid: userId.value,
+            title: content.slice(0, 50),
+            content,
+            replyto: currentPost.value.id,
+        },
+    })
+    await openPost(currentPost.value.id)
+}
+
+async function toggleReaction(emoji) {
+    if (!currentPost.value) return
+    const result = await $fetch(`${apiBaseUrl}/api/reactPost`, {
+        method: 'POST',
+        body: { postid: currentPost.value.id, userid: userId.value, emoji },
+    })
+    const existing = currentPost.value.reactions?.find(r => r.emoji === emoji)
+    if (existing) {
+        existing.reacted = result.reacted
+        existing.count += result.reacted ? 1 : -1
+        if (existing.count <= 0)
+            currentPost.value.reactions = currentPost.value.reactions.filter(r => r.emoji !== emoji)
+    } else if (result.reacted) {
+        currentPost.value.reactions = [...(currentPost.value.reactions ?? []), { emoji, count: 1, reacted: true }]
+    }
+}
+
+async function toggleLike() {
+    if (!currentPost.value) return
+    const result = await $fetch(`${apiBaseUrl}/api/likePost`, {
+        method: 'POST',
+        body: { postid: currentPost.value.id, userid: userId.value },
+    })
+    currentPost.value.isLiked = result.liked
+    currentPost.value.likeCount += result.liked ? 1 : -1
+}
 
 onMounted(() => {
-    document.querySelector('#map').classList.add('blur')
+    document.addEventListener('click', (e) => {
+        if (pickerWrapRef.value && !pickerWrapRef.value.contains(e.target))
+            showPicker.value = false
+    })
 })
-
 </script>
 
 <style>
-
 #board-wrapper {
-    padding: 20px;
-    font-size: 18px;
-}
-
-#board-wrapper h1 {
-    margin: 0;
-    color: var(--accent);
-}
-
-#page-wrapper a {
-    text-decoration: none;
-    color: inherit;
-}
-
-#board-wrapper .postlist {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex-grow: 1;
     display: flex;
-    border-bottom: 1px solid #00000022;
-    justify-content: space-between;
-    padding: 5px 10px;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.95rem;
 }
 
-#board-wrapper .postlist:hover {
-    background-color: var(--bgaccent);
+/* 목록 */
+.postlist {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
 }
+
+.postlist:hover { background: rgba(255,255,255,0.05); }
 
 .posttitle {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 10px;
+    overflow: hidden;
 }
 
-.postlist .knownas {
+.posttitle > div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.post-author {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.datetime {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.3);
+    white-space: nowrap;
+}
+
+.empty {
+    color: rgba(255,255,255,0.3);
+    padding: 20px 0;
+    font-size: 0.9rem;
+}
+
+/* 헤더 버튼 */
+.write-btn-header {
+    margin-left: auto;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: white;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.write-btn-header:hover { background: rgba(255,255,255,0.3); }
+
+.back-btn-header {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 3px 6px;
+}
+
+.back-btn-header:hover { color: white; }
+
+.board-header-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.board-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.board-close-btn {
+    margin-left: 0 !important;
+}
+
+/* 작성 폼 */
+.create-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.post-input {
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85);
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.post-input::placeholder { color: rgba(255,255,255,0.3); }
+
+.post-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(255,255,255,0.1);
+}
+
+.post-textarea {
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 110px;
+    flex-grow: 1;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85);
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.post-textarea::placeholder { color: rgba(255,255,255,0.3); }
+
+.post-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(255,255,255,0.1);
+}
+
+.submit-btn {
+    align-self: flex-end;
+    background-color: var(--accent);
+    color: white;
+    border: 0;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: opacity 0.15s;
+}
+
+.submit-btn:hover { opacity: 0.88; }
+.submit-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* 상세 */
+.post-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.post-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.like-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 2px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    margin-left: auto;
+    transition: all 0.15s;
+    color: rgba(255,255,255,0.45);
+}
+
+.like-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.like-btn.liked {
+    background-color: var(--bgaccent);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.boost-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.4);
+}
+
+.remote-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+}
+
+.remote-author:hover { text-decoration: underline; }
+
+.remote-handle {
+    font-weight: 400;
+    color: rgba(255,255,255,0.35);
+}
+
+.post-content {
     line-height: 1.8;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.82);
 }
 
+.comments-section { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; }
+
+.comments-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 10px 0 6px;
+}
+
+.comment {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.9rem;
+}
+
+.comment-meta {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 2px;
+    align-items: center;
+}
+
+.comment-body { color: rgba(255,255,255,0.7); white-space: pre-wrap; }
+
+.comment-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.comment-form .post-input { flex-grow: 1; }
+
+/* 이모지 리액션 */
+.reactions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 0 8px;
+}
+
+.reaction-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: rgba(255,255,255,0.7);
+    transition: all 0.1s;
+}
+
+.reaction-pill:hover {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.25);
+}
+
+.reaction-pill.reacted {
+    background: var(--bgaccent);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.emoji-picker-wrap {
+    position: relative;
+}
+
+.reaction-add-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,0.2);
+    background: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.reaction-add-btn:hover {
+    border-color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.8);
+}
+
+.emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    background: var(--sidebar-bg);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 200px;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+.emoji-preset {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji-preset:hover { background: rgba(255,255,255,0.1); }
+
+.emoji-preset.reacted { background: var(--bgaccent); }
 </style>

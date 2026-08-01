@@ -1,8 +1,6 @@
-    // Example: Fetching all users
-    import { db } from '../utils/db';
-    import { users } from '../db/schema';
+import { db } from '../utils/db'
+import { users } from '../db/schema'
 
-    export default eventHandler(async () => {
-      const result = await db.select().from(users).all();
-      return result;
-    });
+export default eventHandler(async () => {
+    return db.select().from(users)
+})

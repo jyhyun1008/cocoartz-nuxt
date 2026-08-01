@@ -1,113 +1,111 @@
 <template>
     <div id="sidebar-wrapper">
         <div id="basic-wrapper">
-            <div class="side-title">기본 채널</div>
-            <NuxtLink :to=fullPath>
-                <div class="side-items thispage" v-if="props.path==fullPath">
-                    <i class="hgi hgi-stroke hgi-home-07"></i>
-                    <span>마을</span>
-                </div>
-                <div class="side-items" v-else>
-                    <i class="hgi hgi-stroke hgi-home-07"></i>
+            <div class="side-title">기본</div>
+            <NuxtLink :to="fullPath">
+                <div class="side-items" :class="{ thispage: props.path === fullPath }">
+                    <i class="hgi hgi-stroke hgi-home-07 side-icon"></i>
                     <span>마을</span>
                 </div>
             </NuxtLink>
-            <NuxtLink :to=notiPath>
-                <div class="side-items thispage" v-if="props.path==notiPath">
-                    <i class="hgi hgi-stroke hgi-notification-01"></i>
-                    <span>공지 게시판</span>
-                </div>
-                <div class="side-items" v-else>
-                    <i class="hgi hgi-stroke hgi-notification-01"></i>
+            <NuxtLink :to="notiPath">
+                <div class="side-items" :class="{ thispage: props.path === notiPath }">
+                    <i class="hgi hgi-stroke hgi-notification-01 side-icon"></i>
                     <span>공지 게시판</span>
                 </div>
             </NuxtLink>
         </div>
-        <hr />
+        <div class="side-divider"></div>
         <div id="pages-wrapper">
-            <NuxtLink v-for="pageitem in rooms" :to=pageitem.path :key="pageitem.path">
-                <div v-if="pageitem.type=='title'" class="side-title" >
-                    <span>
+            <template v-for="pageitem in resolvedRooms" :key="pageitem.path ?? pageitem.id">
+                <div v-if="pageitem.type === 'title'" class="side-title">
                     {{ pageitem.knownas }}
-                    </span>
                 </div>
-                <div v-else-if="props.path==pageitem.path" class="side-items thispage" >
-                    <i v-if="pageitem.type=='board'" class="hgi hgi-stroke hgi-grid"></i>
-                    <i v-else class="hgi hgi-stroke hgi-meeting-room"></i>
-                    <span>
-                    {{ pageitem.knownas }}
-                    </span>
-                </div>
-                <div v-else class="side-items" >
-                    <i v-if="pageitem.type=='board'" class="hgi hgi-stroke hgi-grid"></i>
-                    <i v-else class="hgi hgi-stroke hgi-meeting-room"></i>
-                    <span>
-                    {{ pageitem.knownas }}
-                    </span>
-                </div>
-            </NuxtLink>
+                <NuxtLink v-else :to="pageitem.path">
+                    <div class="side-items" :class="{ thispage: props.path === pageitem.path }">
+                        <i v-if="pageitem.type === 'board'" class="hgi hgi-stroke hgi-grid side-icon"></i>
+                        <i v-else-if="pageitem.type === 'voice'" class="hgi hgi-stroke hgi-volume-high side-icon"></i>
+                        <i v-else-if="pageitem.type === 'wiki'" class="hgi hgi-stroke hgi-book-open-01 side-icon"></i>
+                        <i v-else class="hgi hgi-stroke hgi-meeting-room side-icon"></i>
+                        <span>{{ pageitem.knownas }}</span>
+                    </div>
+                    <!-- 채널 내 접속 유저 (디스코드 음성채널 스타일) -->
+                    <div v-if="roomPresence(pageitem.path).length" class="side-presence">
+                        <div
+                            v-for="u in roomPresence(pageitem.path)"
+                            :key="u.userId"
+                            class="presence-user"
+                        >
+                            <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
+                            <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
+                            <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
+                        </div>
+                    </div>
+                </NuxtLink>
+            </template>
         </div>
     </div>
 </template>
 
-<script setup>
-const route = useRoute();
-const config = useRuntimeConfig();
-const apiBaseUrl = config.public.apiBaseUrl;
+<script setup lang="ts">
+const config = useRuntimeConfig()
+const apiBaseUrl = config.public.apiBaseUrl
 
 const props = defineProps({
-  id: {
-    type: Number,
-    required: true
-  },
+  id: { type: Number, required: true },
   path: String,
   rooms: String,
-});
+})
 
-let rooms = JSON.parse(props.rooms)
+const { presenceByRoom } = useRoomSocket()
 
-const { data: roomsData, error } = await useAsyncData(
-    'rooms-data', async () => $fetch(`${apiBaseUrl}/api/getRoomsBySlug`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            slug: route.params.slug
-        }),
-    }))
-    watch(roomsData, (newResults)=> {
+function roomPresence(roomPath: string) {
+  return presenceByRoom.value[roomPath] ?? []
+}
 
-        if (Array.isArray(newResults)) {
-            for (let result of newResults) {
-                let roomid = result.id
-                let index = rooms.indexOf(roomid)
-                rooms[index] = result
-            }
+const slug = config.public.serverSlug
 
-        }
-    }, { 
-        immediate: true // 5. (선택사항) 페이지 로드 시에도 한 번 즉시 실행
-    }
+// useServer()가 이미 'server-data' 키로 캐시해둔 데이터를 읽기만 함
+// (다른 핸들러로 재등록하면 키 충돌 → 흰 화면 오류)
+const { data: serverData } = useNuxtData('server-data')
+
+const { data: roomsData } = await useAsyncData(
+    'rooms-data',
+    () => $fetch(`${apiBaseUrl}/api/getRoomsBySlug`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+    }),
 )
 
-const fullPath = `/${route.params.slug}/`
-const notiPath = `/${route.params.slug}/noti`
+const resolvedRooms = computed(() => {
+    const rawOrder: any[] = serverData.value?.rooms ? JSON.parse(serverData.value.rooms) : []
+    const fetched = (roomsData.value as any[]) ?? []
+    return rawOrder.map((entry: any) => {
+        if (typeof entry === 'number') {
+            return fetched.find(r => r.id === entry) ?? { id: entry, knownas: '?', type: 'room', path: '#' }
+        }
+        return entry
+    })
+})
 
+const fullPath = '/'
+const notiPath = '/noti'
 </script>
 
 <style>
 #sidebar-wrapper {
     width: 300px;
     height: calc(100dvh - 3rem);
-    background-color: #f3f5f7;
+    background-color: var(--sidebar-bg);
     position: fixed;
     top: 3rem;
     left: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 20px;
+    gap: 4px;
+    padding: 12px 8px;
+    overflow-y: auto;
 }
 
 #sidebar-wrapper a {
@@ -116,33 +114,94 @@ const notiPath = `/${route.params.slug}/noti`
 }
 
 .side-title {
-    font-size: 0.8rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    color: var(--accent);
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 14px 10px 4px;
 }
 
-.side-items:hover, .side-items.thispage {
-    background-color: var(--bgaccent);
-    color: var(--accent);
-}
-
-hr {
-    background-color: #00000022;
+.side-divider {
     height: 1px;
-    width: 260px;
-    border: 0;
-}
-
-#sidebar-wrapper i {
-    color: #00000055;
+    background: rgba(255,255,255,0.06);
+    margin: 4px 8px;
 }
 
 .side-items {
     display: flex;
-    gap: 5px;
+    gap: 8px;
     align-items: center;
-    padding: 2px 10px;
-    border-radius: 20px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: var(--sidebar-text);
+    font-size: 0.95rem;
+    transition: background 0.1s, color 0.1s;
 }
 
+.side-items:hover {
+    background-color: rgba(255,255,255,0.07);
+    color: var(--sidebar-text-hover);
+}
+
+.side-items.thispage {
+    background-color: rgba(210,31,60,0.28);
+    color: #ff8096;
+}
+
+.side-items.thispage .side-icon {
+    color: var(--accent);
+}
+
+/* 채널 접속 유저 presence */
+.side-presence {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px 10px 4px 32px;
+}
+
+.presence-user {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.presence-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.presence-avatar-empty {
+    background-color: var(--bgaccent);
+    border: 1px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.6rem;
+}
+
+.presence-name {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.45);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.side-icon {
+    color: rgba(255,255,255,0.3);
+    font-size: 1rem;
+    flex-shrink: 0;
+    transition: color 0.1s;
+}
+
+.side-items:hover .side-icon {
+    color: rgba(255,255,255,0.7);
+}
 </style>

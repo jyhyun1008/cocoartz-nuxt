@@ -1,96 +1,150 @@
 <template>
     <div id="profile-bg">
         <div id="profile-wrapper">
-            <div id="avatar-wrapper">
-                <NuxtImg :src=i.avatar />
-            </div>
-            <div id="text-wrapper">
-                <div class="knownas">{{ i.knownas }}</div>
-                <div class="username">{{ i.username }}</div>
-            </div>
-            <div id="settings-wrapper">
-                <i class="hgi hgi-stroke hgi-setting-07"></i>
+            <NuxtLink :to="i?.username ? `/@${i.username}` : '#'" id="profile-left-link">
+                <div id="avatar-wrapper">
+                    <NuxtImg v-if="i?.avatar" :src="i.avatar" />
+                    <div v-else class="avatar-placeholder">
+                        {{ (i?.knownas ?? i?.username ?? '?')[0] }}
+                    </div>
+                    <div class="status-dot"></div>
+                </div>
+                <div id="text-wrapper">
+                    <div class="knownas">{{ i?.knownas ?? i?.username ?? '...' }}</div>
+                    <div class="username">@{{ i?.username ?? '' }}</div>
+                </div>
+            </NuxtLink>
+            <div id="settings-wrapper" @click="logout" title="로그아웃">
+                <i class="hgi hgi-stroke hgi-logout-02"></i>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-const config = useRuntimeConfig();
-const apiBaseUrl = config.public.apiBaseUrl;
-const route = useRoute();
-const slug = route.params.slug
+const config = useRuntimeConfig()
+const apiBaseUrl = config.public.apiBaseUrl
+const router = useRouter()
+const { userId } = useCurrentUser()
 
-const session = {
-    email: "howeverina@proton.me",
-}
-
-const { data: iData, error } = await useAsyncData(
-    'i-data', async () => {
-
-        const response = await $fetch(`${apiBaseUrl}/api/getUserByEmail`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                email: session.email
-            }),
+const { data: iData } = await useAsyncData(
+    'i-data',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getUserById`, {
+            method: 'POST',
+            body: { userid: userId.value },
         })
-
-        return response[0]
-    }, {
-        watch: [() => route.params.slug ]
-    }
+        : null,
+    { watch: [userId] }
 )
 
-const i = iData.value
+const i = iData
 
+async function logout() {
+    await $fetch(`${apiBaseUrl}/api/auth/logout`, { method: 'POST' })
+    userId.value = null
+    await router.push('/login')
+}
 </script>
 
 <style>
-
 #profile-bg {
-    background-color: white;
+    background-color: var(--sidebar-bg2);
     width: 300px;
     position: fixed;
     bottom: 0;
     left: 0;
-    border-top: 1px solid var(--accent);
+    border-top: 1px solid rgba(255,255,255,0.05);
 }
 
 #profile-wrapper {
     width: 300px;
-    z-index: 999;
     display: flex;
     gap: 10px;
-    padding: 10px 10px 0 10px;
+    padding: 10px 12px;
     align-items: center;
-    justify-content: space-between;
-    background-color: var(--bgaccent);
 }
 
-#avatar-wrapper img{
-    width: 50px;
-    height: 50px;
-    object-fit: contain;
-    object-position: center;
+#avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+#avatar-wrapper img,
+.avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
     border-radius: 50%;
-    border: 3px solid var(--accent);
+    background-color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    background-color: #23a559;
+    border-radius: 50%;
+    border: 2px solid var(--sidebar-bg2);
+    position: absolute;
+    bottom: 0;
+    right: 0;
 }
 
 #text-wrapper {
     flex-grow: 1;
+    overflow: hidden;
+    line-height: 1.3;
 }
 
-.knownas {
+#profile-bg .knownas {
     font-weight: 700;
-    line-height: 1;
-    color: var(--accent);
+    color: rgba(255,255,255,0.9);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .username {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
+#settings-wrapper {
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+#settings-wrapper:hover {
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.08);
+}
+
+#profile-left-link {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-grow: 1;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 6px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    transition: background 0.1s;
+}
+#profile-left-link:hover { background: rgba(255,255,255,0.06); }
 </style>

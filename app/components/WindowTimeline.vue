@@ -1,0 +1,173 @@
+<template>
+    <div class="modal-base">
+        <div class="window-header">
+            <i class="hgi hgi-stroke hgi-globe-02"></i>
+            <span class="board-header-title">연합 타임라인</span>
+            <div class="board-header-actions">
+                <button class="window-close-btn board-close-btn" @click="$emit('close')">✕</button>
+            </div>
+        </div>
+
+        <div id="timeline-content">
+            <!-- 팔로우 관리 -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">팔로우 중인 계정</span>
+                </div>
+
+                <div class="admin-icon-row">
+                    <input v-model="followHandle" placeholder="user@mastodon.social" class="post-input" style="flex:1" @keydown.enter="submitFollow" />
+                    <button class="admin-add-btn" style="margin-left:0" @click="submitFollow" :disabled="!followHandle.trim() || followSaving">
+                        {{ followSaving ? '팔로우 중...' : '팔로우' }}
+                    </button>
+                </div>
+                <p v-if="followError" class="admin-error">{{ followError }}</p>
+
+                <div class="admin-channel-list" style="margin-top:10px">
+                    <div v-for="f in follows" :key="f.id" class="admin-channel-item">
+                        <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
+                            <NuxtImg v-if="f.targetIconUrl" :src="f.targetIconUrl" class="admin-icon-preview-img" />
+                            <i v-else class="hgi hgi-stroke hgi-user-group"></i>
+                        </div>
+                        <span class="admin-ch-name">{{ f.targetName || f.targetHandle }}</span>
+                        <code class="admin-ch-path">{{ f.targetHandle }}</code>
+                        <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': f.accepted }">
+                            {{ f.accepted ? '팔로잉' : '대기중' }}
+                        </span>
+                        <div class="admin-ch-actions">
+                            <button class="admin-icon-btn danger" @click="unfollow(f.id)" title="언팔로우">
+                                <i class="hgi hgi-stroke hgi-delete-02"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="!follows.length" class="empty" style="padding:14px 0">아직 팔로우한 계정이 없습니다.</div>
+                </div>
+            </div>
+
+            <!-- 타임라인 -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">타임라인</span>
+                </div>
+
+                <div v-for="p in posts" :key="p.id" class="timeline-post">
+                    <div class="timeline-post-meta">
+                        <div class="admin-icon-preview" style="width:32px;height:32px;border-radius:50%">
+                            <NuxtImg v-if="p.sourceIconUrl" :src="p.sourceIconUrl" class="admin-icon-preview-img" />
+                            <i v-else class="hgi hgi-stroke hgi-user-group"></i>
+                        </div>
+                        <div class="timeline-post-author">
+                            <a :href="p.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author">{{ p.sourceName || p.sourceHandle }}</a>
+                            <span class="remote-handle">{{ p.sourceHandle }}</span>
+                        </div>
+                        <span class="datetime">{{ formatDate(p.published) }}</span>
+                    </div>
+                    <div class="timeline-post-body" v-html="p.content"></div>
+                </div>
+                <div v-if="!posts.length" class="empty" style="padding:14px 0">아직 들어온 글이 없습니다.</div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+const config = useRuntimeConfig()
+const apiBaseUrl = config.public.apiBaseUrl
+defineEmits(['close'])
+
+const { userId } = useCurrentUser()
+
+const { data: followsData, refresh: refreshFollows } = await useAsyncData(
+    'timeline-follows',
+    () => $fetch(`${apiBaseUrl}/api/getTimelineFollows`).then(res => Array.isArray(res) ? res : []),
+)
+const { data: postsData, refresh: refreshPosts } = await useAsyncData(
+    'timeline-posts',
+    () => $fetch(`${apiBaseUrl}/api/getTimelinePosts`).then(res => Array.isArray(res) ? res : []),
+)
+
+const follows = computed(() => followsData.value ?? [])
+const posts = computed(() => postsData.value ?? [])
+
+const followHandle = ref('')
+const followSaving = ref(false)
+const followError = ref('')
+
+const now = new Date()
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+function formatDate(str) {
+    if (!str) return ''
+    return str.split('T')[0] === today
+        ? str.split('T')[1].slice(0, 5)
+        : str.split('T')[0]
+}
+
+async function submitFollow() {
+    if (!followHandle.value.trim()) return
+    followSaving.value = true
+    followError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/followTimelineAccount`, {
+            method: 'POST',
+            body: { userid: userId.value, handle: followHandle.value.trim() },
+        })
+        followHandle.value = ''
+        await refreshFollows()
+    } catch (e) {
+        followError.value = e?.data?.message ?? '팔로우에 실패했습니다'
+    }
+    followSaving.value = false
+}
+
+async function unfollow(id) {
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/unfollowTimelineAccount`, {
+            method: 'POST',
+            body: { userid: userId.value, id },
+        })
+        await refreshFollows()
+    } catch (e) {
+        followError.value = e?.data?.message ?? '언팔로우에 실패했습니다'
+    }
+}
+</script>
+
+<style>
+#timeline-content {
+    padding: 20px 24px;
+    overflow-y: auto;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-size: 0.95rem;
+}
+
+.timeline-post {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.timeline-post-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timeline-post-author {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.timeline-post-body {
+    color: rgba(255,255,255,0.8);
+    line-height: 1.7;
+    font-size: 0.92rem;
+}
+</style>
