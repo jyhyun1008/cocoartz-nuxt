@@ -15,6 +15,13 @@
       "when": 1785554268364,
       "tag": "0001_smiling_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785572055604,
+      "tag": "0002_demonic_captain_universe",
+      "breakpoints": true
     }
   ]
 }
