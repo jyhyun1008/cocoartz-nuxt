@@ -660,14 +660,14 @@ async function doDelete() {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
 }
 
 .admin-add-btn {
     margin-left: auto;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.8);
+    background: rgba(var(--fg-rgb),0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.2);
+    color: rgba(var(--fg-rgb),0.8);
     border-radius: 6px;
     padding: 4px 12px;
     font-size: 0.82rem;
@@ -678,7 +678,7 @@ async function doDelete() {
     gap: 4px;
     transition: background 0.1s;
 }
-.admin-add-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+.admin-add-btn:hover { background: rgba(var(--fg-rgb),0.2); color: rgba(var(--fg-rgb),1); }
 .admin-add-btn:disabled { opacity: 0.35; cursor: default; }
 
 /* 채널 목록 */
@@ -686,7 +686,7 @@ async function doDelete() {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(var(--fg-rgb),0.07);
     border-radius: 10px;
     padding: 6px;
     background: rgba(0,0,0,0.15);
@@ -698,21 +698,21 @@ async function doDelete() {
     gap: 8px;
     padding: 7px 10px;
     border-radius: 7px;
-    background: rgba(255,255,255,0.04);
+    background: rgba(var(--fg-rgb),0.04);
     transition: background 0.1s;
     min-height: 38px;
 }
 
-.admin-channel-item:hover { background: rgba(255,255,255,0.07); }
+.admin-channel-item:hover { background: rgba(var(--fg-rgb),0.07); }
 
 .admin-channel-item.is-title {
-    background: rgba(255,255,255,0.02);
-    border: 1px dashed rgba(255,255,255,0.08);
+    background: rgba(var(--fg-rgb),0.02);
+    border: 1px dashed rgba(var(--fg-rgb),0.08);
 }
 
 .admin-ch-icon {
     font-size: 0.9rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
     flex-shrink: 0;
     width: 16px;
     text-align: center;
@@ -720,7 +720,7 @@ async function doDelete() {
 
 .admin-ch-name {
     font-size: 0.9rem;
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -732,13 +732,13 @@ async function doDelete() {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
 }
 
 .admin-ch-path {
     font-size: 0.74rem;
-    color: rgba(255,255,255,0.3);
-    background: rgba(255,255,255,0.05);
+    color: rgba(var(--fg-rgb),0.3);
+    background: rgba(var(--fg-rgb),0.05);
     border-radius: 4px;
     padding: 1px 6px;
     flex-shrink: 0;
@@ -747,8 +747,8 @@ async function doDelete() {
 
 .admin-ch-type-badge {
     font-size: 0.7rem;
-    color: rgba(255,255,255,0.4);
-    background: rgba(255,255,255,0.06);
+    color: rgba(var(--fg-rgb),0.4);
+    background: rgba(var(--fg-rgb),0.06);
     border-radius: 4px;
     padding: 1px 7px;
     flex-shrink: 0;
@@ -765,7 +765,7 @@ async function doDelete() {
     height: 28px;
     border: none;
     background: none;
-    color: rgba(255,255,255,0.45);
+    color: rgba(var(--fg-rgb),0.45);
     border-radius: 5px;
     font-size: 0.88rem;
     cursor: pointer;
@@ -777,8 +777,8 @@ async function doDelete() {
 }
 
 .admin-icon-btn:hover {
-    background: rgba(255,255,255,0.1);
-    color: white;
+    background: rgba(var(--fg-rgb),0.1);
+    color: rgba(var(--fg-rgb),1);
 }
 
 .admin-icon-btn:disabled {
@@ -808,7 +808,7 @@ async function doDelete() {
 .admin-label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: rgba(255,255,255,0.5);
+    color: rgba(var(--fg-rgb),0.5);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 6px;
@@ -819,28 +819,28 @@ async function doDelete() {
     text-transform: none;
     letter-spacing: 0;
     font-weight: 400;
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     font-size: 0.75rem;
 }
 
 .admin-select {
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 8px;
     padding: 9px 14px;
     font-size: 0.95rem;
     font-family: inherit;
-    background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.85);
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.85);
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(var(--fg-rgb),0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
 }
 
 .admin-select:focus { outline: none; border-color: var(--accent); }
-.admin-select option { background: #1a1a2e; }
+.admin-select option { background: var(--surface-2); }
 
 .admin-ch-federated-badge {
     color: #7cc4ff;
@@ -853,7 +853,7 @@ async function doDelete() {
     gap: 8px;
     flex-wrap: wrap;
     font-size: 0.88rem;
-    color: rgba(255,255,255,0.8);
+    color: rgba(var(--fg-rgb),0.8);
     margin-top: 4px;
     cursor: pointer;
 }
@@ -874,9 +874,9 @@ async function doDelete() {
     width: 40px;
     height: 38px;
     padding: 2px;
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 8px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(var(--fg-rgb),0.06);
     cursor: pointer;
     flex-shrink: 0;
 }
@@ -891,12 +891,12 @@ async function doDelete() {
     width: 38px;
     height: 38px;
     border-radius: 8px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(var(--fg-rgb),0.06);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -933,8 +933,8 @@ async function doDelete() {
 }
 
 .admin-confirm-box {
-    background: #1e1e2e;
-    border: 1px solid rgba(255,255,255,0.1);
+    background: var(--surface-2);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
     border-radius: 12px;
     padding: 24px 28px;
     max-width: 340px;
@@ -948,7 +948,7 @@ async function doDelete() {
 .admin-confirm-msg {
     margin: 0;
     line-height: 1.6;
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
     font-size: 0.95rem;
 }
 

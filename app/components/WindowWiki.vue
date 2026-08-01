@@ -336,11 +336,11 @@ async function submitPage() {
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.1s;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.07);
     gap: 12px;
 }
 
-.wiki-list-item:hover { background: rgba(255,255,255,0.05); }
+.wiki-list-item:hover { background: rgba(var(--fg-rgb),0.05); }
 
 .wiki-list-title {
     display: flex;
@@ -357,7 +357,7 @@ async function submitPage() {
 }
 
 .wiki-file-icon {
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     font-size: 0.9rem;
     flex-shrink: 0;
 }
@@ -383,13 +383,13 @@ async function submitPage() {
     align-items: center;
     flex-wrap: wrap;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.08);
     font-size: 0.85rem;
 }
 
 .wiki-content {
     line-height: 1.85;
-    color: rgba(255,255,255,0.82);
+    color: rgba(var(--fg-rgb),0.82);
     font-size: 0.95rem;
 }
 
@@ -397,8 +397,8 @@ async function submitPage() {
     font-size: 1.4rem;
     font-weight: 700;
     margin: 16px 0 8px;
-    color: white;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: rgba(var(--fg-rgb),1);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.1);
     padding-bottom: 6px;
 }
 
@@ -406,17 +406,17 @@ async function submitPage() {
     font-size: 1.15rem;
     font-weight: 700;
     margin: 14px 0 6px;
-    color: rgba(255,255,255,0.92);
+    color: rgba(var(--fg-rgb),0.92);
 }
 
 .wiki-content h3 {
     font-size: 1rem;
     font-weight: 700;
     margin: 10px 0 4px;
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
 }
 
-.wiki-content strong { color: white; }
+.wiki-content strong { color: rgba(var(--fg-rgb),1); }
 
 .wiki-content a {
     color: var(--accent);
@@ -446,8 +446,8 @@ async function submitPage() {
 .history-item {
     padding: 12px;
     border-radius: 8px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(var(--fg-rgb),0.04);
+    border: 1px solid rgba(var(--fg-rgb),0.07);
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -461,13 +461,13 @@ async function submitPage() {
 
 .history-title {
     font-weight: 600;
-    color: rgba(255,255,255,0.75);
+    color: rgba(var(--fg-rgb),0.75);
     font-size: 0.9rem;
 }
 
 .history-preview {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
     white-space: pre-wrap;
     line-height: 1.5;
 }
@@ -478,8 +478,8 @@ async function submitPage() {
     align-items: center;
     gap: 4px;
     padding: 6px 10px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(var(--fg-rgb),0.05);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
     border-radius: 8px 8px 0 0;
     border-bottom: none;
 }
@@ -489,7 +489,7 @@ async function submitPage() {
     height: 28px;
     border: none;
     background: none;
-    color: rgba(255,255,255,0.6);
+    color: rgba(var(--fg-rgb),0.6);
     border-radius: 5px;
     font-size: 0.88rem;
     font-family: inherit;
@@ -501,20 +501,20 @@ async function submitPage() {
 }
 
 .toolbar-btn:hover {
-    background: rgba(255,255,255,0.1);
-    color: white;
+    background: rgba(var(--fg-rgb),0.1);
+    color: rgba(var(--fg-rgb),1);
 }
 
 .toolbar-sep {
     width: 1px;
     height: 18px;
-    background: rgba(255,255,255,0.12);
+    background: rgba(var(--fg-rgb),0.12);
     margin: 0 4px;
 }
 
 .toolbar-hint {
     font-size: 0.72rem;
-    color: rgba(255,255,255,0.25);
+    color: rgba(var(--fg-rgb),0.25);
     margin-left: auto;
 }
 

@@ -87,7 +87,7 @@ async function submit() {
 <style scoped>
 #login-page {
     min-height: 100dvh;
-    background-color: #1a1a24;
+    background-color: var(--page-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -97,10 +97,10 @@ async function submit() {
 #login-card {
     width: 100%;
     max-width: 380px;
-    background: #16161e;
+    background: var(--surface-0);
     border-radius: 20px;
     padding: 36px 32px 40px;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(var(--fg-rgb),0.07);
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -116,7 +116,7 @@ async function submit() {
 
 #login-tabs {
     display: flex;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
     border-radius: 10px;
     overflow: hidden;
 }
@@ -128,7 +128,7 @@ async function submit() {
     padding: 9px;
     font-size: 0.9rem;
     font-family: inherit;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -154,27 +154,27 @@ async function submit() {
 .field label {
     font-size: 0.8rem;
     font-weight: 700;
-    color: rgba(255,255,255,0.45);
+    color: rgba(var(--fg-rgb),0.45);
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
 .field input {
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 0.95rem;
     font-family: inherit;
-    background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.9);
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.9);
     transition: border-color 0.15s, background 0.15s;
 }
 
-.field input::placeholder { color: rgba(255,255,255,0.25); }
+.field input::placeholder { color: rgba(var(--fg-rgb),0.25); }
 .field input:focus {
     outline: none;
     border-color: var(--accent, #D21F3C);
-    background: rgba(255,255,255,0.09);
+    background: rgba(var(--fg-rgb),0.09);
 }
 
 .error-msg {

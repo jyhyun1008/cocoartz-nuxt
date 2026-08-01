@@ -150,7 +150,7 @@ onUnmounted(() => { if (animInterval) clearInterval(animInterval) })
     transform: translateX(-50%);
     max-width: 180px;
     padding: 6px 10px;
-    background: rgba(255,255,255,0.95);
+    background: rgba(255,255,255,0.95); /* 맵 위 이름표는 테마 무관하게 항상 밝은 배지 */
     color: #1a1a22;
     font-size: 0.78rem;
     line-height: 1.35;
@@ -169,7 +169,7 @@ onUnmounted(() => { if (animInterval) clearInterval(animInterval) })
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: rgba(255,255,255,0.95);
+    border-top-color: rgba(255,255,255,0.95); /* 말풍선 배경과 짝맞춰 테마 무관하게 흰색 고정 */
 }
 
 .bubble-fade-enter-active, .bubble-fade-leave-active {

@@ -25,9 +25,9 @@ defineEmits(['close'])
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 99;
-    background-color: #1a1a22f0;
+    background-color: var(--surface-1-blur);
     backdrop-filter: blur(4px);
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
     display: flex;
     flex-direction: column;
     border-radius: 16px;
@@ -43,7 +43,7 @@ defineEmits(['close'])
 }
 
 .info-placeholder {
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     margin: 0;
 }
 

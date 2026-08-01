@@ -32,6 +32,12 @@ export default defineNuxtConfig({
         { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
         { rel: 'stylesheet', href: 'https://cdn.hugeicons.com/font/hgi-stroke-rounded.css' },
       ],
+      // 하이드레이션 전에 테마부터 정해서 라이트모드 유저가 잠깐 다크로 번쩍이는 걸 방지
+      script: [
+        {
+          innerHTML: "(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.dataset.theme=t}catch(e){}})()",
+        },
+      ],
     },
   },
   pwa: {

@@ -814,8 +814,8 @@ onMounted(() => {
     width: 110px;
     height: 110px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(var(--fg-rgb),0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.25);
     z-index: 150;
     touch-action: none;
 }
@@ -828,7 +828,7 @@ onMounted(() => {
     height: 46px;
     margin: -23px 0 0 -23px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.55);
+    background: rgba(var(--fg-rgb),0.55);
     transition: transform 0.05s linear;
 }
 
@@ -952,7 +952,7 @@ onMounted(() => {
     flex-direction: column;
     border-radius: 12px;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(var(--fg-rgb),0.08);
 }
 
 /* 채팅 패널 - 큰 상태 */
@@ -965,9 +965,9 @@ onMounted(() => {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 99;
-    background-color: #1a1a22f0;
+    background-color: var(--surface-1-blur);
     backdrop-filter: blur(4px);
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
     display: flex;
     flex-direction: column;
     border-radius: 16px;
@@ -1078,6 +1078,7 @@ onMounted(() => {
     font-size: 0.9rem;
 }
 
+/* 채팅 패널 헤더도 항상 악센트 색 배경이라 테마 무관하게 흰색 고정 */
 .chat-size-btn {
     background: none;
     border: none;
@@ -1110,8 +1111,8 @@ onMounted(() => {
 }
 .reopen-btn:hover { opacity: 0.85; }
 
-#chatroom-wrapper .datetime { color: rgba(255,255,255,0.38); }
-#chatroom-wrapper.large #chatsender-wrapper { border-top: 1px solid rgba(255,255,255,0.08); }
+#chatroom-wrapper .datetime { color: rgba(var(--fg-rgb),0.38); }
+#chatroom-wrapper.large #chatsender-wrapper { border-top: 1px solid rgba(var(--fg-rgb),0.08); }
 
 /* 모바일 채팅 패널 폭 보정: 위쪽 #chatroom-wrapper.little/.large 기본 규칙과
    동일 우선순위라 소스 순서상 반드시 뒤에 와야 이 값이 적용됨 */

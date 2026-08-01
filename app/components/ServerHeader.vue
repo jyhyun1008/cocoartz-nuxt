@@ -24,6 +24,9 @@
                 <i class="hgi hgi-stroke hgi-setting-07"></i>
             </NuxtLink>
             <NotificationBell v-if="isLoggedIn" />
+            <button class="shortcut theme-toggle-btn" type="button" @click="toggleTheme" title="테마 전환">
+                <i class="hgi hgi-stroke" :class="theme === 'dark' ? 'hgi-sun-01' : 'hgi-moon-02'"></i>
+            </button>
         </div>
         <div class="bycocoartz">
             <NuxtLink to="/">By COCOARTZ</NuxtLink>
@@ -40,6 +43,7 @@ const props = defineProps({
 
 const { toggle: toggleMobileNav } = useMobileNav()
 const { isLoggedIn } = useCurrentUser()
+const { theme, toggle: toggleTheme } = useTheme()
 
 const fullPath = '/'
 const infoPath = '/info'
@@ -129,6 +133,13 @@ const settingsPath = '/settings'
 .shortcut:hover {
     background: rgba(255,255,255,0.15);
     color: white !important;
+}
+
+.theme-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .bycocoartz {

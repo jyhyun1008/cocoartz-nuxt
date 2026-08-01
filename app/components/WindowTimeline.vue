@@ -159,7 +159,7 @@ async function unfollowRemote(id) {
 
 .timeline-post {
     padding: 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.07);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -179,7 +179,7 @@ async function unfollowRemote(id) {
 }
 
 .timeline-post-body {
-    color: rgba(255,255,255,0.8);
+    color: rgba(var(--fg-rgb),0.8);
     line-height: 1.7;
     font-size: 0.92rem;
 }

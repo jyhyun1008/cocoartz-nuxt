@@ -1,3 +1,7 @@
+<script setup>
+onMounted(() => useTheme().init())
+</script>
+
 <template>
   <NuxtLayout>
     <div id="app-wrapper">
@@ -37,6 +41,37 @@
     --sidebar-text: rgba(255,255,255,0.6);
     --sidebar-text-hover: rgba(255,255,255,0.9);
     --modal-shadow: 0 24px 64px rgba(0,0,0,0.35);
+
+    /* 컴포넌트 전반에서 rgba(255,255,255,X) 형태(텍스트/은은한 배경 겸용)로 하드코딩된 걸
+       rgba(var(--fg-rgb),X)로 바꿔뒀음 — 이 값 하나만 뒤집으면 테마가 같이 뒤집힘.
+       악센트(빨강) 헤더 위의 흰 텍스트/아이콘은 테마 무관하게 항상 밝아야 해서 대상에서 뺌 */
+    --fg-rgb: 255,255,255;
+    --page-bg: #14141a;
+    --surface-0: #16161e;
+    --surface-1: #1a1a22;
+    --surface-1-blur: #1a1a22f0;
+    --surface-2: #1e1e26;
+    --surface-3: #1a1a2e;
+    color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+    --mapbg: #c7cad0;
+    --bgbanner: #ffffffcc;
+    --sidebar-bg: #eef0f3;
+    --sidebar-bg2: #e3e5e9;
+    --sidebar-text: rgba(var(--fg-rgb),0.6);
+    --sidebar-text-hover: rgba(var(--fg-rgb),0.9);
+    --modal-shadow: 0 24px 64px rgba(0,0,0,0.12);
+
+    --fg-rgb: 30,30,38;
+    --page-bg: #f2f3f5;
+    --surface-0: #f5f6f8;
+    --surface-1: #ffffff;
+    --surface-1-blur: #ffffffee;
+    --surface-2: #eceef1;
+    --surface-3: #e7e9ee;
+    color-scheme: light;
 }
 
 * {
@@ -47,6 +82,8 @@
 body {
     line-height: 1.8;
     margin: 0;
+    background-color: var(--page-bg);
+    transition: background-color 0.15s;
 }
 
 /* 공통 모달 헤더 */
@@ -94,9 +131,9 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 99;
-    background-color: #1a1a22f0;
+    background-color: var(--surface-1-blur);
     backdrop-filter: blur(4px);
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
     display: flex;
     flex-direction: column;
     border-radius: 16px;

@@ -262,7 +262,7 @@ async function saveEdit() {
 <style scoped>
 #profile-page {
     min-height: 100dvh;
-    background-color: #1a1a24;
+    background-color: var(--page-bg);
     padding-bottom: 60px;
 }
 
@@ -289,7 +289,7 @@ async function saveEdit() {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: rgba(255,255,255,0.8);
+    color: rgba(255,255,255,0.8); /* 상단 네비바도 항상 악센트 색 배경이라 테마 무관하게 흰색 고정 */
     text-decoration: none;
     font-size: 0.88rem;
     font-weight: 400;
@@ -305,7 +305,7 @@ async function saveEdit() {
 .profile-nav-at {
     font-size: 0.8rem;
     font-weight: 400;
-    color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.6); /* 상단 네비바도 항상 악센트 색 배경이라 테마 무관하게 흰색 고정 */
 }
 
 /* 카드 래퍼 */
@@ -318,10 +318,10 @@ async function saveEdit() {
 #profile-card {
     width: 100%;
     max-width: 680px;
-    background: #16161e;
+    background: var(--surface-0);
     border-radius: 20px;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(var(--fg-rgb),0.07);
 }
 
 /* 배너 */
@@ -348,9 +348,9 @@ async function saveEdit() {
     width: 88px;
     height: 88px;
     border-radius: 50%;
-    border: 4px solid #16161e;
+    border: 4px solid var(--surface-0);
     overflow: hidden;
-    background: #2a2a38;
+    background: var(--surface-2);
     flex-shrink: 0;
 }
 
@@ -370,8 +370,8 @@ async function saveEdit() {
 
 #edit-profile-btn {
     background: none;
-    border: 1px solid rgba(255,255,255,0.25);
-    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(var(--fg-rgb),0.25);
+    color: rgba(var(--fg-rgb),0.75);
     border-radius: 20px;
     padding: 6px 16px;
     font-size: 0.85rem;
@@ -380,7 +380,7 @@ async function saveEdit() {
     margin-bottom: 4px;
     transition: border-color 0.15s, color 0.15s;
 }
-#edit-profile-btn:hover { border-color: rgba(255,255,255,0.5); color: white; }
+#edit-profile-btn:hover { border-color: rgba(var(--fg-rgb),0.5); color: rgba(var(--fg-rgb),1); }
 
 #follow-btn {
     background-color: var(--accent, #D21F3C);
@@ -400,8 +400,8 @@ async function saveEdit() {
 
 #follow-btn.following {
     background: none;
-    color: rgba(255,255,255,0.75);
-    border-color: rgba(255,255,255,0.25);
+    color: rgba(var(--fg-rgb),0.75);
+    border-color: rgba(var(--fg-rgb),0.25);
 }
 #follow-btn.following:hover {
     border-color: #ff6b6b;
@@ -411,7 +411,7 @@ async function saveEdit() {
 /* 프로필 정보 */
 #profile-info {
     padding: 0 24px 20px;
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
 }
 
 #profile-knownas {
@@ -422,13 +422,13 @@ async function saveEdit() {
 
 #profile-username {
     font-size: 0.88rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     margin-bottom: 8px;
 }
 
 #profile-bio {
     font-size: 0.95rem;
-    color: rgba(255,255,255,0.7);
+    color: rgba(var(--fg-rgb),0.7);
     line-height: 1.6;
     white-space: pre-wrap;
     margin-bottom: 10px;
@@ -436,7 +436,7 @@ async function saveEdit() {
 
 #profile-meta {
     font-size: 0.82rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
     display: flex;
     gap: 14px;
     align-items: center;
@@ -454,7 +454,7 @@ async function saveEdit() {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -462,7 +462,7 @@ async function saveEdit() {
 }
 
 .section-count {
-    background: rgba(255,255,255,0.1);
+    background: rgba(var(--fg-rgb),0.1);
     border-radius: 10px;
     padding: 1px 7px;
     font-size: 0.72rem;
@@ -477,8 +477,8 @@ async function saveEdit() {
 
 .profile-post {
     display: block;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(var(--fg-rgb),0.04);
+    border: 1px solid rgba(var(--fg-rgb),0.07);
     border-radius: 10px;
     padding: 14px 16px;
     cursor: pointer;
@@ -486,18 +486,18 @@ async function saveEdit() {
     text-decoration: none;
 }
 
-.profile-post:hover { background: rgba(255,255,255,0.07); }
+.profile-post:hover { background: rgba(var(--fg-rgb),0.07); }
 
 .pp-title {
     font-weight: 700;
     font-size: 0.95rem;
-    color: rgba(255,255,255,0.85);
+    color: rgba(var(--fg-rgb),0.85);
     margin-bottom: 4px;
 }
 
 .pp-content {
     font-size: 0.88rem;
-    color: rgba(255,255,255,0.5);
+    color: rgba(var(--fg-rgb),0.5);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -505,12 +505,12 @@ async function saveEdit() {
 
 .pp-date {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.28);
+    color: rgba(var(--fg-rgb),0.28);
     margin-top: 6px;
 }
 
 .profile-empty {
-    color: rgba(255,255,255,0.28);
+    color: rgba(var(--fg-rgb),0.28);
     font-size: 0.9rem;
     padding: 16px 0;
 }
@@ -530,9 +530,9 @@ async function saveEdit() {
 .edit-modal {
     width: 100%;
     max-width: 440px;
-    background: #16161e;
+    background: var(--surface-0);
     border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -545,14 +545,14 @@ async function saveEdit() {
     padding: 16px 20px;
     font-weight: 700;
     font-size: 1rem;
-    color: rgba(255,255,255,0.9);
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    color: rgba(var(--fg-rgb),0.9);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.07);
 }
 
 .edit-close {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     font-size: 1rem;
     cursor: pointer;
     padding: 2px 6px;
@@ -560,7 +560,7 @@ async function saveEdit() {
     font-family: inherit;
     transition: color 0.1s;
 }
-.edit-close:hover { color: rgba(255,255,255,0.9); }
+.edit-close:hover { color: rgba(var(--fg-rgb),0.9); }
 
 .edit-body {
     padding: 20px;
@@ -582,8 +582,8 @@ async function saveEdit() {
     height: 72px;
     border-radius: 50%;
     overflow: hidden;
-    border: 3px solid rgba(255,255,255,0.1);
-    background: #2a2a38;
+    border: 3px solid rgba(var(--fg-rgb),0.1);
+    background: var(--surface-2);
 }
 
 .edit-avatar-img {
@@ -613,20 +613,20 @@ async function saveEdit() {
 .edit-field label {
     font-size: 0.78rem;
     font-weight: 700;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
 .edit-field input,
 .edit-field textarea {
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
     border-radius: 8px;
     padding: 9px 12px;
     font-size: 0.92rem;
     font-family: inherit;
-    background: rgba(255,255,255,0.05);
-    color: rgba(255,255,255,0.88);
+    background: rgba(var(--fg-rgb),0.05);
+    color: rgba(var(--fg-rgb),0.88);
     transition: border-color 0.15s, background 0.15s;
     resize: vertical;
 }
@@ -638,9 +638,9 @@ async function saveEdit() {
 
 .edit-upload-btn {
     flex-shrink: 0;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.8);
+    background: rgba(var(--fg-rgb),0.1);
+    border: 1px solid rgba(var(--fg-rgb),0.15);
+    color: rgba(var(--fg-rgb),0.8);
     border-radius: 8px;
     padding: 9px 12px;
     font-size: 0.85rem;
@@ -648,16 +648,16 @@ async function saveEdit() {
     cursor: pointer;
     transition: background 0.15s;
 }
-.edit-upload-btn:hover { background: rgba(255,255,255,0.18); }
+.edit-upload-btn:hover { background: rgba(var(--fg-rgb),0.18); }
 .edit-upload-btn:disabled { opacity: 0.5; cursor: default; }
 
 .edit-field input::placeholder,
-.edit-field textarea::placeholder { color: rgba(255,255,255,0.22); }
+.edit-field textarea::placeholder { color: rgba(var(--fg-rgb),0.22); }
 .edit-field input:focus,
 .edit-field textarea:focus {
     outline: none;
     border-color: var(--accent, #D21F3C);
-    background: rgba(255,255,255,0.08);
+    background: rgba(var(--fg-rgb),0.08);
 }
 
 .edit-error {
@@ -674,14 +674,14 @@ async function saveEdit() {
     display: flex;
     gap: 8px;
     padding: 14px 20px;
-    border-top: 1px solid rgba(255,255,255,0.07);
+    border-top: 1px solid rgba(var(--fg-rgb),0.07);
     justify-content: flex-end;
 }
 
 .edit-cancel {
     background: none;
-    border: 1px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(var(--fg-rgb),0.15);
+    color: rgba(var(--fg-rgb),0.6);
     border-radius: 8px;
     padding: 8px 18px;
     font-size: 0.9rem;
@@ -689,7 +689,7 @@ async function saveEdit() {
     cursor: pointer;
     transition: all 0.15s;
 }
-.edit-cancel:hover { border-color: rgba(255,255,255,0.35); color: rgba(255,255,255,0.9); }
+.edit-cancel:hover { border-color: rgba(var(--fg-rgb),0.35); color: rgba(var(--fg-rgb),0.9); }
 
 .edit-save {
     background-color: var(--accent, #D21F3C);

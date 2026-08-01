@@ -132,7 +132,7 @@ const notiPath = '/noti'
 .side-title {
     font-size: 0.68rem;
     font-weight: 700;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
     text-transform: uppercase;
     letter-spacing: 0.07em;
     padding: 14px 10px 4px;
@@ -140,7 +140,7 @@ const notiPath = '/noti'
 
 .side-divider {
     height: 1px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(var(--fg-rgb),0.06);
     margin: 4px 8px;
 }
 
@@ -156,7 +156,7 @@ const notiPath = '/noti'
 }
 
 .side-items:hover {
-    background-color: rgba(255,255,255,0.07);
+    background-color: rgba(var(--fg-rgb),0.07);
     color: var(--sidebar-text-hover);
 }
 
@@ -204,21 +204,21 @@ const notiPath = '/noti'
 
 .presence-name {
     font-size: 0.78rem;
-    color: rgba(255,255,255,0.45);
+    color: rgba(var(--fg-rgb),0.45);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .side-icon {
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     font-size: 1rem;
     flex-shrink: 0;
     transition: color 0.1s;
 }
 
 .side-items:hover .side-icon {
-    color: rgba(255,255,255,0.7);
+    color: rgba(var(--fg-rgb),0.7);
 }
 
 #mobile-nav-backdrop {

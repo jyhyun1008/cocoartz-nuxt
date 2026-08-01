@@ -333,13 +333,13 @@ onMounted(() => {
     border-radius: 10px;
     cursor: pointer;
     transition: background 0.1s, border-color 0.1s;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(var(--fg-rgb),0.03);
+    border: 1px solid rgba(var(--fg-rgb),0.06);
     text-decoration: none;
     color: inherit;
 }
 
-.post-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+.post-card:hover { background: rgba(var(--fg-rgb),0.06); border-color: rgba(var(--fg-rgb),0.12); }
 
 .post-card-title {
     display: flex;
@@ -350,7 +350,7 @@ onMounted(() => {
     text-overflow: ellipsis;
     font-weight: 600;
     font-size: 0.98rem;
-    color: rgba(255,255,255,0.9);
+    color: rgba(var(--fg-rgb),0.9);
 }
 
 .post-card-meta {
@@ -371,30 +371,30 @@ onMounted(() => {
 
 .preview-text {
     font-weight: 400;
-    color: rgba(255,255,255,0.65);
+    color: rgba(var(--fg-rgb),0.65);
 }
 
 .post-author {
     font-weight: 700;
     font-size: 0.85rem;
-    color: rgba(255,255,255,0.5);
+    color: rgba(var(--fg-rgb),0.5);
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 .datetime {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     white-space: nowrap;
 }
 
 .empty {
-    color: rgba(255,255,255,0.3);
+    color: rgba(var(--fg-rgb),0.3);
     padding: 20px 0;
     font-size: 0.9rem;
 }
 
-/* 헤더 버튼 */
+/* 헤더 버튼 (항상 악센트 색 헤더 위라 테마 무관하게 흰색 고정) */
 .write-btn-header {
     margin-left: auto;
     background: rgba(255,255,255,0.2);
@@ -450,26 +450,26 @@ onMounted(() => {
 }
 
 .post-input {
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 8px;
     padding: 9px 14px;
     font-size: 0.95rem;
     font-family: inherit;
-    background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.85);
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.85);
     transition: border-color 0.15s, background 0.15s;
 }
 
-.post-input::placeholder { color: rgba(255,255,255,0.3); }
+.post-input::placeholder { color: rgba(var(--fg-rgb),0.3); }
 
 .post-input:focus {
     outline: none;
     border-color: var(--accent);
-    background: rgba(255,255,255,0.1);
+    background: rgba(var(--fg-rgb),0.1);
 }
 
 .post-textarea {
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 0.95rem;
@@ -477,17 +477,17 @@ onMounted(() => {
     resize: vertical;
     min-height: 110px;
     flex-grow: 1;
-    background: rgba(255,255,255,0.06);
-    color: rgba(255,255,255,0.85);
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.85);
     transition: border-color 0.15s, background 0.15s;
 }
 
-.post-textarea::placeholder { color: rgba(255,255,255,0.3); }
+.post-textarea::placeholder { color: rgba(var(--fg-rgb),0.3); }
 
 .post-textarea:focus {
     outline: none;
     border-color: var(--accent);
-    background: rgba(255,255,255,0.1);
+    background: rgba(var(--fg-rgb),0.1);
 }
 
 .submit-btn {
@@ -518,12 +518,12 @@ onMounted(() => {
     gap: 10px;
     align-items: center;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.08);
 }
 
 .like-btn {
     background: none;
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(var(--fg-rgb),0.15);
     border-radius: 20px;
     padding: 2px 12px;
     cursor: pointer;
@@ -531,7 +531,7 @@ onMounted(() => {
     font-size: 0.85rem;
     margin-left: auto;
     transition: all 0.15s;
-    color: rgba(255,255,255,0.45);
+    color: rgba(var(--fg-rgb),0.45);
 }
 
 .like-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -547,7 +547,7 @@ onMounted(() => {
     align-items: center;
     gap: 4px;
     font-size: 0.8rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
 }
 
 .remote-author {
@@ -561,7 +561,7 @@ onMounted(() => {
 
 .remote-handle {
     font-weight: 400;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
 }
 
 .remote-cw-gate {
@@ -590,16 +590,16 @@ onMounted(() => {
     align-self: flex-start;
     margin-top: 8px;
     font-size: 0.85rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     text-decoration: none;
 }
-.remote-original-link:hover { color: rgba(255,255,255,0.7); text-decoration: underline; }
+.remote-original-link:hover { color: rgba(var(--fg-rgb),0.7); text-decoration: underline; }
 
 .post-content {
     line-height: 1.8;
     white-space: pre-wrap;
     font-size: 0.95rem;
-    color: rgba(255,255,255,0.82);
+    color: rgba(var(--fg-rgb),0.82);
 }
 
 .post-content img,
@@ -611,12 +611,12 @@ onMounted(() => {
     margin: 6px 0;
 }
 
-.comments-section { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; }
+.comments-section { border-top: 1px solid rgba(var(--fg-rgb),0.08); padding-top: 4px; }
 
 .comments-title {
     font-size: 0.8rem;
     font-weight: 700;
-    color: rgba(255,255,255,0.35);
+    color: rgba(var(--fg-rgb),0.35);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     padding: 10px 0 6px;
@@ -624,7 +624,7 @@ onMounted(() => {
 
 .comment {
     padding: 8px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.06);
     font-size: 0.9rem;
 }
 
@@ -635,14 +635,14 @@ onMounted(() => {
     align-items: center;
 }
 
-.comment-body { color: rgba(255,255,255,0.7); white-space: pre-wrap; }
+.comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; }
 
 .comment-form {
     display: flex;
     gap: 8px;
     margin-top: 4px;
     padding-top: 8px;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid rgba(var(--fg-rgb),0.08);
 }
 
 .comment-form .post-input { flex-grow: 1; }
@@ -660,20 +660,20 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(var(--fg-rgb),0.07);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 20px;
     padding: 3px 10px;
     font-size: 0.88rem;
     font-family: inherit;
     cursor: pointer;
-    color: rgba(255,255,255,0.7);
+    color: rgba(var(--fg-rgb),0.7);
     transition: all 0.1s;
 }
 
 .reaction-pill:hover {
-    background: rgba(255,255,255,0.13);
-    border-color: rgba(255,255,255,0.25);
+    background: rgba(var(--fg-rgb),0.13);
+    border-color: rgba(var(--fg-rgb),0.25);
 }
 
 .reaction-pill.reacted {
@@ -690,9 +690,9 @@ onMounted(() => {
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    border: 1px dashed rgba(255,255,255,0.2);
+    border: 1px dashed rgba(var(--fg-rgb),0.2);
     background: none;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
@@ -704,8 +704,8 @@ onMounted(() => {
 }
 
 .reaction-add-btn:hover {
-    border-color: rgba(255,255,255,0.5);
-    color: rgba(255,255,255,0.8);
+    border-color: rgba(var(--fg-rgb),0.5);
+    color: rgba(var(--fg-rgb),0.8);
 }
 
 .emoji-picker {
@@ -713,7 +713,7 @@ onMounted(() => {
     bottom: calc(100% + 6px);
     left: 0;
     background: var(--sidebar-bg);
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 12px;
     padding: 8px;
     display: flex;
@@ -738,7 +738,7 @@ onMounted(() => {
     justify-content: center;
 }
 
-.emoji-preset:hover { background: rgba(255,255,255,0.1); }
+.emoji-preset:hover { background: rgba(var(--fg-rgb),0.1); }
 
 .emoji-preset.reacted { background: var(--bgaccent); }
 </style>

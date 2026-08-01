@@ -74,7 +74,7 @@ async function logout() {
     position: fixed;
     bottom: 0;
     left: 0;
-    border-top: 1px solid rgba(255,255,255,0.05);
+    border-top: 1px solid rgba(var(--fg-rgb),0.05);
 }
 
 #profile-wrapper {
@@ -124,7 +124,7 @@ async function logout() {
 
 #profile-bg .knownas {
     font-weight: 700;
-    color: rgba(255,255,255,0.9);
+    color: rgba(var(--fg-rgb),0.9);
     font-size: 0.9rem;
     white-space: nowrap;
     overflow: hidden;
@@ -133,14 +133,14 @@ async function logout() {
 
 .username {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 #settings-wrapper {
-    color: rgba(255,255,255,0.4);
+    color: rgba(var(--fg-rgb),0.4);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;
@@ -149,8 +149,8 @@ async function logout() {
 }
 
 #settings-wrapper:hover {
-    color: rgba(255,255,255,0.9);
-    background: rgba(255,255,255,0.08);
+    color: rgba(var(--fg-rgb),0.9);
+    background: rgba(var(--fg-rgb),0.08);
 }
 
 #profile-left-link {
@@ -166,7 +166,7 @@ async function logout() {
     margin: -2px -4px;
     transition: background 0.1s;
 }
-#profile-left-link:hover { background: rgba(255,255,255,0.06); }
+#profile-left-link:hover { background: rgba(var(--fg-rgb),0.06); }
 
 /* 비로그인 상태 */
 #profile-wrapper.guest {
@@ -175,16 +175,16 @@ async function logout() {
     cursor: pointer;
     transition: background 0.1s;
 }
-#profile-wrapper.guest:hover { background: rgba(255,255,255,0.05); }
+#profile-wrapper.guest:hover { background: rgba(var(--fg-rgb),0.05); }
 
 .guest-avatar {
-    background-color: rgba(255,255,255,0.08);
-    color: rgba(255,255,255,0.4);
+    background-color: rgba(var(--fg-rgb),0.08);
+    color: rgba(var(--fg-rgb),0.4);
     font-size: 1.1rem;
 }
 
-.guest .knownas { color: rgba(255,255,255,0.55); }
-.guest .username { color: rgba(255,255,255,0.3); }
+.guest .knownas { color: rgba(var(--fg-rgb),0.55); }
+.guest .username { color: rgba(var(--fg-rgb),0.3); }
 
 @media (max-width: 768px) {
     #profile-bg {

@@ -307,7 +307,7 @@ onMounted(() => {
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 14px;
     padding: 16px;
-    color: rgba(255,255,255,0.85);
+    color: rgba(255,255,255,0.85); /* 방 위 프로필 카드는 항상 어두운 배경이라 테마 무관하게 밝은 글자 고정 */
     display: flex;
     flex-direction: column;
     gap: 10px;

@@ -163,13 +163,12 @@ onUnmounted(() => {
 
 <style>
 #voice-wrapper {
-    color: white;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-/* 작은 상태 - 일반 채팅과 동일한 위치/크기 */
+/* 작은 상태 - 일반 채팅과 동일한 위치/크기, 항상 어두운 배경이라 흰 글자 고정 */
 #voice-wrapper.little {
     width: calc(100% - 340px);
     max-width: 560px;
@@ -181,7 +180,8 @@ onUnmounted(() => {
     background-color: rgba(20,20,28,0.75);
     backdrop-filter: blur(8px);
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(var(--fg-rgb),0.08);
+    color: white;
 }
 
 /* 큰 상태 */
@@ -194,10 +194,11 @@ onUnmounted(() => {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 99;
-    background-color: #1a1a22f0;
+    background-color: var(--surface-1-blur);
     backdrop-filter: blur(4px);
     border-radius: 16px;
     box-shadow: var(--modal-shadow);
+    color: rgba(var(--fg-rgb),1);
 }
 
 @media (max-width: 768px) {
@@ -216,14 +217,14 @@ onUnmounted(() => {
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 10px;
-    background: rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.6);
+    background: rgba(var(--fg-rgb),0.15);
+    color: rgba(var(--fg-rgb),0.6);
     letter-spacing: 0.04em;
     transition: all 0.2s;
 }
 
 .tts-badge.active {
-    background: rgba(255,255,255,0.9);
+    background: rgba(var(--fg-rgb),0.9);
     color: var(--accent);
     animation: tts-pulse 1s ease-in-out infinite;
 }
