@@ -71,6 +71,12 @@ export default defineNuxtConfig({
       enabled: false,
     },
   },
+  // 여기 process.env.X 값들은 `nuxt build`/`nuxt dev` 실행 시점(로컬에선 .env가 자동 로드됨)에
+  // 딱 한 번 평가되어 그대로 굳습니다. 도커 이미지처럼 .env 없이 빌드하는 환경에선 전부 빈 값으로
+  // 고정되고, 컨테이너를 나중에 DOMAIN=... 같은 이름으로 띄워도 반영되지 않음 — 반드시
+  // NUXT_DOMAIN / NUXT_PUBLIC_API_BASE_URL / NUXT_PUBLIC_SERVER_SLUG / NUXT_S3_* 처럼
+  // NUXT_ 접두사가 붙은 이름으로 컨테이너 실행 시점 env를 줘야 실제로 덮어써짐(docker-compose.yml
+  // 참고). 여기 아래 값들은 로컬 개발 편의를 위한 기본값일 뿐, 배포 시 설정 통로가 아님.
   runtimeConfig: {
     domain: process.env.DOMAIN ?? '',
     s3: {
