@@ -20,13 +20,13 @@
             <NuxtLink :to="timelinePath" class="shortcut" title="연합 타임라인">
                 <i class="hgi hgi-stroke hgi-globe-02"></i>
             </NuxtLink>
-            <NuxtLink :to="settingsPath" class="shortcut" title="설정">
-                <i class="hgi hgi-stroke hgi-setting-07"></i>
-            </NuxtLink>
             <NotificationBell v-if="isLoggedIn" />
             <button class="shortcut theme-toggle-btn" type="button" @click="toggleTheme" title="테마 전환">
                 <i class="hgi hgi-stroke" :class="theme === 'dark' ? 'hgi-sun-01' : 'hgi-moon-02'"></i>
             </button>
+            <NuxtLink v-if="isAdmin" :to="settingsPath" class="shortcut" title="설정">
+                <i class="hgi hgi-stroke hgi-setting-07"></i>
+            </NuxtLink>
         </div>
         <div class="bycocoartz">
             <NuxtLink to="/">By COCOARTZ</NuxtLink>
@@ -44,12 +44,19 @@ const props = defineProps({
 const { toggle: toggleMobileNav } = useMobileNav()
 const { isLoggedIn } = useCurrentUser()
 const { theme, toggle: toggleTheme } = useTheme()
+const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 
 const fullPath = '/'
 const infoPath = '/info'
 const membersPath = '/members'
 const timelinePath = '/timeline'
 const settingsPath = '/settings'
+
+const isAdmin = computed(() => !!currentUserData.value?.isAdmin)
+
+onMounted(() => {
+    ensureUserLoaded()
+})
 </script>
 
 <style>
