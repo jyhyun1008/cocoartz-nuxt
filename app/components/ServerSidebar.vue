@@ -7,11 +7,25 @@
                     <i class="hgi hgi-stroke hgi-home-07 side-icon"></i>
                     <span>마을</span>
                 </div>
+                <div v-if="roomPresence(fullPath).length" class="side-presence">
+                    <div v-for="u in roomPresence(fullPath)" :key="u.userId" class="presence-user">
+                        <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
+                        <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
+                        <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
+                    </div>
+                </div>
             </NuxtLink>
             <NuxtLink :to="notiPath">
                 <div class="side-items" :class="{ thispage: props.path === notiPath }">
                     <i class="hgi hgi-stroke hgi-notification-01 side-icon"></i>
                     <span>공지 게시판</span>
+                </div>
+                <div v-if="roomPresence(notiPath).length" class="side-presence">
+                    <div v-for="u in roomPresence(notiPath)" :key="u.userId" class="presence-user">
+                        <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
+                        <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
+                        <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
+                    </div>
                 </div>
             </NuxtLink>
         </div>
