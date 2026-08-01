@@ -48,15 +48,15 @@
                             :href="`https://${remoteServerHost(entry.post.sourceActorUrl)}`"
                             target="_blank"
                             rel="noopener noreferrer"
-                            :title="remoteServerHost(entry.post.sourceActorUrl)"
-                            :style="{ background: remoteServerColor(remoteServerHost(entry.post.sourceActorUrl)) }"
+                            :title="remoteServerInfo[remoteServerHost(entry.post.sourceActorUrl)]?.name || remoteServerHost(entry.post.sourceActorUrl)"
+                            :style="{ background: badgeBg(remoteServerHost(entry.post.sourceActorUrl)) }"
                             @click.stop
                         >
                             <img
-                                v-if="!faviconFailedHosts.has(remoteServerHost(entry.post.sourceActorUrl))"
-                                :src="`https://${remoteServerHost(entry.post.sourceActorUrl)}/favicon.ico`"
+                                v-if="badgeImgSrc(remoteServerHost(entry.post.sourceActorUrl))"
+                                :src="badgeImgSrc(remoteServerHost(entry.post.sourceActorUrl))"
                                 alt=""
-                                @error="onFaviconError(remoteServerHost(entry.post.sourceActorUrl))"
+                                @error="onBadgeImgError(badgeImgSrc(remoteServerHost(entry.post.sourceActorUrl)))"
                             />
                             <span v-else>{{ remoteServerHost(entry.post.sourceActorUrl)[0]?.toUpperCase() }}</span>
                         </a>
@@ -221,17 +221,41 @@ function remoteServerHost(actorUrl) {
     try { return new URL(actorUrl).host } catch { return '' }
 }
 
-// 실제 원격 서버의 테마 색은 알 방법이 없어서(구현체마다 제각각이라) 호스트 이름을 해시해
-// 항상 같은 색이 나오도록 만든 "그 서버만의" 색 — 파비콘을 못 불러올 때의 배경/글자색으로도 씀
-function remoteServerColor(host) {
+// manifest.json에 theme_color가 없는 구현체(마스토돈 등)를 위한 대체 색 — 호스트 이름을
+// 해시해 항상 같은 색이 나오게 해서 "그 서버만의" 색처럼 보이게 함
+function remoteServerFallbackColor(host) {
     let hash = 0
     for (let i = 0; i < host.length; i++) hash = host.charCodeAt(i) + ((hash << 5) - hash)
     return `hsl(${Math.abs(hash) % 360}, 55%, 42%)`
 }
+function badgeBg(host) {
+    return remoteServerInfo.value[host]?.themeColor || remoteServerFallbackColor(host)
+}
 
-const faviconFailedHosts = ref(new Set())
-function onFaviconError(host) {
-    faviconFailedHosts.value = new Set(faviconFailedHosts.value).add(host)
+// 미스키(그리고 대체로 마스토돈)가 /manifest.json으로 내려주는 진짜 서버 이름/로고/테마색.
+// 서버별로 한 번만 조회해서 캐싱 — 없거나 실패하면 null로 채워지고 해시색+파비콘으로 대체됨
+const remoteServerInfo = ref({})
+async function loadRemoteServerInfo(host) {
+    if (!host || host in remoteServerInfo.value) return
+    remoteServerInfo.value = { ...remoteServerInfo.value, [host]: null }
+    const info = await $fetch(`${apiBaseUrl}/api/getRemoteServerInfo`, {
+        method: 'POST',
+        body: { host },
+    }).catch(() => null)
+    remoteServerInfo.value = { ...remoteServerInfo.value, [host]: info }
+}
+
+// 뱃지 이미지: manifest 아이콘 → 실패하면 favicon.ico → 그마저 실패하면 글자 뱃지로 폴백
+const failedBadgeSrcs = ref(new Set())
+function badgeImgSrc(host) {
+    const iconUrl = remoteServerInfo.value[host]?.iconUrl
+    if (iconUrl && !failedBadgeSrcs.value.has(iconUrl)) return iconUrl
+    const favicon = `https://${host}/favicon.ico`
+    if (!failedBadgeSrcs.value.has(favicon)) return favicon
+    return null
+}
+function onBadgeImgError(src) {
+    failedBadgeSrcs.value = new Set(failedBadgeSrcs.value).add(src)
 }
 
 const mergedFeed = computed(() => {
@@ -240,6 +264,14 @@ const mergedFeed = computed(() => {
     const remote = (remoteFeedData.value ?? []).map(p => ({ kind: 'remote', sortDate: p.published, post: p }))
     return [...local, ...remote].sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate))
 })
+
+watch(mergedFeed, (feed) => {
+    for (const entry of feed) {
+        if (entry.kind !== 'remote') continue
+        const host = remoteServerHost(entry.post.sourceActorUrl)
+        loadRemoteServerInfo(host)
+    }
+}, { immediate: true })
 
 const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '👀', '✅', '💯', '🥰']
 
