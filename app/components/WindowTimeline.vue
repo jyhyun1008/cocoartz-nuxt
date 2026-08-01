@@ -101,15 +101,6 @@ const { data: remoteFollowsData, refresh: refreshRemoteFollows } = await useAsyn
 const followingFeed = computed(() => followingFeedData.value ?? [])
 const remoteFollowsList = computed(() => remoteFollowsData.value ?? [])
 
-const now = new Date()
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-function formatDate(str) {
-    if (!str) return ''
-    return str.split('T')[0] === today
-        ? str.split('T')[1].slice(0, 5)
-        : str.split('T')[0]
-}
 
 const remoteFollowHandle = ref('')
 const remoteFollowSaving = ref(false)

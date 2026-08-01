@@ -104,10 +104,7 @@
                             <NuxtLink :to="chat.user?.username ? `/@${chat.user.username}` : '#'" class="knownas user-name-link">
                                 {{ chat.user?.knownas ?? chat.user?.username }}
                             </NuxtLink>
-                            <span class="datetime" v-if="chat.createdAt.split('T')[0] === today">
-                                {{ chat.createdAt.split('T')[1].slice(0, 5) }}
-                            </span>
-                            <span class="datetime" v-else>{{ chat.createdAt.split('T')[0] }}</span>
+                            <span class="datetime">{{ formatDate(chat.createdAt) }}</span>
                         </div>
                         <div class="msg" v-html="renderMd(chat.content)"></div>
                     </div>
@@ -215,9 +212,6 @@ const props = defineProps({
 })
 
 const { connect, joinRoom, sendPosition, sendChat: wsSendChat, otherUsersInRoom, realtimeChats } = useRoomSocket()
-
-const now = new Date()
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 // 캐시 키는 route.params.page가 아니라 실제 방 경로(props.path) 기준이어야 함.
 // noti.vue처럼 [page]/index.vue 라우트를 안 쓰는 정적 페이지들(index/settings/members/info/noti)은

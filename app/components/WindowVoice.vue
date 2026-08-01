@@ -92,15 +92,7 @@ const chatList = computed(() => {
     return [...chatHistory.value, ...fresh]
 })
 
-const now = new Date()
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-function formatTime(str) {
-    if (!str) return ''
-    return str.split('T')[0] === today
-        ? str.split('T')[1].slice(0, 5)
-        : str.split('T')[0]
-}
+const formatTime = formatDate
 
 function toggleSize() {
     voiceSize.value = voiceSize.value === 'little' ? 'large' : 'little'

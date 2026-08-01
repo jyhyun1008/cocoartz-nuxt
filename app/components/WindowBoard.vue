@@ -189,8 +189,6 @@ const props = defineProps({
 })
 
 const { userId } = useCurrentUser()
-const now = new Date()
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 // 게시판 글은 20개씩 페이지네이션 — 로컬 글/연합 팔로잉 피드 두 소스를 각각 페이징해서
 // 합친 뒤 날짜순으로 정렬해 보여줌 ("더보기" 클릭 시 두 소스 모두 다음 페이지를 불러옴)
@@ -339,12 +337,6 @@ const commentContent = ref('')
 const showPicker = ref(false)
 const pickerWrapRef = ref(null)
 
-function formatDate(str) {
-    if (!str) return ''
-    return str.split('T')[0] === today
-        ? str.split('T')[1].slice(0, 5)
-        : str.split('T')[0]
-}
 
 async function openPost(postid) {
     const data = await $fetch(`${apiBaseUrl}/api/getPostById`, {

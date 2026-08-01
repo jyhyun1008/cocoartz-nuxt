@@ -25,15 +25,6 @@ const commentContent = ref('')
 const showPicker = ref(false)
 const pickerWrapRef = ref(null)
 
-const now = new Date()
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-function formatDate(str) {
-    if (!str) return ''
-    return str.split('T')[0] === today
-        ? str.split('T')[1].slice(0, 5)
-        : str.split('T')[0]
-}
 
 async function toggleLike() {
     if (!post.value) return

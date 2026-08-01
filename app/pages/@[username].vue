@@ -42,17 +42,7 @@ const topLevelPosts = computed(() =>
     (userData.value?.posts ?? []).filter(p => !p.replyto)
 )
 
-const now = new Date()
-const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-function formatDate(str) {
-    if (!str) return ''
-    return str.split('T')[0] === today
-        ? str.split('T')[1].slice(0, 5)
-        : str.split('T')[0]
-}
-
-const joinDate = computed(() => userData.value?.createdAt?.split('T')[0] ?? '')
+const joinDate = computed(() => formatDateOnly(userData.value?.createdAt))
 
 // 편집 모달
 const showEdit = ref(false)
