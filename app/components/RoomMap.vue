@@ -185,7 +185,12 @@
         </div>
 
         <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) -->
-        <div v-show="!controlsBlocked" id="mobile-joystick" ref="joystickBase">
+        <div
+            v-show="!controlsBlocked"
+            id="mobile-joystick"
+            ref="joystickBase"
+            :class="{ 'joystick-above-chat': isRoomPage && showChatPanel && chatSize === 'little' }"
+        >
             <div id="joystick-knob" :style="joystickKnobStyle"></div>
         </div>
     </div>
@@ -336,6 +341,8 @@ const tilesFront = computed(() =>
 const charZIndex = computed(() =>
     (localPosition.value.y) * -10 + 9999
 )
+
+const isRoomPage = computed(() => props.page === 'none' || props.page === 'room')
 
 // 이동/줌 조작이 막혀야 하는 상태 (채팅 확대 또는 오버레이가 떠 있음)
 // 키보드/휠(onMounted)과 모바일 조이스틱/핀치줌 핸들러가 공유
@@ -834,6 +841,11 @@ onMounted(() => {
     #mobile-joystick {
         display: block;
     }
+
+    /* 채팅 작은창이 떠 있을 땐 창을 옆이 아니라 최대한 넓게 쓰고, 조이스틱을 그 위로 올림 */
+    #mobile-joystick.joystick-above-chat {
+        bottom: 244px;
+    }
 }
 
 @keyframes handheld {
@@ -1111,9 +1123,9 @@ onMounted(() => {
 /* 모바일 채팅 패널 폭 보정: 위쪽 #chatroom-wrapper.little/.large 기본 규칙과
    동일 우선순위라 소스 순서상 반드시 뒤에 와야 이 값이 적용됨 */
 @media (max-width: 768px) {
+    /* 조이스틱은 작은창 위로 올라가므로(.joystick-above-chat) 옆 공간을 더 안 비워도 됨 */
     #chatroom-wrapper.little {
-        width: calc(100% - 154px);
-        max-width: 400px;
+        width: calc(100% - 24px);
         left: 12px;
     }
 

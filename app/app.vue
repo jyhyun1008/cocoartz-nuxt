@@ -145,6 +145,14 @@ body {
     height: 60dvh;
 }
 
+/* 모바일에서는 좌우 여백을 줄여서 화면 폭을 최대한 활용 (조이스틱과 겹칠 일이 없는
+   큰 모달들이라 그냥 넓혀도 됨 — 겹칠 수 있는 채팅 작은창은 RoomMap.vue에서 별도 처리) */
+@media (max-width: 768px) {
+    .modal-base {
+        width: calc(100% - 24px);
+    }
+}
+
 /* 전역 스크롤바 (밝은 배경용) */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

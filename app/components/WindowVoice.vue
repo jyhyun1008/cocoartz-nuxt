@@ -194,9 +194,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+    /* 음성방 작은창은 조이스틱이 뜨는 상태(page===room/none)와 동시에 나오는 일이 없어서
+       채팅 작은창처럼 옆 공간을 비워둘 필요가 없음 — 그냥 넓게 씀 */
     #voice-wrapper.little {
-        width: calc(100% - 154px);
-        max-width: 400px;
+        width: calc(100% - 24px);
     }
 
     #voice-wrapper.large {
