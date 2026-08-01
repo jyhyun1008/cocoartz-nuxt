@@ -1,5 +1,5 @@
 <script setup>
-const { server, slug, accent, bgaccent } = await useServer()
+const { server, slug, accent, bgaccent, accentFgRgb } = await useServer()
 const path = computed(() => '/noti')
 </script>
 
@@ -16,5 +16,6 @@ const path = computed(() => '/noti')
 .parent-wrapper {
     --accent: v-bind(accent);
     --bgaccent: v-bind(bgaccent);
+    --accent-fg-rgb: v-bind(accentFgRgb);
 }
 </style>

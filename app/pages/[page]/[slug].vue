@@ -7,7 +7,7 @@ const page = route.params.page as string
 const wikiSlug = computed(() => (route.params.slug as string) ?? '')
 const path = computed(() => `/${page}`)
 
-const { server, slug, accent, bgaccent } = await useServer()
+const { server, slug, accent, bgaccent, accentFgRgb } = await useServer()
 
 const { data: roomData } = await useAsyncData(
     `room-data-${page}`,
@@ -34,5 +34,6 @@ const roomType = computed(() => roomData.value?.type ?? 'wiki')
 .parent-wrapper {
     --accent: v-bind(accent);
     --bgaccent: v-bind(bgaccent);
+    --accent-fg-rgb: v-bind(accentFgRgb);
 }
 </style>

@@ -33,6 +33,7 @@ onMounted(() => useTheme().init())
 :root {
     --accent: #D21F3C;
     --accent-hover: #b81a33;
+    --accent-fg-rgb: 255,255,255;
     --mapbg: #888888;
     --bgaccent: #D21F3C22;
     --bgbanner: #00000077;
@@ -89,7 +90,7 @@ body {
 /* 공통 모달 헤더 */
 .window-header {
     background-color: var(--accent);
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -103,7 +104,7 @@ body {
 .window-close-btn {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.7);
+    color: rgba(var(--accent-fg-rgb),0.7);
     font-size: 1rem;
     cursor: pointer;
     padding: 4px 6px;
@@ -120,8 +121,8 @@ body {
 }
 
 .window-close-btn:hover {
-    color: white;
-    background: rgba(255,255,255,0.15);
+    color: rgba(var(--accent-fg-rgb),1);
+    background: rgba(var(--accent-fg-rgb),0.15);
 }
 
 /* 공통 모달 베이스 (다크) */

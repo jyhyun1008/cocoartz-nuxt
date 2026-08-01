@@ -1,3 +1,14 @@
+// 악센트 색 위에 올라가는 텍스트/아이콘 색 — 배경이 밝으면 어두운 글자, 어두우면 흰 글자
+function accentFgRgbFor(hex: string): string {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex)
+    if (!m) return '255,255,255'
+    const r = parseInt(m[1].slice(0, 2), 16)
+    const g = parseInt(m[1].slice(2, 4), 16)
+    const b = parseInt(m[1].slice(4, 6), 16)
+    const perceivedBrightness = (r * 299 + g * 587 + b * 114) / 1000
+    return perceivedBrightness > 150 ? '30,30,38' : '255,255,255'
+}
+
 export const useServer = async () => {
     const config = useRuntimeConfig()
     const apiBaseUrl = config.public.apiBaseUrl
@@ -22,6 +33,7 @@ export const useServer = async () => {
     const server = data.value
     const accent = server?.themecolor || DEFAULT_ACCENT
     const bgaccent = server?.themecolor ? `${accent}22` : DEFAULT_BGACCENT
+    const accentFgRgb = accentFgRgbFor(accent)
 
-    return { server, slug, accent, bgaccent }
+    return { server, slug, accent, bgaccent, accentFgRgb }
 }

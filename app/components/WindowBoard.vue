@@ -394,12 +394,12 @@ onMounted(() => {
     font-size: 0.9rem;
 }
 
-/* 헤더 버튼 (항상 악센트 색 헤더 위라 테마 무관하게 흰색 고정) */
+/* 헤더 버튼 (항상 악센트 색 헤더 위라 배경 밝기에 맞춰 자동 대비되는 --accent-fg-rgb 사용) */
 .write-btn-header {
     margin-left: auto;
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.35);
-    color: white;
+    background: rgba(var(--accent-fg-rgb),0.2);
+    border: 1px solid rgba(var(--accent-fg-rgb),0.35);
+    color: rgba(var(--accent-fg-rgb),1);
     border-radius: 6px;
     padding: 3px 10px;
     font-size: 0.82rem;
@@ -408,20 +408,20 @@ onMounted(() => {
     transition: background 0.1s;
 }
 
-.write-btn-header:hover { background: rgba(255,255,255,0.3); }
+.write-btn-header:hover { background: rgba(var(--accent-fg-rgb),0.3); }
 
 .back-btn-header {
     margin-left: auto;
     background: none;
     border: none;
-    color: rgba(255,255,255,0.8);
+    color: rgba(var(--accent-fg-rgb),0.8);
     font-size: 0.85rem;
     font-family: inherit;
     cursor: pointer;
     padding: 3px 6px;
 }
 
-.back-btn-header:hover { color: white; }
+.back-btn-header:hover { color: rgba(var(--accent-fg-rgb),1); }
 
 .board-header-title {
     flex: 1;
@@ -493,7 +493,7 @@ onMounted(() => {
 .submit-btn {
     align-self: flex-end;
     background-color: var(--accent);
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     border: 0;
     padding: 8px 20px;
     border-radius: 8px;

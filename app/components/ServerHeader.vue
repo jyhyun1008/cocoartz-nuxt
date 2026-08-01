@@ -63,7 +63,7 @@ const settingsPath = '/settings'
     z-index: 9999;
     top: 0;
     left: 0;
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     background-color: var(--accent);
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
@@ -87,7 +87,7 @@ const settingsPath = '/settings'
     width: 1.6rem;
     height: 1.6rem;
     border-radius: 6px;
-    background: rgba(255,255,255,0.25);
+    background: rgba(var(--accent-fg-rgb),0.25);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -125,14 +125,14 @@ const settingsPath = '/settings'
     width: 2rem;
     height: 2rem;
     border-radius: 6px;
-    color: rgba(255,255,255,0.8) !important;
+    color: rgba(var(--accent-fg-rgb),0.8) !important;
     transition: background 0.15s, color 0.15s;
     font-size: 1.1rem;
 }
 
 .shortcut:hover {
-    background: rgba(255,255,255,0.15);
-    color: white !important;
+    background: rgba(var(--accent-fg-rgb),0.15);
+    color: rgba(var(--accent-fg-rgb),1) !important;
 }
 
 .theme-toggle-btn {
@@ -144,7 +144,7 @@ const settingsPath = '/settings'
 
 .bycocoartz {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.6);
+    color: rgba(var(--accent-fg-rgb),0.6);
     white-space: nowrap;
 }
 
@@ -156,7 +156,7 @@ const settingsPath = '/settings'
     display: none;
     background: none;
     border: none;
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     font-size: 1.3rem;
     padding: 6px;
     margin-right: 4px;

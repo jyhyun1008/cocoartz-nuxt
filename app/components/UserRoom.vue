@@ -340,7 +340,7 @@ onMounted(() => {
 
 .ur-edit-btn {
     background: var(--accent, #D21F3C);
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     border: none;
     border-radius: 8px;
     padding: 7px 14px;

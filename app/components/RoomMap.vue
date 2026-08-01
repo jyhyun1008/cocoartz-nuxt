@@ -1073,16 +1073,16 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     background-color: var(--accent);
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     cursor: pointer;
     font-size: 0.9rem;
 }
 
-/* 채팅 패널 헤더도 항상 악센트 색 배경이라 테마 무관하게 흰색 고정 */
+/* 채팅 패널 헤더도 항상 악센트 색 배경이라 배경 밝기에 맞춰 자동 대비 */
 .chat-size-btn {
     background: none;
     border: none;
-    color: rgba(255,255,255,0.7);
+    color: rgba(var(--accent-fg-rgb),0.7);
     font-size: 1rem;
     cursor: pointer;
     padding: 4px 6px;
@@ -1090,7 +1090,7 @@ onMounted(() => {
     border-radius: 4px;
     transition: color 0.1s, background 0.1s;
 }
-.chat-size-btn:hover { color: white; background: rgba(255,255,255,0.15); }
+.chat-size-btn:hover { color: rgba(var(--accent-fg-rgb),1); background: rgba(var(--accent-fg-rgb),0.15); }
 
 /* 공통 재열기 버튼 */
 .reopen-btn {
@@ -1098,7 +1098,7 @@ onMounted(() => {
     bottom: 14px;
     left: 14px;
     background-color: var(--accent);
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     padding: 8px 16px;
     border-radius: 8px;
     cursor: pointer;

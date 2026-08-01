@@ -100,7 +100,7 @@ async function logout() {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: rgba(var(--accent-fg-rgb),1);
     font-weight: 700;
     font-size: 1rem;
 }
