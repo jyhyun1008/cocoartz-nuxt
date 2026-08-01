@@ -1,0 +1,1 @@
+ALTER TABLE "remote_feed_posts" ADD COLUMN "summary" text;

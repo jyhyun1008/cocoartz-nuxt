@@ -39,6 +39,7 @@ export default eventHandler(async (event) => {
     const remoteItems = remoteRows.map((r) => ({
         id: `remote-${r.id}`,
         content: r.content,
+        summary: r.summary,
         createdAt: r.published,
         sortDate: r.published,
         isRemote: true,

@@ -41,6 +41,8 @@ export async function publishPostIfFederated(post: Post, domain: string) {
         content: String(marked.parse(post.content)),
         published: post.createdAt,
         inReplyTo: parent?.objectId ?? null,
+        // 최상위 글에 직접 붙인 제목만 CW로 취급 — 댓글의 title은 content에서 자동으로 잘라낸 것이라 진짜 제목이 아님
+        summary: post.replyto ? null : post.title,
     })
 
     const followerRows = await db.select().from(follows)

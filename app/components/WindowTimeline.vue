@@ -29,7 +29,12 @@
                         </div>
                         <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                     </div>
-                    <div v-if="p.isRemote" class="timeline-post-body" v-html="p.content"></div>
+                    <template v-if="p.isRemote">
+                        <div v-if="p.summary" class="timeline-cw">
+                            <i class="hgi hgi-stroke hgi-alert-02"></i> {{ p.summary }}
+                        </div>
+                        <div class="timeline-post-body" v-html="p.content"></div>
+                    </template>
                     <NuxtLink v-else :to="`/post/${p.id}`" class="timeline-post-body" style="color:inherit;text-decoration:none;display:block">
                         <strong>{{ p.title }}</strong>
                     </NuxtLink>
@@ -177,5 +182,14 @@ async function unfollowRemote(id) {
     color: rgba(255,255,255,0.8);
     line-height: 1.7;
     font-size: 0.92rem;
+}
+
+.timeline-cw {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #ffb454;
 }
 </style>

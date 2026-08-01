@@ -199,6 +199,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
 
     const content = sanitizeHtml(object.content as string || '')
     if (!content) return
+    const summary = typeof object.summary === 'string' ? sanitizeHtml(object.summary).trim() || null : null
 
     await db.insert(remoteFeedPosts).values({
         userid: user.id,
@@ -208,6 +209,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         sourceIconUrl: follow.targetIconUrl,
         objectId,
         content,
+        summary,
         published: new Date((object.published as string) || Date.now()),
     })
     console.log(`[inbox] 원격 글 개인 피드 저장: ${objectId} → @${user.username}`)

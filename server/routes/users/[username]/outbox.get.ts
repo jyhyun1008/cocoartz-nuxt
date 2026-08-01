@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
         objectId: p.objectId!,
         content: String(marked.parse(p.content)),
         published: p.createdAt,
+        summary: p.title,
     }))
 
     setHeader(event, 'Content-Type', AP_CONTENT_TYPE)

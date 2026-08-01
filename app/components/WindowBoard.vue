@@ -16,14 +16,32 @@
 
         <!-- 목록 -->
         <div v-if="currentView === 'list'" id="board-wrapper">
-            <div v-if="topLevelPosts.length" class="board">
-                <div v-for="post in topLevelPosts" :key="post.id" class="postlist" @click="openPost(post.id)">
-                    <div class="posttitle">
-                        <div>{{ post.title }}</div>
-                        <span class="datetime">{{ formatDate(post.createdAt) }}</span>
+            <div v-if="mergedFeed.length" class="board">
+                <template v-for="entry in mergedFeed" :key="`${entry.kind}-${entry.post.id}`">
+                    <!-- 로컬 글 -->
+                    <div v-if="entry.kind === 'local'" class="post-card" @click="openPost(entry.post.id)">
+                        <div class="post-card-title">{{ entry.post.title }}</div>
+                        <div class="post-card-meta">
+                            <NuxtLink :to="entry.post.user?.username ? `/@${entry.post.user.username}` : '#'" class="post-author user-name-link" @click.stop>{{ entry.post.user?.knownas ?? entry.post.user?.username }}</NuxtLink>
+                            <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
+                        </div>
                     </div>
-                    <NuxtLink :to="post.user?.username ? `/@${post.user.username}` : '#'" class="post-author user-name-link">{{ post.user?.knownas ?? post.user?.username }}</NuxtLink>
-                </div>
+                    <!-- 연합 팔로잉 피드(외부) 글 -->
+                    <a v-else class="post-card external-post-card" :href="entry.post.sourceActorUrl" target="_blank" rel="noopener noreferrer">
+                        <div class="post-card-title">
+                            <i class="hgi hgi-stroke hgi-globe-02"></i>
+                            <template v-if="entry.post.summary">
+                                <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
+                                <span>{{ entry.post.summary }}</span>
+                            </template>
+                            <span v-else class="preview-text">{{ stripHtml(entry.post.content) }}</span>
+                        </div>
+                        <div class="post-card-meta">
+                            <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
+                            <span class="datetime">{{ formatDate(entry.post.published) }}</span>
+                        </div>
+                    </a>
+                </template>
             </div>
             <div v-else class="empty">게시물이 없습니다.</div>
         </div>
@@ -117,6 +135,10 @@ const props = defineProps({
         type: Object,
         default: () => ({ serverid: 0, roomid: 0 }),
     },
+    isFederated: {
+        type: Boolean,
+        default: false,
+    },
 })
 
 const { userId } = useCurrentUser()
@@ -136,6 +158,26 @@ const { data: postData, refresh: refreshPosts } = await useAsyncData(
 )
 
 const topLevelPosts = computed(() => (postData.value ?? []).filter(p => !p.replyto))
+
+// 연합 게시판이면 내가 팔로우한 원격 계정의 글도 같이 섞어서 보여줌
+const { data: remoteFeedData } = await useAsyncData(
+    'board-remote-feed',
+    () => (props.isFederated && userId.value)
+        ? $fetch(`${apiBaseUrl}/api/getRemoteFeedPosts`, { method: 'POST', body: { userid: userId.value } }).then(res => (Array.isArray(res) ? res : []))
+        : Promise.resolve([]),
+    { watch: [() => props.isFederated, userId] }
+)
+
+function stripHtml(html) {
+    return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+const mergedFeed = computed(() => {
+    const local = topLevelPosts.value.map(p => ({ kind: 'local', sortDate: p.createdAt, post: p }))
+    if (!props.isFederated) return local
+    const remote = (remoteFeedData.value ?? []).map(p => ({ kind: 'remote', sortDate: p.published, post: p }))
+    return [...local, ...remote].sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate))
+})
 
 const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '👀', '✅', '💯', '🥰']
 
@@ -243,31 +285,60 @@ onMounted(() => {
     font-size: 0.95rem;
 }
 
-/* 목록 */
-.postlist {
+/* 목록 (카드형) */
+.board {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 12px;
-    border-radius: 8px;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.post-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: background 0.1s;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    transition: background 0.1s, border-color 0.1s;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    text-decoration: none;
+    color: inherit;
 }
 
-.postlist:hover { background: rgba(255,255,255,0.05); }
+.post-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
 
-.posttitle {
+.post-card-title {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    font-size: 0.98rem;
+    color: rgba(255,255,255,0.9);
 }
 
-.posttitle > div {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.post-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.external-post-card {
+    border-left: 2px solid rgba(124,196,255,0.4);
+}
+.external-post-card .hgi-globe-02 { color: #7cc4ff; flex-shrink: 0; }
+
+.cw-icon {
+    color: #ffb454;
+    flex-shrink: 0;
+}
+
+.preview-text {
+    font-weight: 400;
+    color: rgba(255,255,255,0.65);
 }
 
 .post-author {

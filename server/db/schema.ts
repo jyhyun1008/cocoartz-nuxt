@@ -200,6 +200,8 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     sourceIconUrl: text(),
     objectId: text().notNull(),
     content: text().notNull(),
+    // 원격 글의 CW(content warning)/서두 텍스트. 없으면 null → 목록에서 본문 미리보기로 대체 표시
+    summary: text(),
     published: timestamp({ withTimezone: true }).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
