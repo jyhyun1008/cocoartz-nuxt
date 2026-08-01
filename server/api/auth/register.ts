@@ -1,5 +1,5 @@
 import { db } from '../../utils/db'
-import { users } from '../../db/schema'
+import { users, servers } from '../../db/schema'
 import { eq, or, count } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 
@@ -22,11 +22,25 @@ export default eventHandler(async (event) => {
         throw createError({ statusCode: 409, message: `이미 사용 중인 ${field}입니다` })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12)
-
-    // 첫 번째 가입 유저에게 어드민 자동 부여
+    // 첫 번째 가입 유저에게 어드민 자동 부여 — 관리자가 아직 없는 상태이므로
+    // 가입 모드(차단/승인제)와 무관하게 항상 통과시켜야 부트스트랩이 가능함
     const [{ value: userCount }] = await db.select({ value: count() }).from(users)
     const isFirstUser = Number(userCount) === 0
+
+    let approved = true
+    if (!isFirstUser) {
+        const config = useRuntimeConfig()
+        const slug = config.public.serverSlug as string
+        const [server] = await db.select().from(servers).where(eq(servers.slug, slug))
+        const mode = server?.registrationMode ?? 'open'
+
+        if (mode === 'closed') {
+            throw createError({ statusCode: 403, message: '현재 신규 가입이 제한되어 있습니다' })
+        }
+        approved = mode !== 'approval'
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12)
 
     const [newUser] = await db.insert(users).values({
         username: username.trim(),
@@ -34,7 +48,12 @@ export default eventHandler(async (event) => {
         password: hashedPassword,
         knownas: username.trim(),
         isAdmin: isFirstUser,
+        approved,
     }).returning({ id: users.id, username: users.username })
+
+    if (!approved) {
+        return { id: newUser.id, username: newUser.username, pendingApproval: true }
+    }
 
     setCookie(event, 'user-id', String(newUser.id), {
         maxAge: 60 * 60 * 24 * 30,

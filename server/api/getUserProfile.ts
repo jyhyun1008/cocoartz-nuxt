@@ -1,9 +1,9 @@
 import { db } from '../utils/db'
-import { users, posts } from '../db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { users, posts, follows } from '../db/schema'
+import { eq, and, desc, count } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-    const { username } = await readBody(event)
+    const { username, viewerUserId } = await readBody(event)
     if (!username) return null
 
     const [user] = await db.select({
@@ -29,5 +29,17 @@ export default defineEventHandler(async (event) => {
         .orderBy(desc(posts.createdAt))
         .limit(20)
 
-    return { ...user, posts: userPosts }
+    const [{ c: followerCount }] = await db.select({ c: count() }).from(follows)
+        .where(and(eq(follows.userid, user.id), eq(follows.accepted, true)))
+    const [{ c: followingCount }] = await db.select({ c: count() }).from(follows)
+        .where(eq(follows.followerUserId, user.id))
+
+    let isFollowing = false
+    if (viewerUserId) {
+        const [row] = await db.select().from(follows)
+            .where(and(eq(follows.userid, user.id), eq(follows.followerUserId, viewerUserId)))
+        isFollowing = !!row
+    }
+
+    return { ...user, posts: userPosts, followerCount, followingCount, isFollowing }
 })

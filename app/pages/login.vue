@@ -11,10 +11,12 @@ const email = ref('')
 const password = ref('')
 const username = ref('')
 const errorMsg = ref('')
+const successMsg = ref('')
 const loading = ref(false)
 
 async function submit() {
     errorMsg.value = ''
+    successMsg.value = ''
     loading.value = true
     try {
         if (mode.value === 'login') {
@@ -23,14 +25,22 @@ async function submit() {
                 body: { email: email.value, password: password.value },
             })
             userId.value = res.id
+            await router.push('/')
         } else {
             const res = await $fetch(`${apiBaseUrl}/api/auth/register`, {
                 method: 'POST',
                 body: { email: email.value, password: password.value, username: username.value },
             })
+            if (res.pendingApproval) {
+                // 승인제 가입 — 로그인 처리하지 않고 승인 대기 안내만 표시
+                successMsg.value = '가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있어요.'
+                mode.value = 'login'
+                password.value = ''
+                return
+            }
             userId.value = res.id
+            await router.push('/')
         }
-        await router.push('/')
     } catch (e) {
         errorMsg.value = e?.data?.message ?? '오류가 발생했습니다'
     } finally {
@@ -45,8 +55,8 @@ async function submit() {
             <div id="login-logo">CocoArtz</div>
 
             <div id="login-tabs">
-                <button :class="{ active: mode === 'login' }" @click="mode = 'login'; errorMsg = ''">로그인</button>
-                <button :class="{ active: mode === 'register' }" @click="mode = 'register'; errorMsg = ''">회원가입</button>
+                <button :class="{ active: mode === 'login' }" @click="mode = 'login'; errorMsg = ''; successMsg = ''">로그인</button>
+                <button :class="{ active: mode === 'register' }" @click="mode = 'register'; errorMsg = ''; successMsg = ''">회원가입</button>
             </div>
 
             <form id="login-form" @submit.prevent="submit">
@@ -64,6 +74,7 @@ async function submit() {
                 </div>
 
                 <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+                <p v-if="successMsg" class="success-msg">{{ successMsg }}</p>
 
                 <button type="submit" class="submit-btn" :disabled="loading">
                     {{ loading ? '처리 중...' : (mode === 'login' ? '로그인' : '가입하기') }}
@@ -174,6 +185,16 @@ async function submit() {
     background: rgba(255, 107, 107, 0.1);
     border-radius: 8px;
     border: 1px solid rgba(255, 107, 107, 0.2);
+}
+
+.success-msg {
+    font-size: 0.85rem;
+    color: #23a559;
+    margin: 0;
+    padding: 8px 12px;
+    background: rgba(35, 165, 89, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(35, 165, 89, 0.2);
 }
 
 .submit-btn {

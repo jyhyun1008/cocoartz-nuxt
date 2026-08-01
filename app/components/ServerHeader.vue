@@ -23,6 +23,7 @@
             <NuxtLink :to="settingsPath" class="shortcut" title="설정">
                 <i class="hgi hgi-stroke hgi-setting-07"></i>
             </NuxtLink>
+            <NotificationBell v-if="isLoggedIn" />
         </div>
         <div class="bycocoartz">
             <NuxtLink to="/">By COCOARTZ</NuxtLink>
@@ -38,6 +39,7 @@ const props = defineProps({
 })
 
 const { toggle: toggleMobileNav } = useMobileNav()
+const { isLoggedIn } = useCurrentUser()
 
 const fullPath = '/'
 const infoPath = '/info'

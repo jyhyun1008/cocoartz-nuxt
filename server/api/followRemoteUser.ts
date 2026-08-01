@@ -1,19 +1,16 @@
-import { db } from '../../utils/db'
-import { users, timelineFollows } from '../../db/schema'
+import { db } from '../utils/db'
+import { users, remoteFollows } from '../db/schema'
 import { eq } from 'drizzle-orm'
-import { ensureTimelineActor } from '../../utils/ap/ensureTimelineActor'
-import { resolveWebfinger, fetchActor, buildFollowActivity, timelineActorUrl } from '../../utils/ap/activitypub'
-import { deliverToInbox } from '../../utils/ap/deliver'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
+import { ensureActor } from '../utils/ap/ensureActor'
+import { resolveWebfinger, fetchActor, buildFollowActivity, actorUrl } from '../utils/ap/activitypub'
+import { deliverToInbox } from '../utils/ap/deliver'
 
 export default eventHandler(async (event) => {
     const { userid, handle } = await readBody(event)
-    await checkAdmin(userid)
+    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
+
+    const [user] = await db.select().from(users).where(eq(users.id, userid))
+    if (!user) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
 
     const cleanHandle = String(handle || '').trim().replace(/^@/, '')
     if (!cleanHandle.includes('@')) {
@@ -26,8 +23,11 @@ export default eventHandler(async (event) => {
     const targetActorUrl = await resolveWebfinger(cleanHandle)
     if (!targetActorUrl) throw createError({ statusCode: 404, message: '계정을 찾을 수 없습니다' })
 
-    const existing = await db.select().from(timelineFollows).where(eq(timelineFollows.targetActorUrl, targetActorUrl))
-    if (existing.length) throw createError({ statusCode: 400, message: '이미 팔로우 중인 계정입니다' })
+    const existing = await db.select().from(remoteFollows)
+        .where(eq(remoteFollows.userid, userid))
+    if (existing.some(f => f.targetActorUrl === targetActorUrl)) {
+        throw createError({ statusCode: 400, message: '이미 팔로우 중인 계정입니다' })
+    }
 
     const actorData = await fetchActor(targetActorUrl)
     if (!actorData) throw createError({ statusCode: 404, message: '계정 정보를 가져올 수 없습니다' })
@@ -40,13 +40,14 @@ export default eventHandler(async (event) => {
     const preferredUsername = actorData.preferredUsername as string || ''
     const targetHandle = preferredUsername ? `@${preferredUsername}@${targetDomain}` : `@${cleanHandle}`
 
-    const timelineActor = await ensureTimelineActor()
-    if (!timelineActor) throw createError({ statusCode: 500, message: '타임라인 액터 생성 실패' })
+    const actor = await ensureActor(userid)
+    if (!actor) throw createError({ statusCode: 500, message: '액터 생성 실패' })
 
-    const actorId = timelineActorUrl(domain)
-    const follow = buildFollowActivity(actorId, targetActorUrl)
+    const myActorId = actorUrl(domain, user.username)
+    const follow = buildFollowActivity(myActorId, targetActorUrl)
 
-    const [row] = await db.insert(timelineFollows).values({
+    const [row] = await db.insert(remoteFollows).values({
+        userid,
         targetActorUrl,
         targetInbox: inboxUrl,
         targetHandle,
@@ -56,11 +57,9 @@ export default eventHandler(async (event) => {
         followActivityId: follow.id,
     }).returning()
 
-    const delivered = await deliverToInbox(inboxUrl, follow, actorId, timelineActor.privateKey)
+    const delivered = await deliverToInbox(inboxUrl, follow, myActorId, actor.privateKey)
     if (!delivered) {
-        // 배달 실패 시 row를 그대로 두면 영원히 "대기중"으로만 남고 재시도할 방법도 없어짐 —
-        // 대기 상태로 착각하지 않도록 삭제하고 실패를 클라이언트에 알려서 재시도하게 함
-        await db.delete(timelineFollows).where(eq(timelineFollows.id, row.id))
+        await db.delete(remoteFollows).where(eq(remoteFollows.id, row.id))
         throw createError({ statusCode: 502, message: '상대 서버로 팔로우 요청 전송에 실패했습니다. 잠시 후 다시 시도해주세요' })
     }
 

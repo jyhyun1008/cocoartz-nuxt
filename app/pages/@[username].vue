@@ -10,7 +10,7 @@ const { data: userData, refresh } = await useAsyncData(
     `user-profile-${username}`,
     () => $fetch(`${apiBaseUrl}/api/getUserProfile`, {
         method: 'POST',
-        body: { username },
+        body: { username, viewerUserId: userId.value },
     }),
     { watch: [() => route.params.username] }
 )
@@ -20,6 +20,23 @@ if (!userData.value) {
 }
 
 const isOwn = computed(() => userId.value === userData.value?.id)
+
+// 팔로우 토글
+const followLoading = ref(false)
+async function toggleFollow() {
+    if (!userId.value || followLoading.value) return
+    followLoading.value = true
+    try {
+        const endpoint = userData.value?.isFollowing ? 'unfollowUser' : 'followUser'
+        await $fetch(`${apiBaseUrl}/api/${endpoint}`, {
+            method: 'POST',
+            body: { userid: userId.value, targetUsername: username },
+        })
+        await refresh()
+    } finally {
+        followLoading.value = false
+    }
+}
 
 const topLevelPosts = computed(() =>
     (userData.value?.posts ?? []).filter(p => !p.replyto)
@@ -128,6 +145,15 @@ async function saveEdit() {
                         </div>
                     </div>
                     <button v-if="isOwn" id="edit-profile-btn" @click="openEdit">프로필 편집</button>
+                    <button
+                        v-else-if="userId"
+                        id="follow-btn"
+                        :class="{ following: userData?.isFollowing }"
+                        :disabled="followLoading"
+                        @click="toggleFollow"
+                    >
+                        {{ userData?.isFollowing ? '팔로잉' : '팔로우' }}
+                    </button>
                 </div>
 
                 <!-- 프로필 정보 -->
@@ -137,6 +163,8 @@ async function saveEdit() {
                     <div v-if="userData?.bio" id="profile-bio">{{ userData?.bio }}</div>
                     <div id="profile-meta">
                         <span><i class="hgi hgi-stroke hgi-calendar-01"></i> {{ joinDate }} 가입</span>
+                        <span><strong>{{ userData?.followerCount ?? 0 }}</strong> 팔로워</span>
+                        <span><strong>{{ userData?.followingCount ?? 0 }}</strong> 팔로잉</span>
                     </div>
                 </div>
 
@@ -353,6 +381,32 @@ async function saveEdit() {
     transition: border-color 0.15s, color 0.15s;
 }
 #edit-profile-btn:hover { border-color: rgba(255,255,255,0.5); color: white; }
+
+#follow-btn {
+    background-color: var(--accent, #D21F3C);
+    border: 1px solid var(--accent, #D21F3C);
+    color: white;
+    border-radius: 20px;
+    padding: 6px 18px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    margin-bottom: 4px;
+    transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+#follow-btn:hover { opacity: 0.88; }
+#follow-btn:disabled { opacity: 0.5; cursor: default; }
+
+#follow-btn.following {
+    background: none;
+    color: rgba(255,255,255,0.75);
+    border-color: rgba(255,255,255,0.25);
+}
+#follow-btn.following:hover {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+}
 
 /* 프로필 정보 */
 #profile-info {

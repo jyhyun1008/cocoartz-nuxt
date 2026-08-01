@@ -51,11 +51,45 @@
                     </template>
                 </div>
 
+                <label class="admin-label">가입 방식</label>
+                <select v-model="serverForm.registrationMode" class="admin-select">
+                    <option value="open">자유 가입</option>
+                    <option value="approval">승인제 가입</option>
+                    <option value="closed">가입 차단</option>
+                </select>
+
                 <p v-if="serverError" class="admin-error">{{ serverError }}</p>
                 <button class="submit-btn" style="margin-top:8px;align-self:flex-start" @click="submitServerInfo" :disabled="serverSaving">
                     {{ serverSaving ? '저장 중...' : '서버 정보 저장' }}
                 </button>
                 <p v-if="serverSaveMsg" class="admin-save-msg">{{ serverSaveMsg }}</p>
+            </div>
+
+            <!-- 승인 대기 중인 가입 신청 -->
+            <div v-if="serverForm.registrationMode === 'approval' || pendingUsers.length" class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">가입 승인 대기</span>
+                </div>
+                <div class="admin-channel-list">
+                    <div v-for="p in pendingUsers" :key="p.id" class="admin-channel-item">
+                        <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
+                            <NuxtImg v-if="p.avatar" :src="p.avatar" class="admin-icon-preview-img" />
+                            <i v-else class="hgi hgi-stroke hgi-user"></i>
+                        </div>
+                        <span class="admin-ch-name">{{ p.knownas || p.username }}</span>
+                        <code class="admin-ch-path">{{ p.email }}</code>
+                        <div class="admin-ch-actions">
+                            <button class="admin-icon-btn" @click="approveUser(p.id)" title="승인">
+                                <i class="hgi hgi-stroke hgi-tick-01"></i>
+                            </button>
+                            <button class="admin-icon-btn danger" @click="rejectUser(p.id)" title="거절">
+                                <i class="hgi hgi-stroke hgi-delete-02"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="!pendingUsers.length" class="empty" style="padding:14px 0">승인 대기 중인 가입 신청이 없습니다.</div>
+                </div>
+                <p v-if="pendingError" class="admin-error">{{ pendingError }}</p>
             </div>
 
             <!-- 기본 페이지(마을 / 공지 게시판) 맵 편집 -->
@@ -274,7 +308,7 @@ const { data: serverData, refresh: refreshServer } = await useAsyncData(
 )
 
 // 서버 정보 편집
-const serverForm = reactive({ title: '', themecolor: '#D21F3C', info: '', avatar: '' })
+const serverForm = reactive({ title: '', themecolor: '#D21F3C', info: '', avatar: '', registrationMode: 'open' })
 const serverSaving = ref(false)
 const serverSaveMsg = ref('')
 const serverError = ref('')
@@ -287,7 +321,45 @@ watch(serverData, (data) => {
     serverForm.themecolor = data.themecolor ?? '#D21F3C'
     serverForm.info = data.info ?? ''
     serverForm.avatar = data.avatar ?? ''
+    serverForm.registrationMode = data.registrationMode ?? 'open'
 }, { immediate: true })
+
+// 승인 대기 중인 가입 신청
+const { data: pendingUsersData, refresh: refreshPendingUsers } = await useAsyncData(
+    'pending-users',
+    () => $fetch(`${apiBaseUrl}/api/admin/getPendingUsers`, {
+        method: 'POST',
+        body: { userid: userId.value },
+    }).then(res => Array.isArray(res) ? res : []).catch(() => []),
+)
+const pendingUsers = computed(() => pendingUsersData.value ?? [])
+const pendingError = ref('')
+
+async function approveUser(id) {
+    pendingError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/approveUser`, {
+            method: 'POST',
+            body: { userid: userId.value, id },
+        })
+        await refreshPendingUsers()
+    } catch (e) {
+        pendingError.value = e?.data?.message ?? '승인에 실패했습니다'
+    }
+}
+
+async function rejectUser(id) {
+    pendingError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/rejectUser`, {
+            method: 'POST',
+            body: { userid: userId.value, id },
+        })
+        await refreshPendingUsers()
+    } catch (e) {
+        pendingError.value = e?.data?.message ?? '거절에 실패했습니다'
+    }
+}
 
 async function submitServerInfo() {
     serverSaving.value = true

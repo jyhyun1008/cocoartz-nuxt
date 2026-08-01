@@ -24,6 +24,10 @@ export default eventHandler(async (event) => {
         throw createError({ statusCode: 401, message: '이메일 또는 비밀번호가 올바르지 않습니다' })
     }
 
+    if (!user.approved) {
+        throw createError({ statusCode: 403, message: '관리자 승인 대기 중인 계정입니다' })
+    }
+
     await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, user.id))
 
     setCookie(event, 'user-id', String(user.id), {

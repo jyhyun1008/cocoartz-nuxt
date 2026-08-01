@@ -1,5 +1,5 @@
 import { db } from '../../../utils/db'
-import { users, actors, follows, posts, likes, boosts, rooms } from '../../../db/schema'
+import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts } from '../../../db/schema'
 import { eq, and, count } from 'drizzle-orm'
 import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
@@ -69,8 +69,14 @@ export default defineEventHandler(async (event) => {
         case 'Undo':
             await handleUndo(body, user)
             break
+        case 'Accept':
+            await handleAccept(body, user)
+            break
+        case 'Reject':
+            await handleReject(body, user)
+            break
         case 'Create':
-            await handleCreate(body, domain)
+            await handleCreate(body, domain, user)
             break
         case 'Like':
             await handleLike(body, domain)
@@ -152,14 +158,75 @@ async function handleUndo(body: Record<string, unknown>, user: LocalUser) {
     }
 }
 
-async function handleCreate(body: Record<string, unknown>, domain: string) {
+async function handleAccept(body: Record<string, unknown>, user: LocalUser) {
+    const object = body.object as Record<string, unknown> | string | undefined
+    if (!object || typeof object !== 'object' || object.type !== 'Follow') return
+    const followActivityId = object.id as string | undefined
+    const actorUrl_ = body.actor as string
+    if (!followActivityId && !actorUrl_) return
+
+    await db.update(remoteFollows)
+        .set({ accepted: true })
+        .where(and(
+            eq(remoteFollows.userid, user.id),
+            followActivityId ? eq(remoteFollows.followActivityId, followActivityId) : eq(remoteFollows.targetActorUrl, actorUrl_),
+        ))
+}
+
+async function handleReject(body: Record<string, unknown>, user: LocalUser) {
+    const object = body.object as Record<string, unknown> | string | undefined
+    if (!object || typeof object !== 'object' || object.type !== 'Follow') return
+    const followActivityId = object.id as string | undefined
+    if (!followActivityId) return
+    await db.delete(remoteFollows).where(and(
+        eq(remoteFollows.userid, user.id),
+        eq(remoteFollows.followActivityId, followActivityId),
+    ))
+}
+
+// 이 유저가 팔로우 중인 원격 계정이 새 글(원본 글, 답글 아님)을 올렸을 때 개인 팔로잉 피드에 저장
+async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser) {
+    const objectId = typeof object.id === 'string' ? object.id : null
+    if (!objectId) return
+
+    const [follow] = await db.select().from(remoteFollows)
+        .where(and(eq(remoteFollows.userid, user.id), eq(remoteFollows.targetActorUrl, actorUrl_)))
+    if (!follow?.accepted) return
+
+    const [existing] = await db.select().from(remoteFeedPosts)
+        .where(and(eq(remoteFeedPosts.userid, user.id), eq(remoteFeedPosts.objectId, objectId)))
+    if (existing) return
+
+    const content = sanitizeHtml(object.content as string || '')
+    if (!content) return
+
+    await db.insert(remoteFeedPosts).values({
+        userid: user.id,
+        sourceActorUrl: actorUrl_,
+        sourceHandle: follow.targetHandle,
+        sourceName: follow.targetName,
+        sourceIconUrl: follow.targetIconUrl,
+        objectId,
+        content,
+        published: new Date((object.published as string) || Date.now()),
+    })
+    console.log(`[inbox] 원격 글 개인 피드 저장: ${objectId} → @${user.username}`)
+}
+
+async function handleCreate(body: Record<string, unknown>, domain: string, user: LocalUser) {
     const object = body.object as Record<string, unknown>
     if (!object || object.type !== 'Note') return
 
     const objectId = typeof object.id === 'string' ? object.id : null
     const inReplyTo = object.inReplyTo as string | undefined
     const actorUrl_ = body.actor as string
-    if (!objectId || !inReplyTo || !actorUrl_) return
+    if (!objectId || !actorUrl_) return
+
+    // inReplyTo가 없으면 로컬 글에 대한 답글이 아니라 팔로우 중인 원격 계정의 원본 글
+    if (!inReplyTo) {
+        await handleCreateFromFollowedAccount(object, actorUrl_, user)
+        return
+    }
 
     const parentId = parseLocalPostId(domain, inReplyTo)
     if (!parentId) return

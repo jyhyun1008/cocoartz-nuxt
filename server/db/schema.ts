@@ -11,6 +11,8 @@ export const users = pgTable('users', {
     character: text(),
     map: text(),
     isAdmin: boolean().default(false).notNull(),
+    // 승인제 가입일 때 관리자 승인 전까지 false. 기존 유저/자유 가입 유저는 true.
+    approved: boolean().default(true).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     lastLogin: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
@@ -35,6 +37,8 @@ export const servers = pgTable('servers', {
     info: text(),
     rooms: text(),
     map: text(),
+    // 'open'(자유 가입) | 'approval'(승인제) | 'closed'(가입 차단)
+    registrationMode: text().default('open').notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 
@@ -115,12 +119,25 @@ export const follows = pgTable('follows', {
     userid: integer().notNull(),
     followerActorUrl: text().notNull(),
     followerInbox: text().notNull(),
+    // 팔로우하는 쪽이 로컬 유저일 때만 채움(같은 서버 유저끼리의 팔로우 표시/조회용).
+    // 원격(fediverse) 팔로워는 계속 null — followerActorUrl/followerInbox만으로 식별.
+    followerUserId: integer(),
     accepted: boolean().default(true).notNull(),
     followActivityId: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('follows_userid_actor_idx').on(table.userid, table.followerActorUrl),
 ])
+
+// 개인 알림함 — 우선 'follow' 타입만 사용하지만 향후 확장 대비 문자열 type으로 둠
+export const notifications = pgTable('notifications', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    type: text().notNull(),
+    actorUserId: integer(),
+    read: boolean().default(false).notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+})
 
 export const boosts = pgTable('boosts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -177,6 +194,38 @@ export const timelineFollows = pgTable('timeline_follows', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('timeline_follows_target_url_idx').on(table.targetActorUrl),
+])
+
+// 유저 개인이 팔로우하는 원격(fediverse) 계정 — timelineFollows의 유저별 버전
+export const remoteFollows = pgTable('remote_follows', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    targetActorUrl: text().notNull(),
+    targetInbox: text().notNull(),
+    targetHandle: text(),
+    targetName: text(),
+    targetIconUrl: text(),
+    accepted: boolean().default(false).notNull(),
+    followActivityId: text(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('remote_follows_userid_target_idx').on(table.userid, table.targetActorUrl),
+])
+
+// 유저 개인 팔로잉 피드에 들어오는 원격 글 — timelinePosts의 유저별 버전
+export const remoteFeedPosts = pgTable('remote_feed_posts', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    sourceActorUrl: text().notNull(),
+    sourceHandle: text(),
+    sourceName: text(),
+    sourceIconUrl: text(),
+    objectId: text().notNull(),
+    content: text().notNull(),
+    published: timestamp({ withTimezone: true }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('remote_feed_posts_userid_object_idx').on(table.userid, table.objectId),
 ])
 
 export const timelinePosts = pgTable('timeline_posts', {
