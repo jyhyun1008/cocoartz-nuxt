@@ -1,5 +1,8 @@
 <template>
     <div id="character-wrapper" :class="{ 'handheld-anim': props.animateSelf && !props.tileMode, 'tile-mode': props.tileMode }" :style="tileWrapperStyle">
+        <Transition name="bubble-fade">
+            <div v-if="bubbleText" class="speech-bubble">{{ bubbleText }}</div>
+        </Transition>
         <div id="character" :style="characterScale">
             <div class="char-slice char-slice-top" :style="charTopSliceStyle">
                 <img
@@ -36,7 +39,11 @@ const props = defineProps({
     localX: { type: Number, default: 0 },
     localY: { type: Number, default: 0 },
     zIndex: { type: Number, default: undefined },
+    userId: { type: Number, default: null },
 })
+
+const { bubbles } = useSpeechBubbles()
+const bubbleText = computed(() => props.userId != null ? bubbles.value[props.userId]?.text : null)
 
 const tileOffset = computed(() => {
     if (!props.tileMode) return 0
@@ -178,6 +185,42 @@ onMounted(() => {
     height: 512px;
     top: 0px;
     left: -128px;
+}
+
+.speech-bubble {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 180px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.95);
+    color: #1a1a22;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    z-index: 10001;
+}
+
+.speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(255,255,255,0.95);
+}
+
+.bubble-fade-enter-active, .bubble-fade-leave-active {
+    transition: opacity 0.2s ease;
+}
+.bubble-fade-enter-from, .bubble-fade-leave-to {
+    opacity: 0;
 }
 
 .char-sprite-bottom {

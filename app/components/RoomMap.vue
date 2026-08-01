@@ -59,6 +59,7 @@
                         :local-x="localPosition.x"
                         :local-y="localPosition.y"
                         :z-index="charZIndex"
+                        :user-id="userId"
                     />
                     <!-- 다른 유저 -->
                     <OtherCharacter
@@ -71,6 +72,7 @@
                         :z-index="Math.floor((other.y + 1) * -10) + 9999"
                         :direction="other.dir"
                         :name="other.user?.knownas ?? other.user?.username ?? '?'"
+                        :user-id="other.userId"
                     />
                 </div>
             </div>
@@ -383,6 +385,13 @@ watch(realtimeChats, () => {
     nextTick(() => {
         if (chatsWrapper.value) chatsWrapper.value.scrollTop = chatsWrapper.value.scrollHeight
     })
+})
+
+// 새 채팅이 오면 보낸 사람 캐릭터 머리 위에 말풍선 표시 (챗방/TTS방 공통)
+const { showBubble } = useSpeechBubbles()
+watch(realtimeChats, (list, prevList) => {
+    const newOnes = list.slice(prevList?.length ?? 0)
+    for (const chat of newOnes) showBubble(chat.userid, chat.content)
 })
 
 function toggleChatSize() {

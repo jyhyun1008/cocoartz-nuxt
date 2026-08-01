@@ -69,7 +69,7 @@ const props = defineProps({
     },
 })
 
-const { userId } = useCurrentUser()
+const { sendChat: wsSendChat, realtimeChats } = useRoomSocket()
 const chatInput = ref('')
 const chatInputEl = ref(null)
 
@@ -82,10 +82,15 @@ watch(chatInput, () => {
 })
 const isSpeaking = ref(false)
 const chatsWrapper = ref(null)
-const chatList = ref([])
+const chatHistory = ref([])   // 방 입장 시 REST로 불러온 과거 채팅
 const voiceSize = ref('large')
-let lastChatId = 0
-let pollTimer = null
+
+// 과거 채팅(REST) + 실시간 채팅(WS) 합산, ID 기준 중복 제거 — 메인 챗방(RoomMap.vue)과 동일 패턴
+const chatList = computed(() => {
+    const seen = new Set(chatHistory.value.map(c => c.id))
+    const fresh = realtimeChats.value.filter(c => !seen.has(c.id))
+    return [...chatHistory.value, ...fresh]
+})
 
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -118,41 +123,21 @@ function scrollToBottom() {
     })
 }
 
-async function sendChat() {
+function sendChat() {
     if (!chatInput.value.trim()) return
     const content = chatInput.value.trim()
     chatInput.value = ''
     nextTick(() => { if (chatInputEl.value) chatInputEl.value.style.height = 'auto' })
-    const newChat = await $fetch(`${apiBaseUrl}/api/sendChat`, {
-        method: 'POST',
-        body: { ...props.ids, userid: userId.value, content },
-    })
-    chatList.value.push(newChat)
-    lastChatId = Math.max(lastChatId, newChat.id)
-    speak(content, newChat.user?.knownas)
-    scrollToBottom()
+    // 서버 저장 + 브로드캐스트는 WS가 처리하고, 본인 화면 반영은 realtimeChats로 돌아오는 echo로 처리
+    wsSendChat(props.ids.serverid, props.ids.roomid, content)
 }
 
-async function pollNewChats() {
-    if (!props.ids.roomid) return
-    try {
-        const all = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
-            method: 'POST',
-            body: props.ids,
-        })
-        if (!Array.isArray(all)) return
-        const newOnes = all.filter(c => c.id > lastChatId && c.userid !== userId.value)
-        if (!newOnes.length) return
-        for (const chat of newOnes) {
-            chatList.value.push(chat)
-            speak(chat.content, chat.user?.knownas)
-        }
-        lastChatId = Math.max(...all.map(c => c.id))
-        scrollToBottom()
-    } catch {
-        // 폴링 오류 무시
-    }
-}
+// 실시간(WS) 채팅 수신 시 TTS로 읽어주기 (본인 발화 포함 — echo로 한 번만 옴)
+watch(realtimeChats, (list, prevList) => {
+    const newOnes = list.slice(prevList?.length ?? 0)
+    for (const chat of newOnes) speak(chat.content, chat.user?.knownas)
+    if (newOnes.length) scrollToBottom()
+})
 
 onMounted(() => {
     emit('setBlur', voiceSize.value === 'large')
@@ -161,22 +146,15 @@ onMounted(() => {
 // roomid는 roomData 비동기 로딩 후 채워지므로 watch로 대기
 watch(() => props.ids.roomid, async (roomid) => {
     if (!roomid) return
-    if (pollTimer) clearInterval(pollTimer)
-
     const initial = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
         method: 'POST',
         body: props.ids,
     })
-    if (Array.isArray(initial) && initial.length) {
-        chatList.value = initial
-        lastChatId = initial[initial.length - 1].id
-        scrollToBottom()
-    }
-    pollTimer = setInterval(pollNewChats, 5000)
+    chatHistory.value = Array.isArray(initial) ? initial : []
+    scrollToBottom()
 }, { immediate: true })
 
 onUnmounted(() => {
-    if (pollTimer) clearInterval(pollTimer)
     if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel()
     }
