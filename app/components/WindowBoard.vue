@@ -29,18 +29,37 @@
                     </div>
                     <!-- 연합 팔로잉 피드(외부) 글 -->
                     <div v-else class="post-card external-post-card" @click="openRemotePost(entry.post)">
-                        <div class="post-card-title">
-                            <i class="hgi hgi-stroke hgi-globe-02"></i>
-                            <template v-if="entry.post.summary">
-                                <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
-                                <span>{{ entry.post.summary }}</span>
-                            </template>
-                            <span v-else class="preview-text">{{ stripHtml(entry.post.content) }}</span>
+                        <div class="external-post-body">
+                            <div class="post-card-title">
+                                <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                <template v-if="entry.post.summary">
+                                    <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
+                                    <span>{{ entry.post.summary }}</span>
+                                </template>
+                                <span v-else class="preview-text">{{ stripHtml(entry.post.content) }}</span>
+                            </div>
+                            <div class="post-card-meta">
+                                <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
+                                <span class="datetime">{{ formatDate(entry.post.published) }}</span>
+                            </div>
                         </div>
-                        <div class="post-card-meta">
-                            <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
-                            <span class="datetime">{{ formatDate(entry.post.published) }}</span>
-                        </div>
+                        <a
+                            class="remote-server-badge"
+                            :href="`https://${remoteServerHost(entry.post.sourceActorUrl)}`"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :title="remoteServerHost(entry.post.sourceActorUrl)"
+                            :style="{ background: remoteServerColor(remoteServerHost(entry.post.sourceActorUrl)) }"
+                            @click.stop
+                        >
+                            <img
+                                v-if="!faviconFailedHosts.has(remoteServerHost(entry.post.sourceActorUrl))"
+                                :src="`https://${remoteServerHost(entry.post.sourceActorUrl)}/favicon.ico`"
+                                alt=""
+                                @error="onFaviconError(remoteServerHost(entry.post.sourceActorUrl))"
+                            />
+                            <span v-else>{{ remoteServerHost(entry.post.sourceActorUrl)[0]?.toUpperCase() }}</span>
+                        </a>
                     </div>
                 </template>
             </div>
@@ -195,6 +214,24 @@ const { data: remoteFeedData } = await useAsyncData(
 
 function stripHtml(html) {
     return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// 원격 글 작성자의 서버 뱃지 — actorUrl에서 호스트만 뽑아서 서버 홈으로 링크 연결
+function remoteServerHost(actorUrl) {
+    try { return new URL(actorUrl).host } catch { return '' }
+}
+
+// 실제 원격 서버의 테마 색은 알 방법이 없어서(구현체마다 제각각이라) 호스트 이름을 해시해
+// 항상 같은 색이 나오도록 만든 "그 서버만의" 색 — 파비콘을 못 불러올 때의 배경/글자색으로도 씀
+function remoteServerColor(host) {
+    let hash = 0
+    for (let i = 0; i < host.length; i++) hash = host.charCodeAt(i) + ((hash << 5) - hash)
+    return `hsl(${Math.abs(hash) % 360}, 55%, 42%)`
+}
+
+const faviconFailedHosts = ref(new Set())
+function onFaviconError(host) {
+    faviconFailedHosts.value = new Set(faviconFailedHosts.value).add(host)
 }
 
 const mergedFeed = computed(() => {
@@ -360,9 +397,43 @@ onMounted(() => {
 }
 
 .external-post-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     border-left: 2px solid rgba(124,196,255,0.4);
 }
 .external-post-card .hgi-globe-02 { color: #7cc4ff; flex-shrink: 0; }
+
+.external-post-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+}
+
+.remote-server-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: transform 0.1s;
+}
+.remote-server-badge:hover { transform: scale(1.06); }
+.remote-server-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
 
 .cw-icon {
     color: #ffb454;

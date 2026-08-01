@@ -335,12 +335,26 @@ async function handleDelete(body: Record<string, unknown>) {
     const actorUrl_ = body.actor as string | undefined
     if (!actorUrl_) return
 
-    // 원격 계정 삭제로 간주하고 해당 액터의 흔적 정리
-    await db.delete(follows).where(eq(follows.followerActorUrl, actorUrl_))
-    await db.delete(likes).where(eq(likes.remoteActorUrl, actorUrl_))
-    await db.delete(boosts).where(eq(boosts.actorUrl, actorUrl_))
-    await db.delete(posts).where(eq(posts.remoteActorUrl, actorUrl_))
-    console.log(`[inbox] 원격 계정 정리: ${actorUrl_}`)
+    // object가 문자열(objectId) 또는 Tombstone일 수 있음. 없거나 액터 자기 자신을
+    // 가리키면 "계정 자체" 삭제, 그 외엔 글 하나만 삭제된 것으로 구분해야 함
+    // (기존엔 이 구분이 없어서 답글 하나만 지워도 그 액터의 팔로우/좋아요/부스트/글이
+    // 전부 삭제되는 오류가 있었고, remoteFeedPosts는 아예 정리 대상에서 빠져있었음)
+    const object = body.object as Record<string, unknown> | string | undefined
+    const deletedObjectId = typeof object === 'string' ? object : (object?.id as string | undefined)
+
+    if (!deletedObjectId || deletedObjectId === actorUrl_) {
+        await db.delete(follows).where(eq(follows.followerActorUrl, actorUrl_))
+        await db.delete(likes).where(eq(likes.remoteActorUrl, actorUrl_))
+        await db.delete(boosts).where(eq(boosts.actorUrl, actorUrl_))
+        await db.delete(posts).where(eq(posts.remoteActorUrl, actorUrl_))
+        await db.delete(remoteFeedPosts).where(eq(remoteFeedPosts.sourceActorUrl, actorUrl_))
+        console.log(`[inbox] 원격 계정 정리: ${actorUrl_}`)
+        return
+    }
+
+    await db.delete(posts).where(eq(posts.objectId, deletedObjectId))
+    await db.delete(remoteFeedPosts).where(eq(remoteFeedPosts.objectId, deletedObjectId))
+    console.log(`[inbox] 원격 글 삭제 반영: ${deletedObjectId}`)
 }
 
 async function handleUpdate(body: Record<string, unknown>) {
