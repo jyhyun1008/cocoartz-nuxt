@@ -6,7 +6,7 @@
             <span v-else-if="view === 'create'">새 채널 만들기</span>
             <span v-else-if="view === 'edit'">채널 편집</span>
             <span v-else-if="view === 'map-edit'">채널 맵 편집</span>
-            <button v-if="view !== 'list'" class="back-btn-header" @click="view = view === 'map-edit' ? 'edit' : 'list'">← 뒤로</button>
+            <button v-if="view !== 'list'" class="back-btn-header" @click="view === 'map-edit' ? closeMapEdit() : (view = 'list')">← 뒤로</button>
             <button class="window-close-btn" @click="$emit('close')">✕</button>
         </div>
 
@@ -56,6 +56,30 @@
                     {{ serverSaving ? '저장 중...' : '서버 정보 저장' }}
                 </button>
                 <p v-if="serverSaveMsg" class="admin-save-msg">{{ serverSaveMsg }}</p>
+            </div>
+
+            <!-- 기본 페이지(마을 / 공지 게시판) 맵 편집 -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">기본 페이지</span>
+                </div>
+                <p class="admin-label-hint" style="margin:-4px 0 10px">
+                    사이드바의 "마을"·"공지 게시판"은 고정 링크라 채널 목록에 만들 필요 없이 여기서 바로 맵을 편집할 수 있어요.
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button
+                        v-for="pinned in PINNED_PAGES"
+                        :key="pinned.path"
+                        class="admin-add-btn"
+                        style="margin-left:0"
+                        :disabled="pinnedLoading === pinned.path"
+                        @click="openPinnedMapEdit(pinned)"
+                    >
+                        <i class="hgi hgi-stroke hgi-map-01"></i>
+                        {{ pinnedLoading === pinned.path ? '불러오는 중...' : `${pinned.knownas} 맵 편집` }}
+                    </button>
+                </div>
+                <p v-if="pinnedError" class="admin-error">{{ pinnedError }}</p>
             </div>
 
             <!-- 채널 목록 섹션 -->
@@ -208,7 +232,7 @@
                 :map-data="editTarget.map ?? null"
                 :room-id="editTarget.id"
                 @saved="onMapSaved"
-                @cancel="view = 'edit'"
+                @cancel="closeMapEdit"
             />
         </div>
 
@@ -337,6 +361,15 @@ const editTarget = ref(null)
 const newTitleName = ref('')
 const federatedChecked = ref(false)
 
+// 사이드바에 하드코딩된 고정 페이지 — 채널 목록(servers.rooms)과 무관하게 경로로 바로 맵 편집
+const PINNED_PAGES = [
+    { path: '/', knownas: '마을', type: 'room' },
+    { path: '/noti', knownas: '공지 게시판', type: 'board' },
+]
+const pinnedEdit = ref(false)
+const pinnedLoading = ref('')
+const pinnedError = ref('')
+
 const form = reactive({ knownas: '', path: '', type: 'room', info: '' })
 
 function isTitleEntry(entry) {
@@ -411,6 +444,7 @@ async function saveOrder() {
 
 // 채널 생성 폼 열기
 function openCreate() {
+    pinnedEdit.value = false
     form.knownas = ''
     form.path = ''
     form.type = 'room'
@@ -445,11 +479,16 @@ async function submitCreate() {
 
 function onMapSaved(mapJson) {
     editTarget.value = { ...editTarget.value, map: mapJson }
-    view.value = 'edit'
+    view.value = pinnedEdit.value ? 'list' : 'edit'
+}
+
+function closeMapEdit() {
+    view.value = pinnedEdit.value ? 'list' : 'edit'
 }
 
 // 채널 편집 폼 열기
 function openEdit(room) {
+    pinnedEdit.value = false
     editTarget.value = room
     form.knownas = room.knownas
     form.path = room.path
@@ -458,6 +497,24 @@ function openEdit(room) {
     federatedChecked.value = !!room.federated
     formError.value = ''
     view.value = 'edit'
+}
+
+// 마을/공지 게시판처럼 고정 경로의 room을 찾거나 생성해서 바로 맵 편집으로 이동
+async function openPinnedMapEdit(pinned) {
+    pinnedError.value = ''
+    pinnedLoading.value = pinned.path
+    try {
+        const room = await $fetch(`${apiBaseUrl}/api/admin/getOrCreateRoomByPath`, {
+            method: 'POST',
+            body: { userid: userId.value, ...pinned },
+        })
+        pinnedEdit.value = true
+        editTarget.value = room
+        view.value = 'map-edit'
+    } catch (e) {
+        pinnedError.value = e?.data?.message ?? '오류가 발생했습니다'
+    }
+    pinnedLoading.value = ''
 }
 
 async function submitEdit() {
