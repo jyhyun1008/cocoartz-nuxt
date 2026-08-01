@@ -16,14 +16,26 @@
 
         <!-- 목록 -->
         <div v-if="currentView === 'list'" id="board-wrapper">
-            <div v-if="topLevelPosts.length" class="board">
-                <div v-for="post in topLevelPosts" :key="post.id" class="postlist" @click="openPost(post.id)">
-                    <div class="posttitle">
-                        <div>{{ post.title }}</div>
-                        <span class="datetime">{{ formatDate(post.createdAt) }}</span>
+            <div v-if="mergedFeed.length" class="board">
+                <template v-for="entry in mergedFeed" :key="`${entry.kind}-${entry.post.id}`">
+                    <!-- 로컬 글 -->
+                    <div v-if="entry.kind === 'local'" class="postlist" @click="openPost(entry.post.id)">
+                        <div class="posttitle">
+                            <div>{{ entry.post.title }}</div>
+                            <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
+                        </div>
+                        <NuxtLink :to="entry.post.user?.username ? `/@${entry.post.user.username}` : '#'" class="post-author user-name-link">{{ entry.post.user?.knownas ?? entry.post.user?.username }}</NuxtLink>
                     </div>
-                    <NuxtLink :to="post.user?.username ? `/@${post.user.username}` : '#'" class="post-author user-name-link">{{ post.user?.knownas ?? post.user?.username }}</NuxtLink>
-                </div>
+                    <!-- 연합 타임라인(외부) 글 -->
+                    <a v-else class="postlist external-postlist" :href="entry.post.sourceActorUrl" target="_blank" rel="noopener noreferrer">
+                        <div class="posttitle">
+                            <i class="hgi hgi-stroke hgi-globe-02"></i>
+                            <div>{{ stripHtml(entry.post.content) }}</div>
+                            <span class="datetime">{{ formatDate(entry.post.published) }}</span>
+                        </div>
+                        <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
+                    </a>
+                </template>
             </div>
             <div v-else class="empty">게시물이 없습니다.</div>
         </div>
@@ -117,6 +129,10 @@ const props = defineProps({
         type: Object,
         default: () => ({ serverid: 0, roomid: 0 }),
     },
+    isFederated: {
+        type: Boolean,
+        default: false,
+    },
 })
 
 const { userId } = useCurrentUser()
@@ -137,6 +153,22 @@ const { data: postData, refresh: refreshPosts } = await useAsyncData(
 
 const topLevelPosts = computed(() => (postData.value ?? []).filter(p => !p.replyto))
 
+// 연합 게시판이면 팔로우한 외부 계정의 타임라인 글도 같이 섞어서 보여줌 (CW 없음)
+const { data: timelinePostsData } = await useAsyncData(
+    'board-timeline-posts',
+    () => props.isFederated
+        ? $fetch(`${apiBaseUrl}/api/getTimelinePosts`).then(res => (Array.isArray(res) ? res : []))
+        : Promise.resolve([]),
+    { watch: [() => props.isFederated] }
+)
+
+const mergedFeed = computed(() => {
+    const local = topLevelPosts.value.map(p => ({ kind: 'local', sortDate: p.createdAt, post: p }))
+    if (!props.isFederated) return local
+    const external = (timelinePostsData.value ?? []).map(p => ({ kind: 'external', sortDate: p.published, post: p }))
+    return [...local, ...external].sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate))
+})
+
 const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '👀', '✅', '💯', '🥰']
 
 const currentView = ref('list')
@@ -146,6 +178,10 @@ const newContent = ref('')
 const commentContent = ref('')
 const showPicker = ref(false)
 const pickerWrapRef = ref(null)
+
+function stripHtml(html) {
+    return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 
 function formatDate(str) {
     if (!str) return ''
@@ -256,6 +292,14 @@ onMounted(() => {
 }
 
 .postlist:hover { background: rgba(255,255,255,0.05); }
+
+.external-postlist {
+    text-decoration: none;
+    color: inherit;
+    border-left: 2px solid rgba(124,196,255,0.4);
+}
+.external-postlist .posttitle > div { color: rgba(255,255,255,0.7); }
+.external-postlist .hgi-globe-02 { color: #7cc4ff; flex-shrink: 0; }
 
 .posttitle {
     display: flex;

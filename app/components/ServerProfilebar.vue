@@ -1,6 +1,7 @@
 <template>
     <div id="profile-bg">
-        <div id="profile-wrapper">
+        <!-- 로그인 상태 -->
+        <div v-if="isLoggedIn" id="profile-wrapper">
             <NuxtLink :to="i?.username ? `/@${i.username}` : '#'" id="profile-left-link">
                 <div id="avatar-wrapper">
                     <NuxtImg v-if="i?.avatar" :src="i.avatar" />
@@ -18,6 +19,24 @@
                 <i class="hgi hgi-stroke hgi-logout-02"></i>
             </div>
         </div>
+
+        <!-- 비로그인 상태 -->
+        <NuxtLink v-else to="/login" id="profile-wrapper" class="guest">
+            <div id="profile-left-link">
+                <div id="avatar-wrapper">
+                    <div class="avatar-placeholder guest-avatar">
+                        <i class="hgi hgi-stroke hgi-user"></i>
+                    </div>
+                </div>
+                <div id="text-wrapper">
+                    <div class="knownas">로그인하지 않음</div>
+                    <div class="username">눌러서 로그인 / 가입</div>
+                </div>
+            </div>
+            <div id="settings-wrapper" title="로그인">
+                <i class="hgi hgi-stroke hgi-login-02"></i>
+            </div>
+        </NuxtLink>
     </div>
 </template>
 
@@ -25,7 +44,7 @@
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const router = useRouter()
-const { userId } = useCurrentUser()
+const { userId, isLoggedIn } = useCurrentUser()
 
 const { data: iData } = await useAsyncData(
     'i-data',
@@ -147,4 +166,22 @@ async function logout() {
     transition: background 0.1s;
 }
 #profile-left-link:hover { background: rgba(255,255,255,0.06); }
+
+/* 비로그인 상태 */
+#profile-wrapper.guest {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+#profile-wrapper.guest:hover { background: rgba(255,255,255,0.05); }
+
+.guest-avatar {
+    background-color: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.4);
+    font-size: 1.1rem;
+}
+
+.guest .knownas { color: rgba(255,255,255,0.55); }
+.guest .username { color: rgba(255,255,255,0.3); }
 </style>
