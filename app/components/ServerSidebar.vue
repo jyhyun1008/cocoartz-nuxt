@@ -1,5 +1,6 @@
 <template>
-    <div id="sidebar-wrapper">
+    <div v-if="isOpen" id="mobile-nav-backdrop" @click="close"></div>
+    <div id="sidebar-wrapper" :class="{ open: isOpen }">
         <div id="basic-wrapper">
             <div class="side-title">기본</div>
             <NuxtLink :to="fullPath">
@@ -72,6 +73,7 @@ const props = defineProps({
 })
 
 const { presenceByRoom } = useRoomSocket()
+const { isOpen, close } = useMobileNav()
 
 function roomPresence(roomPath: string) {
   return presenceByRoom.value[roomPath] ?? []
@@ -217,5 +219,30 @@ const notiPath = '/noti'
 
 .side-items:hover .side-icon {
     color: rgba(255,255,255,0.7);
+}
+
+#mobile-nav-backdrop {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    #sidebar-wrapper {
+        z-index: 9998;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.35);
+    }
+
+    #sidebar-wrapper.open {
+        transform: translateX(0);
+    }
+
+    #mobile-nav-backdrop {
+        display: block;
+        position: fixed;
+        inset: 3rem 0 0 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9997;
+    }
 }
 </style>

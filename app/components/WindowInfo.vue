@@ -46,4 +46,10 @@ defineEmits(['close'])
     color: rgba(255,255,255,0.3);
     margin: 0;
 }
+
+@media (max-width: 768px) {
+    #infowindow-wrapper {
+        width: calc(100% - 24px);
+    }
+}
 </style>

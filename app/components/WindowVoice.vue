@@ -222,6 +222,17 @@ onUnmounted(() => {
     box-shadow: var(--modal-shadow);
 }
 
+@media (max-width: 768px) {
+    #voice-wrapper.little {
+        width: calc(100% - 140px);
+        max-width: 400px;
+    }
+
+    #voice-wrapper.large {
+        width: calc(100% - 24px);
+    }
+}
+
 .tts-badge {
     font-size: 0.72rem;
     font-weight: 700;

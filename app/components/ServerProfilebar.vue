@@ -1,5 +1,5 @@
 <template>
-    <div id="profile-bg">
+    <div id="profile-bg" :class="{ open: isOpen }">
         <!-- 로그인 상태 -->
         <div v-if="isLoggedIn" id="profile-wrapper">
             <NuxtLink :to="i?.username ? `/@${i.username}` : '#'" id="profile-left-link">
@@ -45,6 +45,7 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const router = useRouter()
 const { userId, isLoggedIn } = useCurrentUser()
+const { isOpen } = useMobileNav()
 
 const { data: iData } = await useAsyncData(
     'i-data',
@@ -184,4 +185,17 @@ async function logout() {
 
 .guest .knownas { color: rgba(255,255,255,0.55); }
 .guest .username { color: rgba(255,255,255,0.3); }
+
+@media (max-width: 768px) {
+    #profile-bg {
+        z-index: 9998;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.35);
+    }
+
+    #profile-bg.open {
+        transform: translateX(0);
+    }
+}
 </style>

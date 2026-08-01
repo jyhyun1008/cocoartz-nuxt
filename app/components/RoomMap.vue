@@ -184,6 +184,11 @@
              class="reopen-btn" @click="openOverlay">
             <i class="hgi hgi-stroke hgi-globe-02"></i> 연합 타임라인 열기
         </div>
+
+        <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) -->
+        <div v-show="!controlsBlocked" id="mobile-joystick" ref="joystickBase">
+            <div id="joystick-knob" :style="joystickKnobStyle"></div>
+        </div>
     </div>
 </template>
 
@@ -335,6 +340,22 @@ const tilesFront = computed(() =>
 const charZIndex = computed(() =>
     (localPosition.value.y) * -10 + 9999
 )
+
+// 이동/줌 조작이 막혀야 하는 상태 (채팅 확대 또는 오버레이가 떠 있음)
+// 키보드/휠(onMounted)과 모바일 조이스틱/핀치줌 핸들러가 공유
+const controlsBlocked = computed(() => {
+    if (props.page === 'none' || props.page === 'room') {
+        return showChatPanel.value && chatSize.value === 'large'
+    }
+    return showOverlay.value
+})
+
+// 모바일 조이스틱 노브 시각 위치
+const joystickBase = ref(null)
+const joystickKnobOffset = ref({ x: 0, y: 0 })
+const joystickKnobStyle = computed(() => ({
+    transform: `translate(${joystickKnobOffset.value.x}px, ${joystickKnobOffset.value.y}px)`,
+}))
 
 const OVERLAY_TYPES = ['board', 'info', 'members', 'settings', 'wiki', 'timeline']
 
@@ -583,22 +604,12 @@ onMounted(() => {
     connect(apiBaseUrl)
     joinRoom(props.path, userId.value, position.x, position.y)
 
-    // WASD 이동
+    // WASD 이동 (모바일 조이스틱과 한 칸 이동 로직 공유)
     const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
+    const MOVES = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
 
-    function isControlsBlocked() {
-        if (props.page === 'none' || props.page === 'room') {
-            return showChatPanel.value && chatSize.value === 'large'
-        }
-        return showOverlay.value
-    }
-
-    function onKeydown(e) {
-        if (isControlsBlocked()) return
-        const tag = document.activeElement?.tagName
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return
-        const moves = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
-        const delta = moves[e.code]
+    function moveStep(code) {
+        const delta = MOVES[code]
         if (!delta) return
         position.x += delta[0]
         position.y += delta[1]
@@ -606,30 +617,154 @@ onMounted(() => {
         charDepth.value = -position.y + 2
         updateMapPosition(position)
         localStorage.setItem('position', JSON.stringify(position))
-        sendPosition(position.x, position.y, e.code)
+        sendPosition(position.x, position.y, code)
+    }
+
+    function onKeydown(e) {
+        if (controlsBlocked.value) return
+        const tag = document.activeElement?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return
+        moveStep(e.code)
     }
     function onKeyup(e) {
         if (!MOVE_KEYS.has(e.code)) return
         sendPosition(position.x, position.y, null)
     }
 
-    const mapWrapper = document.querySelector('#map-wrapper')
-    function onWheel(e) {
-        if (isControlsBlocked()) return
-        e.preventDefault()
-        const delta = e.deltaY > 0 ? -0.1 : 0.1
+    // 휠/핀치 줌 (같은 clamp 로직 공유)
+    function applyZoomDelta(delta) {
         zoomLevel.value = Math.max(0.7, Math.min(2.5, zoomLevel.value + delta))
         updateMapPosition(position)
+    }
+
+    const mapWrapper = document.querySelector('#map-wrapper')
+    function onWheel(e) {
+        if (controlsBlocked.value) return
+        e.preventDefault()
+        applyZoomDelta(e.deltaY > 0 ? -0.1 : 0.1)
     }
 
     window.addEventListener('keydown', onKeydown)
     window.addEventListener('keyup', onKeyup)
     mapWrapper?.addEventListener('wheel', onWheel, { passive: false })
 
+    // 핀치 줌 (두 손가락). 한 손가락 터치는 그대로 통과시켜 채팅 스크롤 등을 방해하지 않음
+    let pinchStartDist = null
+    function touchDistance(touches) {
+        const [a, b] = touches
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+    }
+    function onMapTouchStart(e) {
+        if (e.touches.length === 2) pinchStartDist = touchDistance(e.touches)
+    }
+    function onMapTouchMove(e) {
+        if (e.touches.length !== 2 || pinchStartDist === null) return
+        if (controlsBlocked.value) return
+        e.preventDefault()
+        const dist = touchDistance(e.touches)
+        const delta = (dist - pinchStartDist) * 0.004
+        if (Math.abs(delta) > 0.003) {
+            applyZoomDelta(delta)
+            pinchStartDist = dist
+        }
+    }
+    function onMapTouchEnd(e) {
+        if (e.touches.length < 2) pinchStartDist = null
+    }
+    mapWrapper?.addEventListener('touchstart', onMapTouchStart, { passive: true })
+    mapWrapper?.addEventListener('touchmove', onMapTouchMove, { passive: false })
+    mapWrapper?.addEventListener('touchend', onMapTouchEnd, { passive: true })
+    mapWrapper?.addEventListener('touchcancel', onMapTouchEnd, { passive: true })
+
+    // 모바일 이동 조이스틱: 노브를 4방향(상/하/좌/우) 중 하나로 스냅해 누르는 동안 반복 이동
+    const JOY_MAX_RADIUS = 32
+    const JOY_REPEAT_MS = 180
+    let joyTouchId = null
+    let joyCenter = { x: 0, y: 0 }
+    let joyActiveDir = null
+    let joyInterval = null
+
+    function directionFromDelta(dx, dy) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return null
+        return Math.abs(dx) > Math.abs(dy)
+            ? (dx > 0 ? 'KeyD' : 'KeyA')
+            : (dy > 0 ? 'KeyS' : 'KeyW')
+    }
+
+    function startJoystickMove(code) {
+        moveStep(code)
+        clearInterval(joyInterval)
+        joyInterval = setInterval(() => {
+            if (controlsBlocked.value) return
+            moveStep(code)
+        }, JOY_REPEAT_MS)
+    }
+
+    function stopJoystickMove() {
+        clearInterval(joyInterval)
+        joyInterval = null
+        joystickKnobOffset.value = { x: 0, y: 0 }
+        sendPosition(position.x, position.y, null)
+    }
+
+    function onJoystickTouchStart(e) {
+        e.preventDefault()
+        if (controlsBlocked.value) return
+        const touch = e.changedTouches[0]
+        joyTouchId = touch.identifier
+        const rect = e.currentTarget.getBoundingClientRect()
+        joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        joyActiveDir = null
+    }
+
+    function onJoystickTouchMove(e) {
+        if (joyTouchId === null) return
+        const touch = Array.from(e.changedTouches).find(t => t.identifier === joyTouchId)
+        if (!touch) return
+        e.preventDefault()
+        const dx = touch.clientX - joyCenter.x
+        const dy = touch.clientY - joyCenter.y
+        const dist = Math.min(Math.hypot(dx, dy), JOY_MAX_RADIUS)
+        const angle = Math.atan2(dy, dx)
+        joystickKnobOffset.value = { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist }
+
+        const dir = directionFromDelta(dx, dy)
+        if (dir !== joyActiveDir) {
+            clearInterval(joyInterval)
+            joyInterval = null
+            joyActiveDir = dir
+            if (dir && !controlsBlocked.value) startJoystickMove(dir)
+        }
+    }
+
+    function onJoystickTouchEnd(e) {
+        if (joyTouchId === null) return
+        const touch = Array.from(e.changedTouches).find(t => t.identifier === joyTouchId)
+        if (!touch) return
+        joyTouchId = null
+        joyActiveDir = null
+        stopJoystickMove()
+    }
+
+    const joyEl = joystickBase.value
+    joyEl?.addEventListener('touchstart', onJoystickTouchStart, { passive: false })
+    joyEl?.addEventListener('touchmove', onJoystickTouchMove, { passive: false })
+    joyEl?.addEventListener('touchend', onJoystickTouchEnd, { passive: true })
+    joyEl?.addEventListener('touchcancel', onJoystickTouchEnd, { passive: true })
+
     onUnmounted(() => {
         window.removeEventListener('keydown', onKeydown)
         window.removeEventListener('keyup', onKeyup)
         mapWrapper?.removeEventListener('wheel', onWheel)
+        mapWrapper?.removeEventListener('touchstart', onMapTouchStart)
+        mapWrapper?.removeEventListener('touchmove', onMapTouchMove)
+        mapWrapper?.removeEventListener('touchend', onMapTouchEnd)
+        mapWrapper?.removeEventListener('touchcancel', onMapTouchEnd)
+        joyEl?.removeEventListener('touchstart', onJoystickTouchStart)
+        joyEl?.removeEventListener('touchmove', onJoystickTouchMove)
+        joyEl?.removeEventListener('touchend', onJoystickTouchEnd)
+        joyEl?.removeEventListener('touchcancel', onJoystickTouchEnd)
+        clearInterval(joyInterval)
     })
 })
 </script>
@@ -643,6 +778,55 @@ onMounted(() => {
     right: 0;
     overflow: hidden;
     background-color: var(--mapbg);
+    touch-action: pan-x pan-y;
+}
+
+/* 모바일 전용 이동 조이스틱: 기본 숨김, 768px 이하에서만 노출 */
+#mobile-joystick {
+    display: none;
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    z-index: 150;
+    touch-action: none;
+}
+
+#joystick-knob {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 46px;
+    height: 46px;
+    margin: -23px 0 0 -23px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.55);
+    transition: transform 0.05s linear;
+}
+
+@media (max-width: 768px) {
+    #map-wrapper {
+        width: 100vw;
+    }
+
+    #mobile-joystick {
+        display: block;
+    }
+
+    /* 조이스틱과 겹치지 않도록 채팅 패널(작은 상태)을 우측에 여유를 두고 좁힘 */
+    #chatroom-wrapper.little {
+        width: calc(100% - 140px);
+        max-width: 400px;
+        left: 12px;
+    }
+
+    #chatroom-wrapper.large {
+        width: calc(100% - 24px);
+    }
 }
 
 @keyframes handheld {

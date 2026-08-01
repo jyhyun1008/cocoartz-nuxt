@@ -1,5 +1,8 @@
 <template>
     <div id="header-wrapper">
+        <button id="mobile-nav-toggle" type="button" @click="toggleMobileNav" aria-label="메뉴 열기">
+            <i class="hgi hgi-stroke hgi-menu-01"></i>
+        </button>
         <div id="title-wrapper">
             <NuxtLink :to="fullPath" id="title-link">
                 <NuxtImg v-if="props.avatar" id="serveravatar" :src="props.avatar" />
@@ -33,6 +36,8 @@ const props = defineProps({
   slug: { type: String, required: true },
   avatar: String,
 })
+
+const { toggle: toggleMobileNav } = useMobileNav()
 
 const fullPath = '/'
 const infoPath = '/info'
@@ -132,5 +137,34 @@ const settingsPath = '/settings'
 
 .bycocoartz a {
     color: inherit !important;
+}
+
+#mobile-nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.3rem;
+    padding: 6px;
+    margin-right: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    #mobile-nav-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #title-wrapper {
+        width: auto;
+        flex-grow: 1;
+    }
+
+    .bycocoartz {
+        display: none;
+    }
 }
 </style>
