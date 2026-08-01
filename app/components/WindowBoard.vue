@@ -64,6 +64,9 @@
                 </template>
             </div>
             <div v-else class="empty">게시물이 없습니다.</div>
+            <button v-if="hasMoreToShow" class="load-more-btn" :disabled="loadingMore" @click="loadMore">
+                {{ loadingMore ? '불러오는 중...' : '더보기' }}
+            </button>
         </div>
 
         <!-- 글 작성 -->
@@ -189,28 +192,79 @@ const { userId } = useCurrentUser()
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
-const postKey = computed(() => `post-data-${route.params.page ?? 'default'}`)
+// 게시판 글은 20개씩 페이지네이션 — 로컬 글/연합 팔로잉 피드 두 소스를 각각 페이징해서
+// 합친 뒤 날짜순으로 정렬해 보여줌 ("더보기" 클릭 시 두 소스 모두 다음 페이지를 불러옴)
+const PAGE_SIZE = 20
 
-const { data: postData, refresh: refreshPosts } = await useAsyncData(
-    postKey,
-    () => $fetch(`${apiBaseUrl}/api/getPostsByRoomId`, {
+const localPosts = ref([])
+const localOffset = ref(0)
+const hasMoreLocal = ref(false)
+
+const remotePosts = ref([])
+const remoteOffset = ref(0)
+const hasMoreRemote = ref(false)
+
+const loadingMore = ref(false)
+
+async function fetchLocalPage(offset) {
+    const res = await $fetch(`${apiBaseUrl}/api/getPostsByRoomId`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(props.ids),
-    }).then(res => (Array.isArray(res) ? res : [])),
-    { watch: [() => route.params.page] }
-)
+        body: JSON.stringify({ ...props.ids, offset }),
+    }).catch(() => null)
+    return res && Array.isArray(res.posts) ? res : { posts: [], hasMore: false }
+}
 
-const topLevelPosts = computed(() => (postData.value ?? []).filter(p => !p.replyto))
+async function fetchRemotePage(offset) {
+    if (!props.isFederated || !userId.value) return { posts: [], hasMore: false }
+    const res = await $fetch(`${apiBaseUrl}/api/getRemoteFeedPosts`, {
+        method: 'POST',
+        body: { userid: userId.value, offset },
+    }).catch(() => null)
+    return res && Array.isArray(res.posts) ? res : { posts: [], hasMore: false }
+}
 
-// 연합 게시판이면 내가 팔로우한 원격 계정의 글도 같이 섞어서 보여줌
-const { data: remoteFeedData } = await useAsyncData(
-    'board-remote-feed',
-    () => (props.isFederated && userId.value)
-        ? $fetch(`${apiBaseUrl}/api/getRemoteFeedPosts`, { method: 'POST', body: { userid: userId.value } }).then(res => (Array.isArray(res) ? res : []))
-        : Promise.resolve([]),
-    { watch: [() => props.isFederated, userId] }
-)
+async function loadFirstPage() {
+    localOffset.value = 0
+    remoteOffset.value = 0
+    const [localRes, remoteRes] = await Promise.all([fetchLocalPage(0), fetchRemotePage(0)])
+    localPosts.value = localRes.posts
+    hasMoreLocal.value = localRes.hasMore
+    remotePosts.value = remoteRes.posts
+    hasMoreRemote.value = remoteRes.hasMore
+}
+
+async function loadMore() {
+    if (loadingMore.value) return
+    loadingMore.value = true
+    try {
+        const tasks = []
+        if (hasMoreLocal.value) {
+            const nextOffset = localOffset.value + PAGE_SIZE
+            tasks.push(fetchLocalPage(nextOffset).then((res) => {
+                localOffset.value = nextOffset
+                localPosts.value = [...localPosts.value, ...res.posts]
+                hasMoreLocal.value = res.hasMore
+            }))
+        }
+        if (hasMoreRemote.value) {
+            const nextOffset = remoteOffset.value + PAGE_SIZE
+            tasks.push(fetchRemotePage(nextOffset).then((res) => {
+                remoteOffset.value = nextOffset
+                remotePosts.value = [...remotePosts.value, ...res.posts]
+                hasMoreRemote.value = res.hasMore
+            }))
+        }
+        await Promise.all(tasks)
+    } finally {
+        loadingMore.value = false
+    }
+}
+
+const hasMoreToShow = computed(() => hasMoreLocal.value || hasMoreRemote.value)
+
+await loadFirstPage()
+watch([() => route.params.page, () => props.isFederated, userId], loadFirstPage)
 
 function stripHtml(html) {
     return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -259,9 +313,9 @@ function onBadgeImgError(src) {
 }
 
 const mergedFeed = computed(() => {
-    const local = topLevelPosts.value.map(p => ({ kind: 'local', sortDate: p.createdAt, post: p }))
+    const local = localPosts.value.map(p => ({ kind: 'local', sortDate: p.createdAt, post: p }))
     if (!props.isFederated) return local
-    const remote = (remoteFeedData.value ?? []).map(p => ({ kind: 'remote', sortDate: p.published, post: p }))
+    const remote = remotePosts.value.map(p => ({ kind: 'remote', sortDate: p.published, post: p }))
     return [...local, ...remote].sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate))
 })
 
@@ -320,7 +374,7 @@ async function submitPost() {
     })
     newTitle.value = ''
     newContent.value = ''
-    await refreshPosts()
+    await loadFirstPage()
     currentView.value = 'list'
 }
 
@@ -496,6 +550,22 @@ onMounted(() => {
     padding: 20px 0;
     font-size: 0.9rem;
 }
+
+.load-more-btn {
+    margin: 12px auto 4px;
+    display: block;
+    background: rgba(var(--fg-rgb),0.05);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
+    color: rgba(var(--fg-rgb),0.6);
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.load-more-btn:hover:not(:disabled) { background: rgba(var(--fg-rgb),0.1); }
+.load-more-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* 헤더 버튼 (항상 악센트 색 헤더 위라 배경 밝기에 맞춰 자동 대비되는 --accent-fg-rgb 사용) */
 .write-btn-header {
