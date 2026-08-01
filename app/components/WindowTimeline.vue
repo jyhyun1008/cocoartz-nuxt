@@ -184,6 +184,14 @@ async function unfollowRemote(id) {
     font-size: 0.92rem;
 }
 
+.timeline-post-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    display: block;
+    margin: 6px 0;
+}
+
 .timeline-cw {
     display: flex;
     align-items: center;

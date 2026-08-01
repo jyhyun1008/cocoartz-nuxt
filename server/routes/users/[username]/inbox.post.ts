@@ -4,7 +4,7 @@ import { eq, and, count } from 'drizzle-orm'
 import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
-import { sanitizeHtml } from '../../../utils/ap/sanitize'
+import { sanitizeHtml, extractImageAttachmentsHtml } from '../../../utils/ap/sanitize'
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 
 const MAX_FOLLOWERS_PER_USER = 5000
@@ -197,7 +197,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         .where(and(eq(remoteFeedPosts.userid, user.id), eq(remoteFeedPosts.objectId, objectId)))
     if (existing) return
 
-    const content = sanitizeHtml(object.content as string || '')
+    const content = sanitizeHtml(object.content as string || '') + extractImageAttachmentsHtml(object.attachment)
     if (!content) return
     const summary = typeof object.summary === 'string' ? sanitizeHtml(object.summary).trim() || null : null
 
@@ -245,13 +245,14 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
     const preferredUsername = actorData?.preferredUsername as string || ''
     const actorDomain = new URL(actorUrl_).hostname
     const content = sanitizeHtml(object.content as string || '')
+    const contentWithImages = content + extractImageAttachmentsHtml(object.attachment)
 
     await db.insert(posts).values({
         serverid: parent.serverid,
         roomid: parent.roomid,
         userid: null,
         title: content.slice(0, 50) || '(원격 답글)',
-        content,
+        content: contentWithImages,
         replyto: String(parentId),
         objectId,
         remoteActorUrl: actorUrl_,

@@ -602,6 +602,15 @@ onMounted(() => {
     color: rgba(255,255,255,0.82);
 }
 
+.post-content img,
+.comment-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    display: block;
+    margin: 6px 0;
+}
+
 .comments-section { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; }
 
 .comments-title {
