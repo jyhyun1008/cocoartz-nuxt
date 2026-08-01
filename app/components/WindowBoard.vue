@@ -9,7 +9,7 @@
             <span v-else-if="currentView === 'detail'" class="board-header-title">{{ currentPost?.title }}</span>
             <span v-else-if="currentView === 'remote-detail'" class="board-header-title">{{ currentRemotePost?.summary || stripHtml(currentRemotePost?.content) }}</span>
             <div class="board-header-actions">
-                <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'">+ 새 글</button>
+                <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'; postEditorTab = 'write'">+ 새 글</button>
                 <button v-else class="back-btn-header" @click="currentView = 'list'">← 목록</button>
                 <button class="window-close-btn board-close-btn" @click="$emit('close')">✕</button>
             </div>
@@ -73,7 +73,27 @@
         <div v-else-if="currentView === 'create'" id="board-wrapper">
             <div class="create-form">
                 <input v-model="newTitle" placeholder="제목" class="post-input" />
-                <textarea v-model="newContent" placeholder="내용을 입력하세요..." class="post-textarea"></textarea>
+                <div class="editor-tabs">
+                    <button class="editor-tab-btn" :class="{ active: postEditorTab === 'write' }" @click="postEditorTab = 'write'">작성</button>
+                    <button class="editor-tab-btn" :class="{ active: postEditorTab === 'preview' }" @click="postEditorTab = 'preview'">미리보기</button>
+                </div>
+                <template v-if="postEditorTab === 'write'">
+                    <div class="wiki-toolbar">
+                        <button class="toolbar-btn" @click="insertPostMarkdown('**', '**')" title="굵게"><b>B</b></button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('*', '*')" title="기울임"><i>I</i></button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('## ', '')" title="제목">H</button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('- ', '')" title="목록">•</button>
+                        <span class="toolbar-sep"></span>
+                        <span class="toolbar-hint">마크다운 지원</span>
+                    </div>
+                    <textarea
+                        ref="postEditorRef"
+                        v-model="newContent"
+                        placeholder="내용을 입력하세요... (마크다운 사용 가능)"
+                        class="post-textarea wiki-textarea"
+                    ></textarea>
+                </template>
+                <div v-else class="post-content md-content preview-pane" v-html="String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._'))"></div>
                 <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">작성 완료</button>
             </div>
         </div>
@@ -337,6 +357,20 @@ const commentContent = ref('')
 const showPicker = ref(false)
 const pickerWrapRef = ref(null)
 
+const postEditorTab = ref('write')
+const postEditorRef = ref(null)
+function insertPostMarkdown(before, after) {
+    const el = postEditorRef.value
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = newContent.value.slice(start, end)
+    newContent.value = newContent.value.slice(0, start) + before + selected + after + newContent.value.slice(end)
+    nextTick(() => {
+        el.focus()
+        el.setSelectionRange(start + before.length, start + before.length + selected.length)
+    })
+}
 
 async function openPost(postid) {
     const data = await $fetch(`${apiBaseUrl}/api/getPostById`, {
@@ -653,6 +687,86 @@ onMounted(() => {
     outline: none;
     border-color: var(--accent);
     background: rgba(var(--fg-rgb),0.1);
+}
+
+.editor-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.editor-tab-btn {
+    background: none;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: rgba(var(--fg-rgb),0.45);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+.editor-tab-btn:hover { color: rgba(var(--fg-rgb),0.8); }
+.editor-tab-btn.active {
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.9);
+    font-weight: 600;
+}
+
+.wiki-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(var(--fg-rgb),0.05);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
+    border-radius: 8px 8px 0 0;
+    border-bottom: none;
+}
+
+.toolbar-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: rgba(var(--fg-rgb),0.6);
+    border-radius: 5px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+}
+.toolbar-btn:hover {
+    background: rgba(var(--fg-rgb),0.1);
+    color: rgba(var(--fg-rgb),1);
+}
+
+.toolbar-sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(var(--fg-rgb),0.12);
+    margin: 0 4px;
+}
+
+.toolbar-hint {
+    font-size: 0.72rem;
+    color: rgba(var(--fg-rgb),0.25);
+    margin-left: auto;
+}
+
+.wiki-textarea {
+    border-radius: 0 0 8px 8px !important;
+}
+
+.preview-pane {
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-height: 110px;
+    flex-grow: 1;
+    background: rgba(var(--fg-rgb),0.03);
 }
 
 .submit-btn {

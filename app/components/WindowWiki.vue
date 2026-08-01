@@ -104,7 +104,7 @@
                     <button class="toolbar-btn" @click="insertMarkdown('*', '*')"><i>I</i></button>
                     <button class="toolbar-btn" @click="insertMarkdown('## ', '')">H</button>
                     <button class="toolbar-btn" @click="insertMarkdown('- ', '')">•</button>
-                    <button class="toolbar-btn" @click="insertMarkdown('[링크](', ')')" >🔗</button>
+                    <button class="toolbar-btn" @click="insertMarkdown('[링크](', ')')" title="링크"><i class="hgi hgi-stroke hgi-link-01"></i></button>
                     <span class="toolbar-sep"></span>
                     <span class="toolbar-hint">마크다운 지원</span>
                 </div>
