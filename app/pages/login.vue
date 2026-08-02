@@ -6,6 +6,9 @@ const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
 const router = useRouter()
 
+const { server } = await useServer()
+useHead({ title: server?.title || 'CocoArtz' })
+
 const mode = ref('login')
 const email = ref('')
 const password = ref('')
@@ -52,7 +55,7 @@ async function submit() {
 <template>
     <div id="login-page">
         <div id="login-card">
-            <div id="login-logo">CocoArtz</div>
+            <div id="login-logo">{{ server?.title || 'CocoArtz' }}</div>
 
             <div id="login-tabs">
                 <button :class="{ active: mode === 'login' }" @click="mode = 'login'; errorMsg = ''; successMsg = ''">로그인</button>
@@ -61,7 +64,7 @@ async function submit() {
 
             <form id="login-form" @submit.prevent="submit">
                 <div v-if="mode === 'register'" class="field">
-                    <label>아이디</label>
+                    <label>핸들 <span class="field-hint">(변경할 수 없습니다)</span></label>
                     <input v-model="username" type="text" placeholder="영문, 숫자" autocomplete="username" required />
                 </div>
                 <div class="field">
@@ -157,6 +160,12 @@ async function submit() {
     color: rgba(var(--fg-rgb),0.45);
     letter-spacing: 0.04em;
     text-transform: uppercase;
+}
+
+.field-hint {
+    font-weight: 400;
+    text-transform: none;
+    color: rgba(var(--fg-rgb),0.3);
 }
 
 .field input {

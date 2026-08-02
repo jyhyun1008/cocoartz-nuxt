@@ -192,7 +192,8 @@ onMounted(() => {
     bottom: calc(100% + 10px);
     left: 50%;
     transform: translateX(-50%);
-    max-width: 180px;
+    width: max-content;
+    max-width: 320px;
     padding: 6px 10px;
     background: rgba(255,255,255,0.95); /* 맵 위 이름표는 테마 무관하게 항상 밝은 배지 */
     color: #1a1a22;
