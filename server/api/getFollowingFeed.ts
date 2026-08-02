@@ -1,12 +1,13 @@
 import { db } from '../utils/db'
 import { follows, posts, users, remoteFollows, remoteFeedPosts } from '../db/schema'
-import { eq, inArray, desc } from 'drizzle-orm'
+import { eq, and, inArray, isNull, desc } from 'drizzle-orm'
 
 export default eventHandler(async (event) => {
     const { userid } = await readBody(event)
     if (!userid) return []
 
     // 로컬 유저 팔로우 → posts (본인 글도 같이 — 타임라인이니 내가 쓴 글도 보여야 함)
+    // 답글(replyto가 있는 글)은 새 글이 아니라 댓글이라 타임라인에는 표시하지 않음
     const followingRows = await db.select({ userid: follows.userid }).from(follows)
         .where(eq(follows.followerUserId, userid))
     const followingIds = [...new Set([...followingRows.map(r => r.userid), userid])]
@@ -14,7 +15,7 @@ export default eventHandler(async (event) => {
     let localItems: any[] = []
     if (followingIds.length) {
         localItems = await db.select().from(posts)
-            .where(inArray(posts.userid, followingIds))
+            .where(and(inArray(posts.userid, followingIds), isNull(posts.replyto)))
             .orderBy(desc(posts.createdAt))
             .limit(30)
 

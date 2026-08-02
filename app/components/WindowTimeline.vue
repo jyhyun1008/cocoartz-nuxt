@@ -15,7 +15,7 @@
             <template v-if="isLoggedIn">
                 <div v-if="followingFeed.length" class="board">
                     <template v-for="p in followingFeed" :key="p.id">
-                        <!-- 로컬 글: 제목만, 클릭하면 게시글 페이지로 -->
+                        <!-- 로컬 글: 제목만, 클릭하면 게시글 페이지로 (답글은 getFollowingFeed에서 이미 제외됨) -->
                         <NuxtLink v-if="!p.isRemote" :to="`/post/${p.id}`" class="post-card">
                             <div class="post-card-title">{{ p.title }}</div>
                             <div class="post-card-meta">

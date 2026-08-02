@@ -237,8 +237,10 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
 
     const parentId = parseLocalPostId(domain, inReplyTo)
     if (!parentId) return
-    // 연합 게시판은 커뮤니티 공개 게시판이라 홈 공개/팔로워 공개 이하 글은 받지 않음 (전체공개만)
-    if (!isPublicAudience(object, body)) return
+    // 답글은 공개 범위와 무관하게 전부 받음 — 부모 글(우리 게시판 글)이 이미 공개인 이상
+    // 답글 자체의 공개 범위는 그 대화에 참여했다는 맥락일 뿐이라 걸러낼 이유가 없고,
+    // 로컬↔원격 양방향 답글 스레드가 목표라 여기서 막으면 대화가 끊김.
+    // (공개 범위 필터링은 handleCreateFromFollowedAccount의 원본 글 쪽에만 적용됨)
 
     const [parent] = await db.select().from(posts).where(eq(posts.id, parentId))
     if (!parent) return
