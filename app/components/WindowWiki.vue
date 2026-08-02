@@ -75,6 +75,20 @@
                         >{{ currentPage.editor?.knownas ?? currentPage.editor?.username }}</NuxtLink>
                         <span class="datetime">편집 {{ formatDate(currentPage.updatedAt) }}</span>
                     </template>
+                    <div class="wiki-meta-actions">
+                        <div class="share-btn-wrap">
+                            <button class="post-icon-btn" @click="shareWikiPage" title="공유">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="18" cy="5" r="3" />
+                                    <circle cx="6" cy="12" r="3" />
+                                    <circle cx="18" cy="19" r="3" />
+                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                                </svg>
+                            </button>
+                            <span v-if="shareCopied" class="share-toast">링크 복사됨</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="wiki-content" v-html="renderedContent"></div>
             </div>
@@ -170,6 +184,21 @@ const pages = computed(() => pagesData.value ?? [])
 
 const currentView = ref('list')
 const currentPage = ref(null)
+
+const shareCopied = ref(false)
+async function shareWikiPage() {
+    if (!currentPage.value) return
+    const url = `${window.location.origin}${props.channelPath}/${encodeURIComponent(currentPage.value.slug)}`
+    if (navigator.share) {
+        try { await navigator.share({ title: currentPage.value.title, url }) } catch {}
+        return
+    }
+    try {
+        await navigator.clipboard.writeText(url)
+        shareCopied.value = true
+        setTimeout(() => { shareCopied.value = false }, 1500)
+    } catch {}
+}
 
 async function openPageBySlug(slug) {
     const data = await $fetch(`${apiBaseUrl}/api/getWikiPageBySlug`, {
@@ -459,6 +488,50 @@ async function submitPage() {
 }
 
 .wiki-content li { margin: 2px 0; }
+
+.wiki-meta-actions {
+    display: flex;
+    margin-left: auto;
+}
+
+.post-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    color: rgba(var(--fg-rgb),0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+}
+.post-icon-btn:hover { background: rgba(var(--fg-rgb),0.08); color: rgba(var(--fg-rgb),0.8); }
+
+.share-btn-wrap { position: relative; display: flex; }
+
+.share-toast {
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: share-toast-fade 1.5s ease forwards;
+}
+
+@keyframes share-toast-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
 
 /* 편집 이력 */
 .wiki-history {

@@ -56,6 +56,21 @@ async function toggleReaction(emoji) {
 
 const isOwnPost = computed(() => !!post.value?.userid && post.value.userid === userId.value)
 
+const shareCopied = ref(false)
+async function sharePost() {
+    if (!post.value) return
+    const url = window.location.href
+    if (navigator.share) {
+        try { await navigator.share({ title: post.value.title, url }) } catch {}
+        return
+    }
+    try {
+        await navigator.clipboard.writeText(url)
+        shareCopied.value = true
+        setTimeout(() => { shareCopied.value = false }, 1500)
+    } catch {}
+}
+
 const isEditing = ref(false)
 const editorTab = ref('write')
 const editTitleVal = ref('')
@@ -179,6 +194,18 @@ onMounted(() => {
                             ♥ {{ post?.likeCount ?? 0 }}
                         </button>
                         <div class="post-meta-actions">
+                            <div class="share-btn-wrap">
+                                <button class="post-icon-btn" @click="sharePost" title="공유">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="18" cy="5" r="3" />
+                                        <circle cx="6" cy="12" r="3" />
+                                        <circle cx="18" cy="19" r="3" />
+                                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                                    </svg>
+                                </button>
+                                <span v-if="shareCopied" class="share-toast">링크 복사됨</span>
+                            </div>
                             <button v-if="isOwnPost && !post?.objectId" class="post-icon-btn" @click="startEdit" title="수정">
                                 <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
                             </button>
@@ -468,6 +495,30 @@ onMounted(() => {
 }
 .post-icon-btn:hover { background: rgba(var(--fg-rgb),0.08); color: rgba(var(--fg-rgb),0.8); }
 .post-icon-btn.danger:hover { background: rgba(192,16,42,0.12); color: #e0304a; }
+
+.share-btn-wrap { position: relative; display: flex; }
+
+.share-toast {
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    pointer-events: none;
+    animation: share-toast-fade 1.5s ease forwards;
+}
+
+@keyframes share-toast-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(4px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
 
 /* 수정 폼 */
 .create-form {
