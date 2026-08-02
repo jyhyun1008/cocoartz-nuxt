@@ -85,6 +85,11 @@ body {
     margin: 0;
     background-color: var(--page-bg);
     transition: background-color 0.15s;
+    /* 모바일 사파리가 v-if로 숨겼다 다시 보여지는 텍스트(목록↔상세 전환 등)의 폰트 크기를
+       자기 나름대로 "읽기 편하게" 자동 확대(text size adjust)하면서, 같은 목록 안에서도
+       요소마다 다르게 계산돼 들쭉날쭉해지는 문제가 있음 — 자동 조정을 꺼서 항상 지정한 크기 그대로 표시 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 /* 공통 모달 헤더 */
