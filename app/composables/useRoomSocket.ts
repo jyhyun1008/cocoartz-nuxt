@@ -1,7 +1,13 @@
 // Module-level singleton — WS connection persists across route changes
 let _ws: WebSocket | null = null
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let _heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let _apiBaseUrl = ''
+
+// 아무 동작(이동/채팅) 없이 가만히 있으면 리버스 프록시/방화벽이 "조용한" 연결을 끊어버리는
+// 경우가 있음 — 그러면 서버는 진짜로 나간 걸로 처리해서 user_left를 쏘고, 클라이언트는 3초
+// 후 재연결하면서 잠깐 사라졌다 나타나는 것처럼 보임. 주기적으로 핑을 보내 연결을 살아있게 유지.
+const HEARTBEAT_INTERVAL_MS = 20_000
 
 function getWsUrl(): string {
   if (!_apiBaseUrl) {
@@ -68,8 +74,16 @@ export function useRoomSocket() {
 
     _ws = new WebSocket(getWsUrl())
     _ws.onmessage = handleMessage
+    _ws.onopen = () => {
+      if (_heartbeatTimer) clearInterval(_heartbeatTimer)
+      _heartbeatTimer = setInterval(() => rawSend({ type: 'ping' }), HEARTBEAT_INTERVAL_MS)
+    }
     _ws.onclose = () => {
       _ws = null
+      if (_heartbeatTimer) {
+        clearInterval(_heartbeatTimer)
+        _heartbeatTimer = null
+      }
       // Reconnect after 3 seconds
       _reconnectTimer = setTimeout(() => connect(_apiBaseUrl), 3000)
     }

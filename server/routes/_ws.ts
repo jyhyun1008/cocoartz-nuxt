@@ -117,6 +117,11 @@ export default defineWebSocketHandler({
         type: 'position', userId: info.userId, x: data.x, y: data.y, dir: data.dir ?? null,
       }, peer.id)
 
+    } else if (data.type === 'ping') {
+      // 클라이언트가 주기적으로 보내는 하트비트 — 딱히 처리할 건 없고, 이 메시지가 오간다는
+      // 사실 자체가 리버스 프록시/방화벽의 "연결이 조용하면 끊어버리는" idle timeout을 막아줌
+      sendTo(peer, { type: 'pong' })
+
     } else if (data.type === 'chat') {
       const info = peerMap.get(peer.id)
       if (!info) return
