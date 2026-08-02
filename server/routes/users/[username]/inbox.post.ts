@@ -185,10 +185,11 @@ async function handleReject(body: Record<string, unknown>, user: LocalUser) {
 }
 
 // 이 유저가 팔로우 중인 원격 계정이 새 글(원본 글, 답글 아님)을 올렸을 때 개인 팔로잉 피드에 저장
-// 여기는 공개 범위와 무관하게 다 저장함 — 팔로우 중인 계정 글은 홈 공개/팔로워 공개여도
-// (팔로우 관계 덕분에 애초에 inbox로 배달된 것이므로) 개인 타임라인에는 그대로 보여줘야 함.
-// 공개 범위 필터링은 연합 게시판 쪽(handleCreate의 답글 저장 경로)에만 적용됨.
-async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser) {
+// 개인 타임라인(getFollowingFeed)에는 공개 범위와 무관하게 다 보여줌 — 팔로우 중인 계정 글은
+// 홈 공개/팔로워 공개여도 (팔로우 관계 덕분에 애초에 inbox로 배달된 것이므로) 그대로 노출.
+// 다만 이 데이터는 연합 게시판(getRemoteFeedPosts)에도 같이 섞여 나가므로, 거기서 걸러낼 수
+// 있도록 공개 범위 판정 결과를 isPublic으로 저장은 해둠(여기서 저장을 막지는 않음).
+async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser, activity: Record<string, unknown>) {
     const objectId = typeof object.id === 'string' ? object.id : null
     if (!objectId) return
 
@@ -213,6 +214,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         objectId,
         content,
         summary,
+        isPublic: isPublicAudience(object, activity),
         published: new Date((object.published as string) || Date.now()),
     })
     console.log(`[inbox] 원격 글 개인 피드 저장: ${objectId} → @${user.username}`)
@@ -229,7 +231,7 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
 
     // inReplyTo가 없으면 로컬 글에 대한 답글이 아니라 팔로우 중인 원격 계정의 원본 글
     if (!inReplyTo) {
-        await handleCreateFromFollowedAccount(object, actorUrl_, user)
+        await handleCreateFromFollowedAccount(object, actorUrl_, user, body)
         return
     }
 

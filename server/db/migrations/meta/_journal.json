@@ -50,6 +50,13 @@
       "when": 1785638717233,
       "tag": "0006_tense_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785640279162,
+      "tag": "0007_mysterious_mandroid",
+      "breakpoints": true
     }
   ]
 }

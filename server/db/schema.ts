@@ -211,6 +211,10 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     content: text().notNull(),
     // 원격 글의 CW(content warning)/서두 텍스트. 없으면 null → 목록에서 본문 미리보기로 대체 표시
     summary: text(),
+    // to/cc에 AS_PUBLIC이 있었는지 (전체공개/조용히 공개 여부). 개인 타임라인(getFollowingFeed)은
+    // 팔로우 관계로 받은 글이라 공개범위 무관하게 다 보여주지만, 연합 게시판(getRemoteFeedPosts)은
+    // 모두가 보는 공개 게시판이라 이 값이 true인 글만 노출해야 함
+    isPublic: boolean().default(true).notNull(),
     published: timestamp({ withTimezone: true }).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
