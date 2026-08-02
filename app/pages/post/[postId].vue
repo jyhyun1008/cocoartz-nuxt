@@ -165,6 +165,10 @@ onMounted(() => {
 
                 <!-- 제목 + 메타 -->
                 <div v-if="!isEditing" class="pd-header">
+                    <NuxtLink v-if="post?.room" :to="post.room.path" class="pd-room-tag">
+                        <i class="hgi hgi-stroke hgi-grid"></i>
+                        {{ post.room.knownas }}
+                    </NuxtLink>
                     <h1 class="pd-title">{{ post?.title }}</h1>
                     <div class="pd-meta">
                         <NuxtLink :to="post?.user?.username ? `/@${post.user.username}` : '#'" class="pd-author">
@@ -367,6 +371,19 @@ onMounted(() => {
     flex-direction: column;
     gap: 10px;
 }
+
+.pd-room-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.4);
+    text-decoration: none;
+    transition: color 0.1s;
+}
+.pd-room-tag:hover { color: var(--accent); }
 
 .pd-title {
     font-size: 1.5rem;

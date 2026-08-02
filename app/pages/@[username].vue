@@ -46,12 +46,14 @@ const joinDate = computed(() => formatDateOnly(userData.value?.createdAt))
 
 // 편집 모달
 const showEdit = ref(false)
-const editForm = reactive({ knownas: '', username: '', bio: '', avatar: '' })
+const editForm = reactive({ knownas: '', username: '', bio: '', avatar: '', banner: '' })
 const editError = ref('')
 const editLoading = ref(false)
 const objectStorageEnabled = config.public.objectStorageEnabled
 const avatarFileInput = ref(null)
 const avatarUploading = ref(false)
+const bannerFileInput = ref(null)
+const bannerUploading = ref(false)
 
 async function handleAvatarFile(e) {
     const file = e.target.files?.[0]
@@ -74,11 +76,33 @@ async function handleAvatarFile(e) {
     e.target.value = ''
 }
 
+async function handleBannerFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    bannerUploading.value = true
+    editError.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('userid', String(userId.value))
+        formData.append('file', file)
+        const result = await $fetch(`${apiBaseUrl}/api/uploadBanner`, {
+            method: 'POST',
+            body: formData,
+        })
+        editForm.banner = result.url
+    } catch (err) {
+        editError.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    bannerUploading.value = false
+    e.target.value = ''
+}
+
 function openEdit() {
     editForm.knownas = userData.value?.knownas ?? ''
     editForm.username = userData.value?.username ?? ''
     editForm.bio = userData.value?.bio ?? ''
     editForm.avatar = userData.value?.avatar ?? ''
+    editForm.banner = userData.value?.banner ?? ''
     editError.value = ''
     showEdit.value = true
 }
@@ -94,6 +118,7 @@ async function saveEdit() {
                 knownas: editForm.knownas,
                 bio: editForm.bio,
                 avatar: editForm.avatar,
+                banner: editForm.banner,
             },
         })
         showEdit.value = false
@@ -126,7 +151,9 @@ async function saveEdit() {
             <div id="profile-card">
 
                 <!-- 배너 + 아바타 -->
-                <div id="profile-banner"></div>
+                <div id="profile-banner" :class="{ 'has-image': !!userData?.banner }">
+                    <NuxtImg v-if="userData?.banner" :src="userData.banner" id="profile-banner-img" />
+                </div>
                 <div id="profile-avatar-row">
                     <div id="profile-avatar">
                         <NuxtImg v-if="userData?.avatar" :src="userData.avatar" class="avatar-img" />
@@ -225,6 +252,18 @@ async function saveEdit() {
                             </div>
                         </div>
                         <div class="edit-field">
+                            <label>배너 이미지 URL</label>
+                            <div class="edit-field-row">
+                                <input v-model="editForm.banner" type="url" placeholder="https://example.com/banner.png" style="flex:1" />
+                                <template v-if="objectStorageEnabled">
+                                    <input type="file" ref="bannerFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleBannerFile" />
+                                    <button type="button" class="edit-upload-btn" @click="bannerFileInput?.click()" :disabled="bannerUploading">
+                                        {{ bannerUploading ? '업로드 중...' : '업로드' }}
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="edit-field">
                             <label>닉네임</label>
                             <input v-model="editForm.knownas" type="text" placeholder="표시될 이름" />
                         </div>
@@ -316,10 +355,21 @@ async function saveEdit() {
 
 /* 배너 */
 #profile-banner {
+    position: relative;
+    overflow: hidden;
     aspect-ratio: 3;
     background: linear-gradient(135deg, var(--accent, #D21F3C) 0%, rgba(var(--accent-rgb, 210,31,60), 0.3) 100%);
     background-color: var(--accent, #D21F3C);
     opacity: 0.6;
+}
+#profile-banner.has-image { opacity: 1; }
+
+#profile-banner-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 /* 아바타 */

@@ -1,5 +1,5 @@
 import { db } from '../utils/db'
-import { posts, users, likes, reactions, boosts } from '../db/schema'
+import { posts, users, likes, reactions, boosts, rooms } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 export default eventHandler(async (event) => {
@@ -9,6 +9,7 @@ export default eventHandler(async (event) => {
     if (!post) return null
 
     const [user] = post.userid ? await db.select().from(users).where(eq(users.id, post.userid)) : []
+    const [room] = await db.select({ path: rooms.path, knownas: rooms.knownas }).from(rooms).where(eq(rooms.id, post.roomid))
 
     const comments = await db.select().from(posts).where(eq(posts.replyto, String(postid)))
     for (const comment of comments) {
@@ -33,6 +34,7 @@ export default eventHandler(async (event) => {
     return {
         ...post,
         user,
+        room,
         comments,
         likeCount: allLikes.length,
         isLiked,

@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
         username: users.username,
         knownas: users.knownas,
         avatar: users.avatar,
+        banner: users.banner,
         bio: users.bio,
         map: users.map,
         createdAt: users.createdAt,
