@@ -3,6 +3,12 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxt/image', '@vite-pwa/nuxt'],
+  vue: {
+    compilerOptions: {
+      // emoji-picker-element이 등록하는 웹 컴포넌트 — Vue 컴포넌트로 착각해 경고내지 않게 함
+      isCustomElement: (tag) => tag === 'emoji-picker',
+    },
+  },
   nitro: {
     experimental: {
       websocket: true,

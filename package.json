@@ -21,6 +21,8 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.44.7",
+    "emoji-picker-element": "^1.29.1",
+    "emoji-picker-element-data": "^1.8.0",
     "marked": "^18.0.5",
     "nuxt": "^4.2.1",
     "postgres": "^3.4.7",

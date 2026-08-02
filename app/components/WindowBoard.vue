@@ -83,6 +83,17 @@
                         <button class="toolbar-btn" @click="insertPostMarkdown('*', '*')" title="기울임"><i>I</i></button>
                         <button class="toolbar-btn" @click="insertPostMarkdown('## ', '')" title="제목">H</button>
                         <button class="toolbar-btn" @click="insertPostMarkdown('- ', '')" title="목록">•</button>
+                        <div class="toolbar-emoji-wrap" ref="postEmojiWrapRef">
+                            <button ref="postEmojiBtnRef" class="toolbar-btn" @click.stop="showPostEmojiPicker = !showPostEmojiPicker" title="이모지">
+                                <i class="hgi hgi-stroke hgi-smile"></i>
+                            </button>
+                            <EmojiPicker
+                                v-if="showPostEmojiPicker"
+                                placement="bottom"
+                                :anchor="postEmojiBtnRef"
+                                @select="(e) => { insertPostMarkdown(e, ''); showPostEmojiPicker = false }"
+                            />
+                        </div>
                         <span class="toolbar-sep"></span>
                         <span class="toolbar-hint">마크다운 지원</span>
                     </div>
@@ -123,16 +134,8 @@
                         {{ r.emoji }} {{ r.count }}
                     </button>
                     <div class="emoji-picker-wrap" ref="pickerWrapRef">
-                        <button class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
-                        <div v-if="showPicker" class="emoji-picker">
-                            <button
-                                v-for="e in EMOJI_PRESETS"
-                                :key="e"
-                                class="emoji-preset"
-                                :class="{ reacted: currentPost.reactions?.some(r => r.emoji === e && r.reacted) }"
-                                @click="toggleReaction(e); showPicker = false"
-                            >{{ e }}</button>
-                        </div>
+                        <button ref="reactionBtnRef" class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
+                        <EmojiPicker v-if="showPicker" :anchor="reactionBtnRef" @select="(e) => { toggleReaction(e); showPicker = false }" />
                     </div>
                 </div>
 
@@ -345,8 +348,6 @@ watch(mergedFeed, (feed) => {
     }
 }, { immediate: true })
 
-const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '👀', '✅', '💯', '🥰']
-
 const currentView = ref('list')
 const currentPost = ref(null)
 const currentRemotePost = ref(null)
@@ -356,8 +357,12 @@ const newContent = ref('')
 const commentContent = ref('')
 const showPicker = ref(false)
 const pickerWrapRef = ref(null)
+const reactionBtnRef = ref(null)
 
 const postEditorTab = ref('write')
+const showPostEmojiPicker = ref(false)
+const postEmojiWrapRef = ref(null)
+const postEmojiBtnRef = ref(null)
 const postEditorRef = ref(null)
 function insertPostMarkdown(before, after) {
     const el = postEditorRef.value
@@ -450,8 +455,12 @@ async function toggleLike() {
 
 onMounted(() => {
     document.addEventListener('click', (e) => {
+        // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
+        if (e.target.closest('.emoji-picker-popover')) return
         if (pickerWrapRef.value && !pickerWrapRef.value.contains(e.target))
             showPicker.value = false
+        if (postEmojiWrapRef.value && !postEmojiWrapRef.value.contains(e.target))
+            showPostEmojiPicker.value = false
     })
 })
 </script>
@@ -750,6 +759,11 @@ onMounted(() => {
     margin: 0 4px;
 }
 
+.toolbar-emoji-wrap {
+    position: relative;
+    display: flex;
+}
+
 .toolbar-hint {
     font-size: 0.72rem;
     color: rgba(var(--fg-rgb),0.25);
@@ -987,37 +1001,4 @@ onMounted(() => {
     color: rgba(var(--fg-rgb),0.8);
 }
 
-.emoji-picker {
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 0;
-    background: var(--sidebar-bg);
-    border: 1px solid rgba(var(--fg-rgb),0.12);
-    border-radius: 12px;
-    padding: 8px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    width: 200px;
-    z-index: 100;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}
-
-.emoji-preset {
-    width: 36px;
-    height: 36px;
-    border: none;
-    background: none;
-    border-radius: 8px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: background 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.emoji-preset:hover { background: rgba(var(--fg-rgb),0.1); }
-
-.emoji-preset.reacted { background: var(--bgaccent); }
 </style>

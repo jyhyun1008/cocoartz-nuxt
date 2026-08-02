@@ -111,6 +111,16 @@
                 </div>
             </div>
             <div id="chatsender-wrapper">
+                <div class="chat-emoji-wrap" ref="chatEmojiWrapRef">
+                    <button ref="chatEmojiBtnRef" id="chat-emoji-btn" type="button" @click.stop="showChatEmojiPicker = !showChatEmojiPicker" title="이모지">
+                        <i class="hgi hgi-stroke hgi-smile"></i>
+                    </button>
+                    <EmojiPicker
+                        v-if="showChatEmojiPicker"
+                        :anchor="chatEmojiBtnRef"
+                        @select="(e) => { insertChatEmoji(e); showChatEmojiPicker = false }"
+                    />
+                </div>
                 <textarea
                     v-model="chatInput"
                     ref="chatInputEl"
@@ -296,6 +306,30 @@ const topRatio = computed(() => {
 const { userId } = useCurrentUser()
 const chatInput = ref('')
 const chatInputEl = ref(null)
+const showChatEmojiPicker = ref(false)
+const chatEmojiWrapRef = ref(null)
+const chatEmojiBtnRef = ref(null)
+
+function insertChatEmoji(emoji) {
+    const el = chatInputEl.value
+    if (!el) { chatInput.value += emoji; return }
+    const start = el.selectionStart ?? chatInput.value.length
+    const end = el.selectionEnd ?? chatInput.value.length
+    chatInput.value = chatInput.value.slice(0, start) + emoji + chatInput.value.slice(end)
+    nextTick(() => {
+        el.focus()
+        el.setSelectionRange(start + emoji.length, start + emoji.length)
+    })
+}
+
+onMounted(() => {
+    document.addEventListener('click', (e) => {
+        // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
+        if (e.target.closest('.emoji-picker-popover')) return
+        if (chatEmojiWrapRef.value && !chatEmojiWrapRef.value.contains(e.target))
+            showChatEmojiPicker.value = false
+    })
+})
 
 watch(chatInput, () => {
     nextTick(() => {
@@ -1072,6 +1106,23 @@ onMounted(() => {
     line-height: 1.45;
     overflow-y: auto;
 }
+
+.chat-emoji-wrap {
+    position: relative;
+    align-self: stretch;
+    display: flex;
+}
+
+#chat-emoji-btn {
+    width: 2.5rem;
+    border: none;
+    background: none;
+    color: rgba(var(--fg-rgb),0.45);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: color 0.1s;
+}
+#chat-emoji-btn:hover { color: rgba(var(--fg-rgb),0.8); }
 
 #sendchat {
     width: 60px;

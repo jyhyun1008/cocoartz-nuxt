@@ -105,6 +105,17 @@
                     <button class="toolbar-btn" @click="insertMarkdown('## ', '')">H</button>
                     <button class="toolbar-btn" @click="insertMarkdown('- ', '')">•</button>
                     <button class="toolbar-btn" @click="insertMarkdown('[링크](', ')')" title="링크"><i class="hgi hgi-stroke hgi-link-01"></i></button>
+                    <div class="toolbar-emoji-wrap" ref="emojiWrapRef">
+                        <button ref="emojiBtnRef" class="toolbar-btn" @click.stop="showEmojiPicker = !showEmojiPicker" title="이모지">
+                            <i class="hgi hgi-stroke hgi-smile"></i>
+                        </button>
+                        <EmojiPicker
+                            v-if="showEmojiPicker"
+                            placement="bottom"
+                            :anchor="emojiBtnRef"
+                            @select="(e) => { insertMarkdown(e, ''); showEmojiPicker = false }"
+                        />
+                    </div>
                     <span class="toolbar-sep"></span>
                     <span class="toolbar-hint">마크다운 지원</span>
                 </div>
@@ -189,6 +200,18 @@ watch(pages, async (newPages) => {
 const editTitle = ref('')
 const editContent = ref('')
 const editorRef = ref(null)
+const showEmojiPicker = ref(false)
+const emojiWrapRef = ref(null)
+const emojiBtnRef = ref(null)
+
+onMounted(() => {
+    document.addEventListener('click', (e) => {
+        // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
+        if (e.target.closest('.emoji-picker-popover')) return
+        if (emojiWrapRef.value && !emojiWrapRef.value.contains(e.target))
+            showEmojiPicker.value = false
+    })
+})
 
 
 function toSlug(title) {
@@ -501,6 +524,11 @@ async function submitPage() {
     height: 18px;
     background: rgba(var(--fg-rgb),0.12);
     margin: 0 4px;
+}
+
+.toolbar-emoji-wrap {
+    position: relative;
+    display: flex;
 }
 
 .toolbar-hint {

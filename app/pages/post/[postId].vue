@@ -20,10 +20,10 @@ if (!post.value) {
     throw createError({ statusCode: 404, message: '게시글을 찾을 수 없습니다' })
 }
 
-const EMOJI_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥', '👀', '✅', '💯', '🥰']
 const commentContent = ref('')
 const showPicker = ref(false)
 const pickerWrapRef = ref(null)
+const reactionBtnRef = ref(null)
 
 
 async function toggleLike() {
@@ -73,6 +73,8 @@ async function submitComment() {
 
 onMounted(() => {
     document.addEventListener('click', (e) => {
+        // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
+        if (e.target.closest('.emoji-picker-popover')) return
         if (pickerWrapRef.value && !pickerWrapRef.value.contains(e.target))
             showPicker.value = false
     })
@@ -124,16 +126,8 @@ onMounted(() => {
                         {{ r.emoji }} {{ r.count }}
                     </button>
                     <div class="emoji-picker-wrap" ref="pickerWrapRef">
-                        <button class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
-                        <div v-if="showPicker" class="emoji-picker">
-                            <button
-                                v-for="e in EMOJI_PRESETS"
-                                :key="e"
-                                class="emoji-preset"
-                                :class="{ reacted: post?.reactions?.some(r => r.emoji === e && r.reacted) }"
-                                @click="toggleReaction(e); showPicker = false"
-                            >{{ e }}</button>
-                        </div>
+                        <button ref="reactionBtnRef" class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
+                        <EmojiPicker v-if="showPicker" :anchor="reactionBtnRef" @select="(e) => { toggleReaction(e); showPicker = false }" />
                     </div>
                 </div>
 
@@ -339,37 +333,6 @@ onMounted(() => {
 }
 .reaction-add-btn:hover { border-color: rgba(var(--fg-rgb),0.5); color: rgba(var(--fg-rgb),0.8); }
 
-.emoji-picker {
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 0;
-    background: var(--surface-2);
-    border: 1px solid rgba(var(--fg-rgb),0.12);
-    border-radius: 12px;
-    padding: 8px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    width: 200px;
-    z-index: 100;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}
-
-.emoji-preset {
-    width: 36px;
-    height: 36px;
-    border: none;
-    background: none;
-    border-radius: 8px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: background 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.emoji-preset:hover { background: rgba(var(--fg-rgb),0.1); }
-.emoji-preset.reacted { background: var(--bgaccent); }
 
 .pd-comments {
     border-top: 1px solid rgba(var(--fg-rgb),0.08);
