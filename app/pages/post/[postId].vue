@@ -1,4 +1,5 @@
 <script setup>
+import { marked } from 'marked'
 const route = useRoute()
 const router = useRouter()
 const config = useRuntimeConfig()
@@ -53,6 +54,69 @@ async function toggleReaction(emoji) {
     }
 }
 
+const isOwnPost = computed(() => !!post.value?.userid && post.value.userid === userId.value)
+
+const isEditing = ref(false)
+const editorTab = ref('write')
+const editTitleVal = ref('')
+const editContentVal = ref('')
+const editorRef = ref(null)
+const showEmojiPicker = ref(false)
+const emojiWrapRef = ref(null)
+const emojiBtnRef = ref(null)
+
+function insertEditMarkdown(before, after) {
+    const el = editorRef.value
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = editContentVal.value.slice(start, end)
+    editContentVal.value = editContentVal.value.slice(0, start) + before + selected + after + editContentVal.value.slice(end)
+    nextTick(() => {
+        el.focus()
+        el.setSelectionRange(start + before.length, start + before.length + selected.length)
+    })
+}
+
+function startEdit() {
+    if (!post.value) return
+    editTitleVal.value = post.value.title
+    editContentVal.value = post.value.content
+    editorTab.value = 'write'
+    isEditing.value = true
+}
+
+async function saveEdit() {
+    if (!editTitleVal.value.trim() || !editContentVal.value.trim() || !post.value) return
+    await $fetch(`${apiBaseUrl}/api/editPost`, {
+        method: 'POST',
+        body: {
+            postid: post.value.id,
+            userid: userId.value,
+            title: editTitleVal.value.trim(),
+            content: editContentVal.value.trim(),
+        },
+    })
+    isEditing.value = false
+    await refresh()
+}
+
+const showDeleteConfirm = ref(false)
+const deletingPost = ref(false)
+async function doDeletePost() {
+    if (!post.value || deletingPost.value) return
+    deletingPost.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/deletePost`, {
+            method: 'POST',
+            body: { postid: post.value.id, userid: userId.value },
+        })
+        router.back()
+    } finally {
+        deletingPost.value = false
+    }
+}
+
 async function submitComment() {
     if (!commentContent.value.trim() || !post.value) return
     const content = commentContent.value.trim()
@@ -77,6 +141,8 @@ onMounted(() => {
         if (e.target.closest('.emoji-picker-popover')) return
         if (pickerWrapRef.value && !pickerWrapRef.value.contains(e.target))
             showPicker.value = false
+        if (emojiWrapRef.value && !emojiWrapRef.value.contains(e.target))
+            showEmojiPicker.value = false
     })
 })
 </script>
@@ -98,7 +164,7 @@ onMounted(() => {
             <div id="post-card">
 
                 <!-- 제목 + 메타 -->
-                <div class="pd-header">
+                <div v-if="!isEditing" class="pd-header">
                     <h1 class="pd-title">{{ post?.title }}</h1>
                     <div class="pd-meta">
                         <NuxtLink :to="post?.user?.username ? `/@${post.user.username}` : '#'" class="pd-author">
@@ -108,11 +174,60 @@ onMounted(() => {
                         <button class="like-btn" :class="{ liked: post?.isLiked }" @click="toggleLike">
                             ♥ {{ post?.likeCount ?? 0 }}
                         </button>
+                        <div class="post-meta-actions">
+                            <button v-if="isOwnPost && !post?.objectId" class="post-icon-btn" @click="startEdit" title="수정">
+                                <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
+                            </button>
+                            <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" title="삭제">
+                                <i class="hgi hgi-stroke hgi-delete-02"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 내용 -->
-                <div class="pd-content">{{ post?.content }}</div>
+                <div v-if="!isEditing" class="pd-content md-content" v-html="String(marked.parse(post?.content ?? ''))"></div>
+
+                <!-- 수정 폼 -->
+                <div v-else class="create-form">
+                    <input v-model="editTitleVal" placeholder="제목" class="post-input" />
+                    <div class="editor-tabs">
+                        <button class="editor-tab-btn" :class="{ active: editorTab === 'write' }" @click="editorTab = 'write'">작성</button>
+                        <button class="editor-tab-btn" :class="{ active: editorTab === 'preview' }" @click="editorTab = 'preview'">미리보기</button>
+                    </div>
+                    <template v-if="editorTab === 'write'">
+                        <div class="wiki-toolbar">
+                            <button class="toolbar-btn" @click="insertEditMarkdown('**', '**')" title="굵게"><b>B</b></button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('*', '*')" title="기울임"><i>I</i></button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('## ', '')" title="제목">H</button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('- ', '')" title="목록">•</button>
+                            <div class="toolbar-emoji-wrap" ref="emojiWrapRef">
+                                <button ref="emojiBtnRef" class="toolbar-btn" @click.stop="showEmojiPicker = !showEmojiPicker" title="이모지">
+                                    <i class="hgi hgi-stroke hgi-smile"></i>
+                                </button>
+                                <EmojiPicker
+                                    v-if="showEmojiPicker"
+                                    placement="bottom"
+                                    :anchor="emojiBtnRef"
+                                    @select="(e) => { insertEditMarkdown(e, ''); showEmojiPicker = false }"
+                                />
+                            </div>
+                            <span class="toolbar-sep"></span>
+                            <span class="toolbar-hint">마크다운 지원</span>
+                        </div>
+                        <textarea
+                            ref="editorRef"
+                            v-model="editContentVal"
+                            placeholder="내용을 입력하세요... (마크다운 사용 가능)"
+                            class="post-textarea wiki-textarea"
+                        ></textarea>
+                    </template>
+                    <div v-else class="pd-content md-content preview-pane" v-html="String(marked.parse(editContentVal.trim() || '_미리볼 내용이 없습니다._'))"></div>
+                    <div class="wiki-form-actions">
+                        <button class="back-btn-header" @click="isEditing = false">취소</button>
+                        <button class="submit-btn" @click="saveEdit" :disabled="!editTitleVal.trim() || !editContentVal.trim()">수정 완료</button>
+                    </div>
+                </div>
 
                 <!-- 이모지 리액션 -->
                 <div class="reactions-row">
@@ -158,6 +273,19 @@ onMounted(() => {
                     </div>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- 삭제 확인 -->
+        <div v-if="showDeleteConfirm" class="admin-confirm-overlay" @click.self="showDeleteConfirm = false">
+            <div class="admin-confirm-box">
+                <p class="admin-confirm-msg">이 글을 정말 삭제할까요?<br /><span style="font-size:0.82rem;opacity:0.55">삭제하면 되돌릴 수 없습니다.</span></p>
+                <div class="admin-confirm-actions">
+                    <button class="back-btn-header" @click="showDeleteConfirm = false">취소</button>
+                    <button class="submit-btn danger-btn" @click="doDeletePost" :disabled="deletingPost">
+                        {{ deletingPost ? '삭제 중...' : '삭제' }}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -282,11 +410,254 @@ onMounted(() => {
 .like-btn:hover { border-color: var(--accent); color: var(--accent); }
 .like-btn.liked { background-color: var(--bgaccent); border-color: var(--accent); color: var(--accent); }
 
+.post-meta-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.post-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    color: rgba(var(--fg-rgb),0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+}
+.post-icon-btn:hover { background: rgba(var(--fg-rgb),0.08); color: rgba(var(--fg-rgb),0.8); }
+.post-icon-btn.danger:hover { background: rgba(192,16,42,0.12); color: #e0304a; }
+
+/* 수정 폼 */
+.create-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.post-input {
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.85);
+    transition: border-color 0.15s, background 0.15s;
+}
+.post-input::placeholder { color: rgba(var(--fg-rgb),0.3); }
+.post-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(var(--fg-rgb),0.1);
+}
+
+.post-textarea {
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 200px;
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.85);
+    transition: border-color 0.15s, background 0.15s;
+}
+.post-textarea::placeholder { color: rgba(var(--fg-rgb),0.3); }
+.post-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(var(--fg-rgb),0.1);
+}
+
+.editor-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.editor-tab-btn {
+    background: none;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: rgba(var(--fg-rgb),0.45);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+.editor-tab-btn:hover { color: rgba(var(--fg-rgb),0.8); }
+.editor-tab-btn.active {
+    background: rgba(var(--fg-rgb),0.06);
+    color: rgba(var(--fg-rgb),0.9);
+    font-weight: 600;
+}
+
+.wiki-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(var(--fg-rgb),0.05);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
+    border-radius: 8px 8px 0 0;
+    border-bottom: none;
+}
+
+.toolbar-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: rgba(var(--fg-rgb),0.6);
+    border-radius: 5px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+}
+.toolbar-btn:hover {
+    background: rgba(var(--fg-rgb),0.1);
+    color: rgba(var(--fg-rgb),1);
+}
+
+.toolbar-sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(var(--fg-rgb),0.12);
+    margin: 0 4px;
+}
+
+.toolbar-emoji-wrap {
+    position: relative;
+    display: flex;
+}
+
+.toolbar-hint {
+    font-size: 0.72rem;
+    color: rgba(var(--fg-rgb),0.25);
+    margin-left: auto;
+}
+
+.wiki-textarea {
+    border-radius: 0 0 8px 8px !important;
+}
+
+.preview-pane {
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-height: 200px;
+    background: rgba(var(--fg-rgb),0.03);
+}
+
+.wiki-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.submit-btn {
+    background-color: var(--accent);
+    color: white;
+    border: 0;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: opacity 0.15s;
+}
+.submit-btn:hover { opacity: 0.88; }
+.submit-btn:disabled { opacity: 0.35; cursor: default; }
+
+.back-btn-header {
+    background: none;
+    border: 1px solid rgba(var(--fg-rgb),0.15);
+    color: rgba(var(--fg-rgb),0.6);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+}
+.back-btn-header:hover { border-color: rgba(var(--fg-rgb),0.35); color: rgba(var(--fg-rgb),0.9); }
+
+.admin-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.admin-confirm-box {
+    background: var(--surface-2);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
+    border-radius: 12px;
+    padding: 24px 28px;
+    max-width: 340px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.admin-confirm-msg {
+    margin: 0;
+    line-height: 1.6;
+    color: rgba(var(--fg-rgb),0.85);
+    font-size: 0.95rem;
+}
+
+.admin-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.danger-btn {
+    background-color: #c0102a !important;
+}
+.danger-btn:hover { background-color: #a00020 !important; }
+
 .pd-content {
     font-size: 1rem;
     line-height: 1.85;
-    white-space: pre-wrap;
     color: rgba(var(--fg-rgb),0.82);
+}
+
+/* v-html로 넣는 마크다운 렌더링 결과물이라 scoped 속성이 안 붙음 -> :deep() 필요 */
+.pd-content :deep(p) { margin: 0.5em 0; }
+.pd-content :deep(p:first-child) { margin-top: 0; }
+.pd-content :deep(p:last-child) { margin-bottom: 0; }
+
+.pd-content :deep(blockquote) {
+    margin: 0.6em 0;
+    padding: 2px 14px;
+    border-left: 3px solid rgba(var(--fg-rgb),0.2);
+    color: rgba(var(--fg-rgb),0.6);
+    font-style: italic;
+}
+.pd-content :deep(blockquote p) { margin: 0.4em 0; }
+
+.pd-content :deep(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    display: block;
+    margin: 6px 0;
 }
 
 .reactions-row {

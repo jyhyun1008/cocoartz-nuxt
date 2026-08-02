@@ -4,13 +4,13 @@
         <!-- 헤더 (뷰에 따라 변경) -->
         <div class="window-header">
             <i class="hgi hgi-stroke hgi-grid"></i>
-            <span v-if="currentView === 'list'" class="board-header-title">게시판</span>
-            <span v-else-if="currentView === 'create'" class="board-header-title">새 글 작성</span>
-            <span v-else-if="currentView === 'detail'" class="board-header-title">{{ currentPost?.title }}</span>
+            <span v-if="currentView === 'create'" class="board-header-title">새 글 작성</span>
+            <span v-else-if="currentView === 'edit'" class="board-header-title">글 수정</span>
             <span v-else-if="currentView === 'remote-detail'" class="board-header-title">{{ currentRemotePost?.summary || stripHtml(currentRemotePost?.content) }}</span>
+            <span v-else class="board-header-title">게시판</span>
             <div class="board-header-actions">
                 <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'; postEditorTab = 'write'">+ 새 글</button>
-                <button v-else class="back-btn-header" @click="currentView = 'list'">← 목록</button>
+                <button v-else class="back-btn-header" @click="goBack">← {{ currentView === 'edit' ? '취소' : '목록' }}</button>
                 <button class="window-close-btn board-close-btn" @click="$emit('close')">✕</button>
             </div>
         </div>
@@ -69,8 +69,8 @@
             </button>
         </div>
 
-        <!-- 글 작성 -->
-        <div v-else-if="currentView === 'create'" id="board-wrapper">
+        <!-- 글 작성 / 수정 -->
+        <div v-else-if="currentView === 'create' || currentView === 'edit'" id="board-wrapper">
             <div class="create-form">
                 <input v-model="newTitle" placeholder="제목" class="post-input" />
                 <div class="editor-tabs">
@@ -105,13 +105,16 @@
                     ></textarea>
                 </template>
                 <div v-else class="post-content md-content preview-pane" v-html="String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._'))"></div>
-                <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">작성 완료</button>
+                <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">
+                    {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
+                </button>
             </div>
         </div>
 
         <!-- 게시물 상세 -->
         <div v-else-if="currentView === 'detail' && currentPost" id="board-wrapper">
             <div class="post-detail">
+                <div class="post-title-large">{{ currentPost.title }}</div>
                 <div class="post-meta">
                     <NuxtLink :to="currentPost.user?.username ? `/@${currentPost.user.username}` : '#'" class="post-author user-name-link">{{ currentPost.user?.knownas ?? currentPost.user?.username }}</NuxtLink>
                     <span class="datetime">{{ formatDate(currentPost.createdAt) }}</span>
@@ -119,6 +122,14 @@
                         ♥ {{ currentPost.likeCount }}
                     </button>
                     <span v-if="currentPost.boostCount" class="boost-count" title="fediverse 부스트"><i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i> {{ currentPost.boostCount }}</span>
+                    <div class="post-meta-actions">
+                        <button v-if="isOwnPost && !props.isFederated" class="post-icon-btn" @click="startEditPost" title="수정">
+                            <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
+                        </button>
+                        <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" title="삭제">
+                            <i class="hgi hgi-stroke hgi-delete-02"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="post-content md-content" v-html="String(marked.parse(currentPost.content ?? ''))"></div>
 
@@ -187,6 +198,19 @@
                 <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
                     원 계정에서 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
                 </a>
+            </div>
+        </div>
+
+        <!-- 삭제 확인 -->
+        <div v-if="showDeleteConfirm" class="admin-confirm-overlay" @click.self="showDeleteConfirm = false">
+            <div class="admin-confirm-box">
+                <p class="admin-confirm-msg">이 글을 정말 삭제할까요?<br /><span style="font-size:0.82rem;opacity:0.55">삭제하면 되돌릴 수 없습니다.</span></p>
+                <div class="admin-confirm-actions">
+                    <button class="back-btn-header" @click="showDeleteConfirm = false">취소</button>
+                    <button class="submit-btn danger-btn" @click="doDeletePost" :disabled="deletingPost">
+                        {{ deletingPost ? '삭제 중...' : '삭제' }}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -386,6 +410,40 @@ async function openPost(postid) {
     currentView.value = 'detail'
 }
 
+const isOwnPost = computed(() => !!currentPost.value?.userid && currentPost.value.userid === userId.value)
+
+function goBack() {
+    currentView.value = currentView.value === 'edit' && currentPost.value ? 'detail' : 'list'
+}
+
+function startEditPost() {
+    if (!currentPost.value) return
+    newTitle.value = currentPost.value.title
+    newContent.value = currentPost.value.content
+    postEditorTab.value = 'write'
+    currentView.value = 'edit'
+}
+
+const showDeleteConfirm = ref(false)
+const deletingPost = ref(false)
+
+async function doDeletePost() {
+    if (!currentPost.value || deletingPost.value) return
+    deletingPost.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/deletePost`, {
+            method: 'POST',
+            body: { postid: currentPost.value.id, userid: userId.value },
+        })
+        showDeleteConfirm.value = false
+        currentPost.value = null
+        await loadFirstPage()
+        currentView.value = 'list'
+    } finally {
+        deletingPost.value = false
+    }
+}
+
 function openRemotePost(post) {
     currentRemotePost.value = post
     showRemoteContent.value = false
@@ -394,6 +452,23 @@ function openRemotePost(post) {
 
 async function submitPost() {
     if (!newTitle.value.trim() || !newContent.value.trim()) return
+    if (currentView.value === 'edit' && currentPost.value) {
+        const updated = await $fetch(`${apiBaseUrl}/api/editPost`, {
+            method: 'POST',
+            body: {
+                postid: currentPost.value.id,
+                userid: userId.value,
+                title: newTitle.value.trim(),
+                content: newContent.value.trim(),
+            },
+        })
+        currentPost.value = { ...currentPost.value, ...updated }
+        newTitle.value = ''
+        newContent.value = ''
+        await loadFirstPage()
+        currentView.value = 'detail'
+        return
+    }
     await $fetch(`${apiBaseUrl}/api/createPost`, {
         method: 'POST',
         body: {
@@ -806,6 +881,13 @@ onMounted(() => {
     gap: 12px;
 }
 
+.post-title-large {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.92);
+    line-height: 1.4;
+}
+
 .post-meta {
     display: flex;
     gap: 10px;
@@ -813,6 +895,27 @@ onMounted(() => {
     padding-bottom: 12px;
     border-bottom: 1px solid rgba(var(--fg-rgb),0.08);
 }
+
+.post-meta-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.post-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    color: rgba(var(--fg-rgb),0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s, color 0.1s;
+}
+.post-icon-btn:hover { background: rgba(var(--fg-rgb),0.08); color: rgba(var(--fg-rgb),0.8); }
+.post-icon-btn.danger:hover { background: rgba(192,16,42,0.12); color: #e0304a; }
 
 .like-btn {
     background: none;
@@ -890,10 +993,22 @@ onMounted(() => {
 
 .post-content {
     line-height: 1.8;
-    white-space: pre-wrap;
     font-size: 0.95rem;
     color: rgba(var(--fg-rgb),0.82);
 }
+
+.post-content p { margin: 0.5em 0; }
+.post-content p:first-child { margin-top: 0; }
+.post-content p:last-child { margin-bottom: 0; }
+
+.post-content blockquote {
+    margin: 0.6em 0;
+    padding: 2px 14px;
+    border-left: 3px solid rgba(var(--fg-rgb),0.2);
+    color: rgba(var(--fg-rgb),0.6);
+    font-style: italic;
+}
+.post-content blockquote p { margin: 0.4em 0; }
 
 .post-content img,
 .comment-body img {
@@ -1000,5 +1115,48 @@ onMounted(() => {
     border-color: rgba(var(--fg-rgb),0.5);
     color: rgba(var(--fg-rgb),0.8);
 }
+
+.admin-confirm-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: inherit;
+}
+
+.admin-confirm-box {
+    background: var(--surface-2);
+    border: 1px solid rgba(var(--fg-rgb),0.1);
+    border-radius: 12px;
+    padding: 24px 28px;
+    max-width: 340px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.admin-confirm-msg {
+    margin: 0;
+    line-height: 1.6;
+    color: rgba(var(--fg-rgb),0.85);
+    font-size: 0.95rem;
+}
+
+.admin-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.danger-btn {
+    background-color: #c0102a !important;
+}
+.danger-btn:hover { background-color: #a00020 !important; }
 
 </style>

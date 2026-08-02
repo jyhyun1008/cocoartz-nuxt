@@ -111,6 +111,21 @@ export function buildLikeActivity(domain: string, username: string, objectId: st
     }
 }
 
+export function buildDeleteActivity(domain: string, username: string, objectId: string) {
+    const base = actorUrl(domain, username)
+    return {
+        '@context': AS_CONTEXT,
+        id: `${objectId}/delete`,
+        type: 'Delete',
+        actor: base,
+        to: [AS_PUBLIC],
+        object: {
+            id: objectId,
+            type: 'Tombstone',
+        },
+    }
+}
+
 export function buildFollowActivity(actorId: string, targetActorUrl: string) {
     return {
         '@context': AS_CONTEXT,
