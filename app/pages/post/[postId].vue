@@ -59,16 +59,9 @@ const isOwnPost = computed(() => !!post.value?.userid && post.value.userid === u
 const shareCopied = ref(false)
 async function sharePost() {
     if (!post.value) return
-    const url = window.location.href
-    if (navigator.share) {
-        try { await navigator.share({ title: post.value.title, url }) } catch {}
-        return
-    }
-    try {
-        await navigator.clipboard.writeText(url)
-        shareCopied.value = true
-        setTimeout(() => { shareCopied.value = false }, 1500)
-    } catch {}
+    await navigator.clipboard.writeText(window.location.href)
+    shareCopied.value = true
+    setTimeout(() => { shareCopied.value = false }, 1500)
 }
 
 const isEditing = ref(false)

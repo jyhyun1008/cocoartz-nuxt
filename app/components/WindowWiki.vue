@@ -188,16 +188,9 @@ const currentPage = ref(null)
 const shareCopied = ref(false)
 async function shareWikiPage() {
     if (!currentPage.value) return
-    const url = `${window.location.origin}${props.channelPath}/${encodeURIComponent(currentPage.value.slug)}`
-    if (navigator.share) {
-        try { await navigator.share({ title: currentPage.value.title, url }) } catch {}
-        return
-    }
-    try {
-        await navigator.clipboard.writeText(url)
-        shareCopied.value = true
-        setTimeout(() => { shareCopied.value = false }, 1500)
-    } catch {}
+    await navigator.clipboard.writeText(`${window.location.origin}${props.channelPath}/${encodeURIComponent(currentPage.value.slug)}`)
+    shareCopied.value = true
+    setTimeout(() => { shareCopied.value = false }, 1500)
 }
 
 async function openPageBySlug(slug) {
