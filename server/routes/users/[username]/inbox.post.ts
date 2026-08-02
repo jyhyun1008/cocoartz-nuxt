@@ -119,15 +119,24 @@ async function handleFollow(body: Record<string, unknown>, user: LocalUser, acto
         || actorData.inbox as string
     if (!inboxUrl) return
 
+    const preferredUsername = actorData.preferredUsername as string || ''
+    const actorDomain = new URL(followerActorUrl).hostname
+    const remoteActorName = (actorData.name as string) || preferredUsername
+    const remoteActorHandle = preferredUsername ? `@${preferredUsername}@${actorDomain}` : ''
+    const remoteActorIconUrl = (actorData.icon as Record<string, string> | undefined)?.url || ''
+
     await db.insert(follows).values({
         userid: user.id,
         followerActorUrl,
         followerInbox: inboxUrl,
         accepted: true,
         followActivityId: body.id as string,
+        remoteActorName,
+        remoteActorHandle,
+        remoteActorIconUrl,
     }).onConflictDoUpdate({
         target: [follows.userid, follows.followerActorUrl],
-        set: { accepted: true, followerInbox: inboxUrl },
+        set: { accepted: true, followerInbox: inboxUrl, remoteActorName, remoteActorHandle, remoteActorIconUrl },
     })
 
     const accept = buildAcceptActivity(domain, user.username, body)

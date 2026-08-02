@@ -129,6 +129,36 @@ async function saveEdit() {
         editLoading.value = false
     }
 }
+
+// 팔로워/팔로잉 목록 모달
+const showFollowList = ref(false)
+const followListType = ref('followers')
+const followListItems = ref([])
+const followListLoading = ref(false)
+
+async function loadFollowList() {
+    followListLoading.value = true
+    try {
+        followListItems.value = await $fetch(`${apiBaseUrl}/api/getFollowList`, {
+            method: 'POST',
+            body: { username, type: followListType.value },
+        })
+    } finally {
+        followListLoading.value = false
+    }
+}
+
+function openFollowList(type) {
+    followListType.value = type
+    showFollowList.value = true
+    loadFollowList()
+}
+
+function switchFollowListTab(type) {
+    if (followListType.value === type) return
+    followListType.value = type
+    loadFollowList()
+}
 </script>
 
 <template>
@@ -180,8 +210,8 @@ async function saveEdit() {
                     <div v-if="userData?.bio" id="profile-bio">{{ userData?.bio }}</div>
                     <div id="profile-meta">
                         <span><i class="hgi hgi-stroke hgi-calendar-01"></i> {{ joinDate }} 가입</span>
-                        <span><strong>{{ userData?.followerCount ?? 0 }}</strong> 팔로워</span>
-                        <span><strong>{{ userData?.followingCount ?? 0 }}</strong> 팔로잉</span>
+                        <button class="profile-stat-btn" @click="openFollowList('followers')"><strong>{{ userData?.followerCount ?? 0 }}</strong> 팔로워</button>
+                        <button class="profile-stat-btn" @click="openFollowList('following')"><strong>{{ userData?.followingCount ?? 0 }}</strong> 팔로잉</button>
                     </div>
                 </div>
 
@@ -284,6 +314,60 @@ async function saveEdit() {
                         <button class="edit-save" @click="saveEdit" :disabled="editLoading">
                             {{ editLoading ? '저장 중...' : '저장' }}
                         </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- 팔로워/팔로잉 목록 모달 -->
+        <Teleport to="body">
+            <div v-if="showFollowList" class="edit-overlay" @click.self="showFollowList = false">
+                <div class="edit-modal follow-list-modal">
+                    <div class="edit-header">
+                        <div class="follow-list-tabs">
+                            <button class="follow-list-tab" :class="{ active: followListType === 'followers' }" @click="switchFollowListTab('followers')">
+                                팔로워 {{ userData?.followerCount ?? 0 }}
+                            </button>
+                            <button class="follow-list-tab" :class="{ active: followListType === 'following' }" @click="switchFollowListTab('following')">
+                                팔로잉 {{ userData?.followingCount ?? 0 }}
+                            </button>
+                        </div>
+                        <button class="edit-close" @click="showFollowList = false">✕</button>
+                    </div>
+
+                    <div class="follow-list-body">
+                        <div v-if="followListLoading" class="follow-list-empty">불러오는 중...</div>
+                        <template v-else-if="followListItems.length">
+                            <template v-for="(item, i) in followListItems" :key="i">
+                                <NuxtLink
+                                    v-if="item.kind === 'local'"
+                                    :to="`/@${item.username}`"
+                                    class="follow-list-item"
+                                    @click="showFollowList = false"
+                                >
+                                    <div class="follow-list-avatar">
+                                        <img v-if="item.avatar" :src="item.avatar" />
+                                        <span v-else>{{ (item.knownas || item.username || '?')[0] }}</span>
+                                    </div>
+                                    <div class="follow-list-info">
+                                        <div class="follow-list-name">{{ item.knownas || item.username }}</div>
+                                        <div class="follow-list-handle">@{{ item.username }}</div>
+                                    </div>
+                                </NuxtLink>
+                                <a v-else :href="item.actorUrl" target="_blank" rel="noopener noreferrer" class="follow-list-item">
+                                    <div class="follow-list-avatar">
+                                        <img v-if="item.iconUrl" :src="item.iconUrl" />
+                                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
+                                    </div>
+                                    <div class="follow-list-info">
+                                        <div class="follow-list-name">{{ item.name || item.handle }}</div>
+                                        <div class="follow-list-handle">{{ item.handle }}</div>
+                                    </div>
+                                    <span v-if="followListType === 'following' && item.accepted === false" class="follow-list-pending">대기중</span>
+                                </a>
+                            </template>
+                        </template>
+                        <div v-else class="follow-list-empty">아직 없습니다.</div>
                     </div>
                 </div>
             </div>
@@ -489,6 +573,20 @@ async function saveEdit() {
 }
 
 #profile-meta i { vertical-align: middle; }
+
+.profile-stat-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.82rem;
+    font-family: inherit;
+    color: rgba(var(--fg-rgb),0.35);
+    cursor: pointer;
+    transition: color 0.1s;
+}
+.profile-stat-btn:hover { color: rgba(var(--fg-rgb),0.75); }
+.profile-stat-btn:hover strong { text-decoration: underline; }
+.profile-stat-btn strong { color: inherit; }
 
 /* 공통 섹션 */
 .profile-section {
@@ -761,4 +859,100 @@ async function saveEdit() {
 }
 .edit-save:hover { opacity: 0.88; }
 .edit-save:disabled { opacity: 0.4; cursor: default; }
+
+/* 팔로워/팔로잉 목록 모달 */
+.follow-list-modal { max-width: 400px; }
+
+.follow-list-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.follow-list-tab {
+    background: none;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.4);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+.follow-list-tab:hover { color: rgba(var(--fg-rgb),0.75); }
+.follow-list-tab.active {
+    background: rgba(var(--fg-rgb),0.08);
+    color: rgba(var(--fg-rgb),0.95);
+}
+
+.follow-list-body {
+    display: flex;
+    flex-direction: column;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.follow-list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.1s;
+}
+.follow-list-item:hover { background: rgba(var(--fg-rgb),0.06); }
+
+.follow-list-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--bgaccent, #D21F3C22);
+    color: var(--accent, #D21F3C);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.follow-list-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.follow-list-info { min-width: 0; flex: 1; }
+
+.follow-list-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.9);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.follow-list-handle {
+    font-size: 0.8rem;
+    color: rgba(var(--fg-rgb),0.4);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.follow-list-pending {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: rgba(var(--fg-rgb),0.45);
+    background: rgba(var(--fg-rgb),0.08);
+    border-radius: 4px;
+    padding: 2px 7px;
+}
+
+.follow-list-empty {
+    color: rgba(var(--fg-rgb),0.3);
+    font-size: 0.9rem;
+    padding: 30px 0;
+    text-align: center;
+}
 </style>

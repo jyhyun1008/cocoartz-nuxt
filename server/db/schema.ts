@@ -130,6 +130,10 @@ export const follows = pgTable('follows', {
     followerUserId: integer(),
     accepted: boolean().default(true).notNull(),
     followActivityId: text(),
+    // 원격 팔로워 표시용 캐시(팔로워 목록 UI에서 재조회 없이 쓰기 위함). 로컬 팔로워는 null로 두고 users 테이블에서 조회
+    remoteActorName: text(),
+    remoteActorHandle: text(),
+    remoteActorIconUrl: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('follows_userid_actor_idx').on(table.userid, table.followerActorUrl),

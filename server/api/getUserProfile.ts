@@ -1,5 +1,5 @@
 import { db } from '../utils/db'
-import { users, posts, follows, rooms } from '../db/schema'
+import { users, posts, follows, rooms, remoteFollows } from '../db/schema'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -41,8 +41,12 @@ export default defineEventHandler(async (event) => {
 
     const [{ c: followerCount }] = await db.select({ c: count() }).from(follows)
         .where(and(eq(follows.userid, user.id), eq(follows.accepted, true)))
-    const [{ c: followingCount }] = await db.select({ c: count() }).from(follows)
+    const [{ c: localFollowingCount }] = await db.select({ c: count() }).from(follows)
         .where(eq(follows.followerUserId, user.id))
+    // 대기중(미승인) 원격 팔로우도 getRemoteFollows/설정 모달에서 이미 "팔로잉 목록"에 포함해서 보여주고 있으므로 동일 기준으로 합산
+    const [{ c: remoteFollowingCount }] = await db.select({ c: count() }).from(remoteFollows)
+        .where(eq(remoteFollows.userid, user.id))
+    const followingCount = localFollowingCount + remoteFollowingCount
 
     let isFollowing = false
     if (viewerUserId) {
