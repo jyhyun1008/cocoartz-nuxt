@@ -6,8 +6,7 @@
             <i class="hgi hgi-stroke hgi-grid"></i>
             <span v-if="currentView === 'create'" class="board-header-title">새 글 작성</span>
             <span v-else-if="currentView === 'edit'" class="board-header-title">글 수정</span>
-            <span v-else-if="currentView === 'remote-detail'" class="board-header-title">{{ currentRemotePost?.summary || stripHtml(currentRemotePost?.content) }}</span>
-            <span v-else class="board-header-title">게시판</span>
+            <span v-else class="board-header-title">{{ props.roomName || '게시판' }}</span>
             <div class="board-header-actions">
                 <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'; postEditorTab = 'write'">+ 새 글</button>
                 <button v-else class="back-btn-header" @click="goBack">← {{ currentView === 'edit' ? '취소' : '목록' }}</button>
@@ -232,6 +231,10 @@ const props = defineProps({
     isFederated: {
         type: Boolean,
         default: false,
+    },
+    roomName: {
+        type: String,
+        default: '',
     },
 })
 

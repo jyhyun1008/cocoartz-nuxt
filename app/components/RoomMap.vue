@@ -155,7 +155,7 @@
             <i class="hgi hgi-stroke hgi-setting-07"></i> 설정 열기
         </div>
 
-        <WindowBoard v-if="props.page === 'board' && showOverlay" :ids="serverAndRoomId" :is-federated="!!roomData?.federated" @close="closeOverlay" />
+        <WindowBoard v-if="props.page === 'board' && showOverlay" :ids="serverAndRoomId" :is-federated="!!roomData?.federated" :room-name="roomData?.knownas" @close="closeOverlay" />
         <div v-if="props.page === 'board' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
             <i class="hgi hgi-stroke hgi-grid"></i> 게시판 열기
@@ -181,6 +181,7 @@
             :ids="serverAndRoomId"
             :channel-path="props.path"
             :target-slug="props.wikiSlug"
+            :room-name="roomData?.knownas"
             @close="closeOverlay"
         />
         <div v-if="props.page === 'wiki' && !showOverlay"

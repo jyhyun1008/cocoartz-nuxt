@@ -5,11 +5,10 @@
         <div class="window-header">
             <i class="hgi hgi-stroke hgi-book-open-01"></i>
             <span class="wiki-header-title">
-                <span v-if="currentView === 'list'">위키 목록</span>
-                <span v-else-if="currentView === 'create'">새 페이지 작성</span>
+                <span v-if="currentView === 'create'">새 페이지 작성</span>
                 <span v-else-if="currentView === 'edit'">페이지 편집</span>
                 <span v-else-if="currentView === 'history'">편집 이력</span>
-                <span v-else>{{ currentPage?.title }}</span>
+                <span v-else>{{ props.roomName || '위키' }}</span>
             </span>
             <div class="wiki-header-actions">
                 <!-- 목록 뷰 -->
@@ -61,6 +60,7 @@
         <!-- 페이지 보기 -->
         <div v-else-if="currentView === 'detail' && currentPage" id="wiki-wrapper">
             <div class="wiki-detail">
+                <div class="post-title-large">{{ currentPage.title }}</div>
                 <div class="wiki-meta">
                     <NuxtLink
                         :to="currentPage.author?.username ? `/@${currentPage.author.username}` : '#'"
@@ -150,6 +150,7 @@ const props = defineProps({
     },
     channelPath: { type: String, default: '/wiki' },
     targetSlug: { type: String, default: '' },
+    roomName: { type: String, default: '' },
 })
 
 const { userId, isLoggedIn } = useCurrentUser()
@@ -389,6 +390,13 @@ async function submitPage() {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.post-title-large {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.92);
+    line-height: 1.4;
 }
 
 .wiki-meta {
