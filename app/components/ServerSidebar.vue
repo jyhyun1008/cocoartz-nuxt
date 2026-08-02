@@ -6,7 +6,7 @@
             <NuxtLink :to="fullPath">
                 <div class="side-items" :class="{ thispage: props.path === fullPath }">
                     <i class="hgi hgi-stroke hgi-home-07 side-icon"></i>
-                    <span>마을</span>
+                    <span>{{ homeRoomName }}</span>
                 </div>
                 <div v-if="roomPresence(fullPath).length" class="side-presence">
                     <div v-for="u in roomPresence(fullPath)" :key="u.userId" class="presence-user">
@@ -19,7 +19,7 @@
             <NuxtLink :to="notiPath">
                 <div class="side-items" :class="{ thispage: props.path === notiPath }">
                     <i class="hgi hgi-stroke hgi-notification-01 side-icon"></i>
-                    <span>공지 게시판</span>
+                    <span>{{ notiRoomName }}</span>
                 </div>
                 <div v-if="roomPresence(notiPath).length" class="side-presence">
                     <div v-for="u in roomPresence(notiPath)" :key="u.userId" class="presence-user">
@@ -104,6 +104,14 @@ const resolvedRooms = computed(() => {
         return entry
     })
 })
+
+// "마을"/"공지 게시판"도 관리자가 이름을 바꿀 수 있어서 하드코딩 대신 실제 room 데이터를 봐야 함
+const homeRoomName = computed(() =>
+    (roomsData.value as any[])?.find(r => r.path === fullPath)?.knownas ?? '마을'
+)
+const notiRoomName = computed(() =>
+    (roomsData.value as any[])?.find(r => r.path === notiPath)?.knownas ?? '공지 게시판'
+)
 
 const fullPath = '/'
 const notiPath = '/noti'

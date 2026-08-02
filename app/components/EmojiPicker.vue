@@ -41,7 +41,7 @@ function computePosition() {
     const el = getAnchorEl()
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const left = Math.min(rect.left, window.innerWidth - 328)
+    const left = Math.min(rect.left, window.innerWidth - 368)
     if (props.placement === 'top') {
         popoverStyle.value = {
             position: 'fixed',
@@ -100,7 +100,7 @@ emoji-picker {
     --input-font-color: rgba(var(--fg-rgb), 0.85);
     --input-placeholder-color: rgba(var(--fg-rgb), 0.3);
     --outline-color: var(--accent);
-    width: 320px;
+    width: 360px;
     max-width: 88vw;
     height: 360px;
     border-radius: 12px;
@@ -109,7 +109,7 @@ emoji-picker {
 }
 
 .emoji-picker-loading {
-    width: 320px;
+    width: 360px;
     max-width: 88vw;
     height: 360px;
     display: flex;

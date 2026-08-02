@@ -98,19 +98,31 @@
                     <span class="admin-section-title">기본 페이지</span>
                 </div>
                 <p class="admin-label-hint" style="margin:-4px 0 10px">
-                    사이드바의 "마을"·"공지 게시판"은 고정 링크라 채널 목록에 만들 필요 없이 여기서 바로 맵을 편집할 수 있어요.
+                    사이드바의 "마을"·"공지 게시판"은 고정 링크라 채널 목록에 만들 필요 없이 여기서 이름과 맵을 바로 편집할 수 있어요.
                 </p>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <div v-for="pinned in PINNED_PAGES" :key="pinned.path" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                    <input
+                        v-model="pinnedNameDraft[pinned.path]"
+                        :placeholder="pinned.knownas"
+                        class="post-input"
+                        style="flex:1;min-width:120px"
+                    />
                     <button
-                        v-for="pinned in PINNED_PAGES"
-                        :key="pinned.path"
+                        class="admin-add-btn"
+                        style="margin-left:0"
+                        :disabled="pinnedSaving === pinned.path || !pinnedNameDraft[pinned.path]?.trim()"
+                        @click="savePinnedName(pinned)"
+                    >
+                        {{ pinnedSaving === pinned.path ? '저장 중...' : '이름 저장' }}
+                    </button>
+                    <button
                         class="admin-add-btn"
                         style="margin-left:0"
                         :disabled="pinnedLoading === pinned.path"
                         @click="openPinnedMapEdit(pinned)"
                     >
                         <i class="hgi hgi-stroke hgi-map-01"></i>
-                        {{ pinnedLoading === pinned.path ? '불러오는 중...' : `${pinned.knownas} 맵 편집` }}
+                        {{ pinnedLoading === pinned.path ? '불러오는 중...' : '맵 편집' }}
                     </button>
                 </div>
                 <p v-if="pinnedError" class="admin-error">{{ pinnedError }}</p>
@@ -441,6 +453,47 @@ const PINNED_PAGES = [
 const pinnedEdit = ref(false)
 const pinnedLoading = ref('')
 const pinnedError = ref('')
+
+// 고정 페이지의 실제 현재 이름 — roomsData(getRoomsBySlug)에 이미 다 들어있어서 따로 fetch 안 함
+function findPinnedRoom(path) {
+    return (roomsData.value ?? []).find((r) => r.path === path)
+}
+
+const pinnedNameDraft = reactive({})
+watch(roomsData, (rooms) => {
+    for (const pinned of PINNED_PAGES) {
+        if (pinned.path in pinnedNameDraft) continue
+        const room = (rooms ?? []).find((r) => r.path === pinned.path)
+        pinnedNameDraft[pinned.path] = room?.knownas ?? pinned.knownas
+    }
+}, { immediate: true })
+
+const pinnedSaving = ref('')
+
+async function savePinnedName(pinned) {
+    const newName = pinnedNameDraft[pinned.path]?.trim()
+    if (!newName) return
+    pinnedError.value = ''
+    pinnedSaving.value = pinned.path
+    try {
+        let room = findPinnedRoom(pinned.path)
+        if (!room) {
+            room = await $fetch(`${apiBaseUrl}/api/admin/getOrCreateRoomByPath`, {
+                method: 'POST',
+                body: { userid: userId.value, ...pinned },
+            })
+        }
+        await $fetch(`${apiBaseUrl}/api/admin/updateRoom`, {
+            method: 'POST',
+            body: { userid: userId.value, id: room.id, path: room.path, knownas: newName, type: room.type, info: room.info },
+        })
+        await refreshRooms()
+        await refreshNuxtData('rooms-data')
+    } catch (e) {
+        pinnedError.value = e?.data?.message ?? '오류가 발생했습니다'
+    }
+    pinnedSaving.value = ''
+}
 
 const form = reactive({ knownas: '', path: '', type: 'room', info: '' })
 
