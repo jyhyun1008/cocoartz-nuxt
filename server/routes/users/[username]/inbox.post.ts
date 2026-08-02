@@ -185,10 +185,12 @@ async function handleReject(body: Record<string, unknown>, user: LocalUser) {
 }
 
 // 이 유저가 팔로우 중인 원격 계정이 새 글(원본 글, 답글 아님)을 올렸을 때 개인 팔로잉 피드에 저장
-async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser, activity: Record<string, unknown>) {
+// 여기는 공개 범위와 무관하게 다 저장함 — 팔로우 중인 계정 글은 홈 공개/팔로워 공개여도
+// (팔로우 관계 덕분에 애초에 inbox로 배달된 것이므로) 개인 타임라인에는 그대로 보여줘야 함.
+// 공개 범위 필터링은 연합 게시판 쪽(handleCreate의 답글 저장 경로)에만 적용됨.
+async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser) {
     const objectId = typeof object.id === 'string' ? object.id : null
     if (!objectId) return
-    if (!isPublicAudience(object, activity)) return
 
     const [follow] = await db.select().from(remoteFollows)
         .where(and(eq(remoteFollows.userid, user.id), eq(remoteFollows.targetActorUrl, actorUrl_)))
@@ -227,12 +229,13 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
 
     // inReplyTo가 없으면 로컬 글에 대한 답글이 아니라 팔로우 중인 원격 계정의 원본 글
     if (!inReplyTo) {
-        await handleCreateFromFollowedAccount(object, actorUrl_, user, body)
+        await handleCreateFromFollowedAccount(object, actorUrl_, user)
         return
     }
 
     const parentId = parseLocalPostId(domain, inReplyTo)
     if (!parentId) return
+    // 연합 게시판은 커뮤니티 공개 게시판이라 홈 공개/팔로워 공개 이하 글은 받지 않음 (전체공개만)
     if (!isPublicAudience(object, body)) return
 
     const [parent] = await db.select().from(posts).where(eq(posts.id, parentId))
