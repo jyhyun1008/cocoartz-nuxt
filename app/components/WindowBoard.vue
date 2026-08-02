@@ -113,6 +113,10 @@
         <!-- 게시물 상세 -->
         <div v-else-if="currentView === 'detail' && currentPost" id="board-wrapper">
             <div class="post-detail">
+                <div v-if="props.roomName" class="pd-room-tag">
+                    <i class="hgi hgi-stroke hgi-grid"></i>
+                    {{ props.roomName }}
+                </div>
                 <div class="post-title-large">{{ currentPost.title }}</div>
                 <div class="post-meta">
                     <NuxtLink :to="currentPost.user?.username ? `/@${currentPost.user.username}` : '#'" class="post-author user-name-link">{{ currentPost.user?.knownas ?? currentPost.user?.username }}</NuxtLink>
@@ -882,6 +886,17 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.pd-room-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.4);
+    text-decoration: none;
 }
 
 .post-title-large {
