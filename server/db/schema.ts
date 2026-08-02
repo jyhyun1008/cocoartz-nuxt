@@ -161,6 +161,14 @@ export const reactions = pgTable('reactions', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 
+export const chatReactions = pgTable('chat_reactions', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    chatid: integer().notNull(),
+    emoji: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+})
+
 export const wikiPages = pgTable('wiki_pages', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     serverid: integer().notNull(),

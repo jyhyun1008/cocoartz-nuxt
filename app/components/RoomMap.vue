@@ -107,6 +107,29 @@
                             <span class="datetime">{{ formatDate(chat.createdAt) }}</span>
                         </div>
                         <div class="msg" v-html="renderMd(chat.content)"></div>
+                        <div class="reactions-row chat-reactions-row">
+                            <button
+                                v-for="r in getChatReactions(chat)"
+                                :key="r.emoji"
+                                class="reaction-pill"
+                                :class="{ reacted: r.reacted }"
+                                @click="toggleChatReaction(chat, r.emoji)"
+                            >
+                                {{ r.emoji }} {{ r.count }}
+                            </button>
+                            <div class="emoji-picker-wrap">
+                                <button
+                                    :ref="el => setChatReactionBtnRef(chat.id, el)"
+                                    class="reaction-add-btn chat-reaction-add-btn"
+                                    @click.stop="openChatReactionPicker(chat)"
+                                >+</button>
+                                <EmojiPicker
+                                    v-if="activeReactionChatId === chat.id"
+                                    :anchor="chatReactionAnchorEl"
+                                    @select="(e) => { toggleChatReaction(chat, e); activeReactionChatId = null }"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -257,12 +280,14 @@ const serverAndRoomId = computed(() => ({
     roomid: roomData.value?.id ?? 0,
 }))
 
+const { userId } = useCurrentUser()
+
 const { data: chatData } = await useAsyncData(
     chatKey,
     () => $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(serverAndRoomId.value),
+        body: JSON.stringify({ ...serverAndRoomId.value, userid: userId.value }),
     }).then(res => (Array.isArray(res) && res.length > 0 ? res : null)),
     { watch: [() => props.path] }
 )
@@ -310,7 +335,6 @@ const topRatio = computed(() => {
     return Math.max(1 / 3, Math.min(0.9, raw))
 })
 
-const { userId } = useCurrentUser()
 const chatInput = ref('')
 const chatInputEl = ref(null)
 const showChatEmojiPicker = ref(false)
@@ -329,12 +353,62 @@ function insertChatEmoji(emoji) {
     })
 }
 
+// 채팅 리액션: 로컬(chatData)/실시간(realtimeChats) 두 출처가 합쳐진 목록이라
+// chat 객체를 직접 mutate하지 않고 별도 override 맵으로 관리 (읽기 전용 realtimeChats 보호)
+const chatReactionOverride = ref({})
+function getChatReactions(chat) {
+    return chatReactionOverride.value[chat.id] ?? chat.reactions ?? []
+}
+async function toggleChatReaction(chat, emoji) {
+    if (!userId.value) return
+    const current = getChatReactions(chat)
+    const existing = current.find(r => r.emoji === emoji)
+    let next
+    if (existing) {
+        const updatedCount = existing.count + (existing.reacted ? -1 : 1)
+        next = updatedCount <= 0
+            ? current.filter(r => r.emoji !== emoji)
+            : current.map(r => r.emoji === emoji ? { ...r, count: updatedCount, reacted: !existing.reacted } : r)
+    } else {
+        next = [...current, { emoji, count: 1, reacted: true }]
+    }
+    chatReactionOverride.value = { ...chatReactionOverride.value, [chat.id]: next }
+
+    const result = await $fetch(`${apiBaseUrl}/api/reactChat`, {
+        method: 'POST',
+        body: { chatid: chat.id, userid: userId.value, emoji },
+    })
+    // 서버 응답과 낙관적 업데이트가 어긋나면(연타 등) 서버 값으로 재동기화
+    const after = getChatReactions(chat)
+    const afterEntry = after.find(r => r.emoji === emoji)
+    if (afterEntry && afterEntry.reacted !== result.reacted) {
+        const fixedCount = afterEntry.count + (result.reacted ? 1 : -1)
+        const fixed = fixedCount <= 0
+            ? after.filter(r => r.emoji !== emoji)
+            : after.map(r => r.emoji === emoji ? { ...r, count: fixedCount, reacted: result.reacted } : r)
+        chatReactionOverride.value = { ...chatReactionOverride.value, [chat.id]: fixed }
+    }
+}
+
+const activeReactionChatId = ref(null)
+const chatReactionAnchorEl = ref(null)
+const chatReactionBtnRefs = {}
+function setChatReactionBtnRef(chatId, el) {
+    if (el) chatReactionBtnRefs[chatId] = el
+}
+function openChatReactionPicker(chat) {
+    chatReactionAnchorEl.value = chatReactionBtnRefs[chat.id]
+    activeReactionChatId.value = activeReactionChatId.value === chat.id ? null : chat.id
+}
+
 onMounted(() => {
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return
         if (chatEmojiWrapRef.value && !chatEmojiWrapRef.value.contains(e.target))
             showChatEmojiPicker.value = false
+        if (!e.target.closest('.chat-reaction-add-btn'))
+            activeReactionChatId.value = null
     })
 })
 
@@ -1055,13 +1129,28 @@ onMounted(() => {
 }
 
 .userchatbox .userinfo {
-    margin-bottom: 2px;
+    margin-bottom: 0;
+    line-height: 1.2;
 }
 
 .userinfo {
     display: flex;
     gap: 10px;
     align-items: center;
+}
+
+.knownas {
+    font-weight: 700;
+}
+
+.reactions-row.chat-reactions-row {
+    padding: 4px 0 0;
+}
+
+.reaction-add-btn.chat-reaction-add-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 0.8rem;
 }
 
 .datetime {

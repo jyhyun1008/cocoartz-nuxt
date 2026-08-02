@@ -178,8 +178,8 @@ const notiPath = '/noti'
 }
 
 .side-items.thispage {
-    background-color: rgba(210,31,60,0.28);
-    color: #ff8096;
+    background-color: var(--bgaccent);
+    color: var(--accent);
 }
 
 .side-items.thispage .side-icon {

@@ -43,6 +43,13 @@
       "when": 1785632936978,
       "tag": "0005_loud_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785638717233,
+      "tag": "0006_tense_proudstar",
+      "breakpoints": true
     }
   ]
 }
