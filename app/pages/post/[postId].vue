@@ -256,12 +256,20 @@ onMounted(() => {
 
                     <div v-for="comment in post?.comments" :key="comment.id" class="pd-comment">
                         <div class="pd-comment-meta">
-                            <NuxtLink :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="pd-author">
+                            <template v-if="comment.remoteActorHandle">
+                                <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="pd-author remote-author" title="fediverse에서 온 답글">
+                                    <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
+                                </a>
+                            </template>
+                            <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="pd-author">
                                 {{ comment.user?.knownas ?? comment.user?.username }}
                             </NuxtLink>
                             <span class="pd-date">{{ formatDate(comment.createdAt) }}</span>
                         </div>
-                        <div class="pd-comment-body">{{ comment.content }}</div>
+                        <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="comment.content"></div>
+                        <div v-else class="pd-comment-body">{{ comment.content }}</div>
                     </div>
 
                     <div v-if="!post?.comments?.length" class="pd-empty">댓글이 없습니다.</div>
@@ -406,6 +414,19 @@ onMounted(() => {
     text-decoration: none;
 }
 .pd-author:hover { text-decoration: underline; }
+
+.remote-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+}
+.remote-author:hover { text-decoration: underline; }
+
+.remote-handle {
+    font-weight: 400;
+    color: rgba(var(--fg-rgb),0.35);
+}
 
 .pd-date {
     font-size: 0.8rem;
@@ -677,6 +698,18 @@ onMounted(() => {
     margin: 6px 0;
 }
 
+/* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
+.pd-content :deep(img.custom-emoji),
+.pd-comment-body :deep(img.custom-emoji) {
+    display: inline-block;
+    width: 1.35em;
+    height: 1.35em;
+    max-width: 1.35em;
+    border-radius: 0;
+    margin: 0 0.05em;
+    vertical-align: middle;
+}
+
 .reactions-row {
     display: flex;
     flex-wrap: wrap;
@@ -752,6 +785,10 @@ onMounted(() => {
 }
 
 .pd-comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; }
+.pd-comment-body.remote { white-space: normal; }
+.pd-comment-body.remote :deep(p) { margin: 0.5em 0; }
+.pd-comment-body.remote :deep(p:first-child) { margin-top: 0; }
+.pd-comment-body.remote :deep(p:last-child) { margin-bottom: 0; }
 
 .pd-empty {
     color: rgba(var(--fg-rgb),0.28);

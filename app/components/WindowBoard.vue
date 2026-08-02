@@ -167,7 +167,7 @@
                             <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
                             <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
                         </div>
-                        <div v-if="comment.remoteActorHandle" class="comment-body" v-html="comment.content"></div>
+                        <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
                         <div v-else class="comment-body">{{ comment.content }}</div>
                     </div>
                     <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
@@ -1037,6 +1037,18 @@ onMounted(() => {
     margin: 6px 0;
 }
 
+/* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
+.post-content img.custom-emoji,
+.comment-body img.custom-emoji {
+    display: inline-block;
+    width: 1.35em;
+    height: 1.35em;
+    max-width: 1.35em;
+    border-radius: 0;
+    margin: 0 0.05em;
+    vertical-align: middle;
+}
+
 .comments-section { border-top: 1px solid rgba(var(--fg-rgb),0.08); padding-top: 4px; }
 
 .comments-title {
@@ -1062,6 +1074,10 @@ onMounted(() => {
 }
 
 .comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; }
+.comment-body.remote { white-space: normal; }
+.comment-body.remote p { margin: 0.5em 0; }
+.comment-body.remote p:first-child { margin-top: 0; }
+.comment-body.remote p:last-child { margin-bottom: 0; }
 
 .comment-form {
     display: flex;

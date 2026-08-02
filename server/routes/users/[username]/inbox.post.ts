@@ -4,7 +4,7 @@ import { eq, and, count } from 'drizzle-orm'
 import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
-import { sanitizeHtml, extractImageAttachmentsHtml } from '../../../utils/ap/sanitize'
+import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji } from '../../../utils/ap/sanitize'
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 
 const MAX_FOLLOWERS_PER_USER = 5000
@@ -197,9 +197,9 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         .where(and(eq(remoteFeedPosts.userid, user.id), eq(remoteFeedPosts.objectId, objectId)))
     if (existing) return
 
-    const content = sanitizeHtml(object.content as string || '') + extractImageAttachmentsHtml(object.attachment)
+    const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag) + extractImageAttachmentsHtml(object.attachment)
     if (!content) return
-    const summary = typeof object.summary === 'string' ? sanitizeHtml(object.summary).trim() || null : null
+    const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
 
     await db.insert(remoteFeedPosts).values({
         userid: user.id,
@@ -244,7 +244,7 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
     const actorData = await fetchActor(actorUrl_)
     const preferredUsername = actorData?.preferredUsername as string || ''
     const actorDomain = new URL(actorUrl_).hostname
-    const content = sanitizeHtml(object.content as string || '')
+    const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag)
     const contentWithImages = content + extractImageAttachmentsHtml(object.attachment)
 
     await db.insert(posts).values({

@@ -183,6 +183,21 @@ async function unfollowRemote(id) {
     margin: 6px 0;
 }
 
+/* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
+.timeline-post-body img.custom-emoji {
+    display: inline-block;
+    width: 1.35em;
+    height: 1.35em;
+    max-width: 1.35em;
+    border-radius: 0;
+    margin: 0 0.05em;
+    vertical-align: middle;
+}
+
+.timeline-post-body p { margin: 0.5em 0; }
+.timeline-post-body p:first-child { margin-top: 0; }
+.timeline-post-body p:last-child { margin-bottom: 0; }
+
 .timeline-cw {
     display: flex;
     align-items: center;
