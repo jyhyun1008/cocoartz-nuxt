@@ -86,6 +86,11 @@ export const posts = pgTable('posts', {
     remoteActorHandle: text(),
     remoteActorIconUrl: text(),
     remoteActorInbox: text(),
+    // 이 글이 로컬 게시판 글타래가 아니라, 팔로우 피드에 뜬 원격(remoteFeedPosts) 글에 대한
+    // 내 답글일 때 그 원격 글의 objectId. 이 값이 있으면 게시판 목록/개인 타임라인에서는
+    // 숨기고(replyto 기반 글타래가 아니므로 isNull(replyto) 필터로는 안 걸러짐), 원격 글
+    // 상세보기 쪽 댓글창에서만 보여줌
+    remoteParentObjectId: text(),
 }, (table) => [
     uniqueIndex('posts_object_id_idx').on(table.objectId),
 ])
@@ -215,6 +220,9 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     // 팔로우 관계로 받은 글이라 공개범위 무관하게 다 보여주지만, 연합 게시판(getRemoteFeedPosts)은
     // 모두가 보는 공개 게시판이라 이 값이 true인 글만 노출해야 함
     isPublic: boolean().default(true).notNull(),
+    // 내가(로컬 유저가) 이 원격 글에 좋아요를 보냈는지, 그리고 취소(Undo) 때 참조할 Like 액티비티 id
+    liked: boolean().default(false).notNull(),
+    likeActivityId: text(),
     published: timestamp({ withTimezone: true }).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [

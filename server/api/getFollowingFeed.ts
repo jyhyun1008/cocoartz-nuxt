@@ -7,7 +7,8 @@ export default eventHandler(async (event) => {
     if (!userid) return []
 
     // 로컬 유저 팔로우 → posts (본인 글도 같이 — 타임라인이니 내가 쓴 글도 보여야 함)
-    // 답글(replyto가 있는 글)은 새 글이 아니라 댓글이라 타임라인에는 표시하지 않음
+    // 답글(replyto가 있는 글)이나 원격 팔로우 피드 글에 보낸 답글(remoteParentObjectId)은
+    // 새 글이 아니라 댓글이라 타임라인에는 표시하지 않음
     const followingRows = await db.select({ userid: follows.userid }).from(follows)
         .where(eq(follows.followerUserId, userid))
     const followingIds = [...new Set([...followingRows.map(r => r.userid), userid])]
@@ -15,7 +16,7 @@ export default eventHandler(async (event) => {
     let localItems: any[] = []
     if (followingIds.length) {
         localItems = await db.select().from(posts)
-            .where(and(inArray(posts.userid, followingIds), isNull(posts.replyto)))
+            .where(and(inArray(posts.userid, followingIds), isNull(posts.replyto), isNull(posts.remoteParentObjectId)))
             .orderBy(desc(posts.createdAt))
             .limit(30)
 

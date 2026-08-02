@@ -7,7 +7,7 @@ const PAGE_SIZE = 20
 export default eventHandler(async (event) => {
     const { serverid, roomid, offset } = await readBody(event)
     const rows = await db.select().from(posts).where(
-        and(eq(posts.serverid, serverid), eq(posts.roomid, roomid), isNull(posts.replyto))
+        and(eq(posts.serverid, serverid), eq(posts.roomid, roomid), isNull(posts.replyto), isNull(posts.remoteParentObjectId))
     ).orderBy(desc(posts.createdAt)).limit(PAGE_SIZE + 1).offset(offset ?? 0)
 
     const hasMore = rows.length > PAGE_SIZE
