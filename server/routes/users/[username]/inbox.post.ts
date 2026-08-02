@@ -1,7 +1,7 @@
 import { db } from '../../../utils/db'
 import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts } from '../../../db/schema'
 import { eq, and, count } from 'drizzle-orm'
-import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl } from '../../../utils/ap/activitypub'
+import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl, isPublicAudience } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
 import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji } from '../../../utils/ap/sanitize'
@@ -185,9 +185,10 @@ async function handleReject(body: Record<string, unknown>, user: LocalUser) {
 }
 
 // 이 유저가 팔로우 중인 원격 계정이 새 글(원본 글, 답글 아님)을 올렸을 때 개인 팔로잉 피드에 저장
-async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser) {
+async function handleCreateFromFollowedAccount(object: Record<string, unknown>, actorUrl_: string, user: LocalUser, activity: Record<string, unknown>) {
     const objectId = typeof object.id === 'string' ? object.id : null
     if (!objectId) return
+    if (!isPublicAudience(object, activity)) return
 
     const [follow] = await db.select().from(remoteFollows)
         .where(and(eq(remoteFollows.userid, user.id), eq(remoteFollows.targetActorUrl, actorUrl_)))
@@ -226,12 +227,13 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
 
     // inReplyTo가 없으면 로컬 글에 대한 답글이 아니라 팔로우 중인 원격 계정의 원본 글
     if (!inReplyTo) {
-        await handleCreateFromFollowedAccount(object, actorUrl_, user)
+        await handleCreateFromFollowedAccount(object, actorUrl_, user, body)
         return
     }
 
     const parentId = parseLocalPostId(domain, inReplyTo)
     if (!parentId) return
+    if (!isPublicAudience(object, body)) return
 
     const [parent] = await db.select().from(posts).where(eq(posts.id, parentId))
     if (!parent) return

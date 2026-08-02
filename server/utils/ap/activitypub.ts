@@ -5,6 +5,18 @@ export const AS_CONTEXT = 'https://www.w3.org/ns/activitystreams'
 export const SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 export const AS_PUBLIC = 'https://www.w3.org/ns/activitystreams#Public'
 
+// object(Note)의 to/cc, 없으면 activity(Create 등) 레벨의 to/cc를 확인해서
+// AS_PUBLIC이 하나라도 있으면 공개(공개/Unlisted)로 취급. 팔로워 공개, Misskey 홈 공개,
+// 다이렉트 등은 어디에도 Public이 없으므로 거부됨.
+export function isPublicAudience(object: Record<string, unknown>, activity?: Record<string, unknown>): boolean {
+    const toArrays = [object.to, object.cc, activity?.to, activity?.cc]
+    for (const field of toArrays) {
+        const list = Array.isArray(field) ? field : field ? [field] : []
+        if (list.includes(AS_PUBLIC)) return true
+    }
+    return false
+}
+
 export function actorUrl(domain: string, username: string) {
     return `https://${domain}/users/${username}`
 }
