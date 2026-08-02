@@ -2,75 +2,75 @@
     <div class="modal-base">
         <div class="window-header">
             <i class="hgi hgi-stroke hgi-globe-02"></i>
-            <span class="board-header-title">연합 타임라인</span>
+            <span class="board-header-title">타임라인</span>
             <div class="board-header-actions">
+                <NuxtLink v-if="currentView === 'list'" to="/preferences" class="back-btn-header">팔로우 관리</NuxtLink>
+                <button v-else class="back-btn-header" @click="currentView = 'list'">← 목록</button>
                 <button class="window-close-btn board-close-btn" @click="$emit('close')">✕</button>
             </div>
         </div>
 
-        <div id="timeline-content">
-            <!-- 팔로잉 피드 (로컬 유저끼리 팔로우한 글 모아보기) -->
-            <div v-if="isLoggedIn" class="admin-section">
-                <div class="admin-section-header">
-                    <span class="admin-section-title">팔로잉 피드</span>
-                </div>
-                <div v-for="p in followingFeed" :key="p.id" class="timeline-post">
-                    <div class="timeline-post-meta">
-                        <div class="admin-icon-preview" style="width:32px;height:32px;border-radius:50%">
-                            <NuxtImg v-if="p.isRemote ? p.sourceIconUrl : p.user?.avatar" :src="p.isRemote ? p.sourceIconUrl : p.user.avatar" class="admin-icon-preview-img" />
-                            <i v-else class="hgi hgi-stroke hgi-user-group"></i>
+        <!-- 목록 -->
+        <div v-if="currentView === 'list'" id="board-wrapper">
+            <template v-if="isLoggedIn">
+                <div v-if="followingFeed.length" class="board">
+                    <template v-for="p in followingFeed" :key="p.id">
+                        <!-- 로컬 글: 제목만, 클릭하면 게시글 페이지로 -->
+                        <NuxtLink v-if="!p.isRemote" :to="`/post/${p.id}`" class="post-card">
+                            <div class="post-card-title">{{ p.title }}</div>
+                            <div class="post-card-meta">
+                                <span class="post-author">{{ p.user?.knownas ?? p.user?.username }}</span>
+                                <span class="datetime">{{ formatDate(p.createdAt) }}</span>
+                            </div>
+                        </NuxtLink>
+                        <!-- 원격 글: 미리보기 카드, 클릭하면 상세보기 -->
+                        <div v-else class="post-card external-post-card" @click="openRemotePost(p)">
+                            <div class="external-post-body">
+                                <div class="post-card-title">
+                                    <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                    <template v-if="p.summary">
+                                        <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
+                                        <span v-html="p.summary"></span>
+                                    </template>
+                                    <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(p.content)"></span>
+                                </div>
+                                <div class="post-card-meta">
+                                    <span class="post-author remote-handle">{{ p.sourceName || p.sourceHandle }}</span>
+                                    <span class="datetime">{{ formatDate(p.createdAt) }}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="timeline-post-author">
-                            <template v-if="p.isRemote">
-                                <a :href="p.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author">{{ p.sourceName || p.sourceHandle }}</a>
-                                <span class="remote-handle">{{ p.sourceHandle }}</span>
-                            </template>
-                            <NuxtLink v-else :to="p.user?.username ? `/@${p.user.username}` : '#'" class="post-author">{{ p.user?.knownas ?? p.user?.username }}</NuxtLink>
-                        </div>
-                        <span class="datetime">{{ formatDate(p.createdAt) }}</span>
-                    </div>
-                    <template v-if="p.isRemote">
-                        <div v-if="p.summary" class="timeline-cw">
-                            <i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="p.summary"></span>
-                        </div>
-                        <div class="timeline-post-body" v-html="p.content"></div>
                     </template>
-                    <NuxtLink v-else :to="`/post/${p.id}`" class="timeline-post-body" style="color:inherit;text-decoration:none;display:block">
-                        <strong>{{ p.title }}</strong>
-                    </NuxtLink>
                 </div>
-                <div v-if="!followingFeed.length" class="empty" style="padding:14px 0">아직 팔로우한 사람이 없거나, 팔로우한 사람이 쓴 글이 없습니다.</div>
+                <div v-else class="empty">
+                    아직 팔로우한 사람이 없거나, 팔로우한 사람이 쓴 글이 없습니다.<br />
+                    <NuxtLink to="/preferences" style="color:var(--accent)">설정에서 원격 계정을 팔로우해보세요.</NuxtLink>
+                </div>
+            </template>
+            <div v-else class="empty">로그인 후 이용할 수 있습니다.</div>
+        </div>
 
-                <div class="admin-section-header" style="margin-top:18px">
-                    <span class="admin-section-title">팔로우 중인 원격 계정</span>
+        <!-- 원격 글 상세 -->
+        <div v-else-if="currentView === 'remote-detail' && currentRemotePost" id="board-wrapper">
+            <div class="post-detail">
+                <div class="post-meta">
+                    <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
+                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                        {{ currentRemotePost.sourceName || currentRemotePost.sourceHandle }}
+                        <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
+                    </a>
+                    <span class="datetime">{{ formatDate(currentRemotePost.createdAt) }}</span>
                 </div>
-                <div class="admin-icon-row">
-                    <input v-model="remoteFollowHandle" placeholder="user@mastodon.social" class="post-input" style="flex:1" @keydown.enter="submitRemoteFollow" />
-                    <button class="admin-add-btn" style="margin-left:0" @click="submitRemoteFollow" :disabled="!remoteFollowHandle.trim() || remoteFollowSaving">
-                        {{ remoteFollowSaving ? '팔로우 중...' : '팔로우' }}
-                    </button>
-                </div>
-                <p v-if="remoteFollowError" class="admin-error">{{ remoteFollowError }}</p>
 
-                <div class="admin-channel-list" style="margin-top:10px">
-                    <div v-for="f in remoteFollowsList" :key="f.id" class="admin-channel-item">
-                        <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
-                            <NuxtImg v-if="f.targetIconUrl" :src="f.targetIconUrl" class="admin-icon-preview-img" />
-                            <i v-else class="hgi hgi-stroke hgi-user-group"></i>
-                        </div>
-                        <span class="admin-ch-name">{{ f.targetName || f.targetHandle }}</span>
-                        <code class="admin-ch-path">{{ f.targetHandle }}</code>
-                        <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': f.accepted }">
-                            {{ f.accepted ? '팔로잉' : '대기중' }}
-                        </span>
-                        <div class="admin-ch-actions">
-                            <button class="admin-icon-btn danger" @click="unfollowRemote(f.id)" title="언팔로우">
-                                <i class="hgi hgi-stroke hgi-delete-02"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div v-if="!remoteFollowsList.length" class="empty" style="padding:14px 0">아직 팔로우한 원격 계정이 없습니다.</div>
+                <div v-if="currentRemotePost.summary && !showRemoteContent" class="remote-cw-gate">
+                    <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
+                    <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
+                <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
+
+                <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
+                    원 계정에서 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
+                </a>
             </div>
         </div>
     </div>
@@ -83,131 +83,35 @@ defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
 
-const { data: followingFeedData, refresh: refreshFollowingFeed } = await useAsyncData(
+const { data: followingFeedData } = await useAsyncData(
     'following-feed',
     () => userId.value
         ? $fetch(`${apiBaseUrl}/api/getFollowingFeed`, { method: 'POST', body: { userid: userId.value } }).then(res => Array.isArray(res) ? res : [])
         : Promise.resolve([]),
     { watch: [userId] },
 )
-const { data: remoteFollowsData, refresh: refreshRemoteFollows } = await useAsyncData(
-    'remote-follows',
-    () => userId.value
-        ? $fetch(`${apiBaseUrl}/api/getRemoteFollows`, { method: 'POST', body: { userid: userId.value } }).then(res => Array.isArray(res) ? res : [])
-        : Promise.resolve([]),
-    { watch: [userId] },
-)
 
 const followingFeed = computed(() => followingFeedData.value ?? [])
-const remoteFollowsList = computed(() => remoteFollowsData.value ?? [])
 
-
-const remoteFollowHandle = ref('')
-const remoteFollowSaving = ref(false)
-const remoteFollowError = ref('')
-
-async function submitRemoteFollow() {
-    if (!remoteFollowHandle.value.trim()) return
-    remoteFollowSaving.value = true
-    remoteFollowError.value = ''
-    try {
-        await $fetch(`${apiBaseUrl}/api/followRemoteUser`, {
-            method: 'POST',
-            body: { userid: userId.value, handle: remoteFollowHandle.value.trim() },
-        })
-        remoteFollowHandle.value = ''
-        await refreshRemoteFollows()
-    } catch (e) {
-        remoteFollowError.value = e?.data?.message ?? '팔로우에 실패했습니다'
-    }
-    remoteFollowSaving.value = false
+// 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 나머지 태그만 지움 (WindowBoard.vue와 동일 로직)
+function stripHtmlKeepEmoji(html) {
+    if (!html) return ''
+    const emojiTags = []
+    const withPlaceholders = html.replace(/<img[^>]*class="[^"]*custom-emoji[^"]*"[^>]*>/g, (match) => {
+        emojiTags.push(match)
+        return ` EMOJI${emojiTags.length - 1} `
+    })
+    const stripped = withPlaceholders.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    return stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
 }
 
-async function unfollowRemote(id) {
-    try {
-        await $fetch(`${apiBaseUrl}/api/unfollowRemoteUser`, {
-            method: 'POST',
-            body: { userid: userId.value, id },
-        })
-        await refreshRemoteFollows()
-        await refreshFollowingFeed()
-    } catch (e) {
-        remoteFollowError.value = e?.data?.message ?? '언팔로우에 실패했습니다'
-    }
+const currentView = ref('list')
+const currentRemotePost = ref(null)
+const showRemoteContent = ref(false)
+
+function openRemotePost(post) {
+    currentRemotePost.value = post
+    showRemoteContent.value = false
+    currentView.value = 'remote-detail'
 }
 </script>
-
-<style>
-#timeline-content {
-    padding: 20px 24px;
-    overflow-y: auto;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    font-size: 0.95rem;
-}
-
-.timeline-post {
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(var(--fg-rgb),0.07);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.timeline-post-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.timeline-post-author {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.timeline-post-body {
-    color: rgba(var(--fg-rgb),0.8);
-    line-height: 1.7;
-    font-size: 0.92rem;
-}
-
-.timeline-post-body img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 12px;
-    display: block;
-    margin: 6px 0;
-}
-
-/* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
-img.custom-emoji {
-    display: inline-block;
-    width: 1.35em;
-    height: 1.35em;
-    max-width: 1.35em;
-    border-radius: 0;
-    margin: 0 0.05em;
-    vertical-align: middle;
-    transition: transform 0.15s ease;
-}
-img.custom-emoji:hover {
-    transform: scale(1.8);
-}
-
-.timeline-post-body p { margin: 0.5em 0; }
-.timeline-post-body p:first-child { margin-top: 0; }
-.timeline-post-body p:last-child { margin-bottom: 0; }
-
-.timeline-cw {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #ffb454;
-}
-</style>

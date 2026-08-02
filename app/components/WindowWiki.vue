@@ -413,6 +413,8 @@ async function submitPage() {
     line-height: 1.85;
     color: rgba(var(--fg-rgb),0.82);
     font-size: 0.95rem;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .wiki-content h1 {

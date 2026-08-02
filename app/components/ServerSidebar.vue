@@ -29,6 +29,12 @@
                     </div>
                 </div>
             </NuxtLink>
+            <NuxtLink to="/timeline">
+                <div class="side-items" :class="{ thispage: route.path === '/timeline' }">
+                    <i class="hgi hgi-stroke hgi-globe-02 side-icon"></i>
+                    <span>타임라인</span>
+                </div>
+            </NuxtLink>
         </div>
         <div class="side-divider"></div>
         <div id="pages-wrapper">
@@ -74,6 +80,9 @@ const props = defineProps({
 
 const { presenceByRoom } = useRoomSocket()
 const { isOpen, close } = useMobileNav()
+// 개인 타임라인은 settings.vue처럼 마을(path='/')을 배경으로 재사용해서 props.path만으로는
+// 구분이 안 됨 — 실제 주소(route.path)로 현재 페이지인지 판단해야 함
+const route = useRoute()
 
 function roomPresence(roomPath: string) {
   return presenceByRoom.value[roomPath] ?? []

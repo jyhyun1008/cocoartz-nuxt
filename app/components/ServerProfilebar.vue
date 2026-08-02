@@ -15,6 +15,9 @@
                     <div class="username">@{{ i?.username ?? '' }}</div>
                 </div>
             </NuxtLink>
+            <NuxtLink to="/preferences" id="preferences-wrapper" title="내 설정">
+                <i class="hgi hgi-stroke hgi-user-settings-01"></i>
+            </NuxtLink>
             <div id="settings-wrapper" @click="logout" title="로그아웃">
                 <i class="hgi hgi-stroke hgi-logout-02"></i>
             </div>
@@ -139,16 +142,19 @@ async function logout() {
     text-overflow: ellipsis;
 }
 
-#settings-wrapper {
+#settings-wrapper,
+#preferences-wrapper {
     color: rgba(var(--fg-rgb),0.4);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;
     transition: color 0.15s, background 0.15s;
     flex-shrink: 0;
+    display: flex;
 }
 
-#settings-wrapper:hover {
+#settings-wrapper:hover,
+#preferences-wrapper:hover {
     color: rgba(var(--fg-rgb),0.9);
     background: rgba(var(--fg-rgb),0.08);
 }

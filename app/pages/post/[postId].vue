@@ -674,6 +674,15 @@ onMounted(() => {
     font-size: 1rem;
     line-height: 1.85;
     color: rgba(var(--fg-rgb),0.82);
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.pd-content :deep(a),
+.pd-comment-body :deep(a) {
+    color: var(--accent, #D21F3C);
+    text-decoration: underline;
+    text-decoration-color: rgba(var(--fg-rgb),0.25);
 }
 
 /* v-html로 넣는 마크다운 렌더링 결과물이라 scoped 속성이 안 붙음 -> :deep() 필요 */
@@ -789,7 +798,7 @@ onMounted(() => {
     margin-bottom: 4px;
 }
 
-.pd-comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; }
+.pd-comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word; }
 .pd-comment-body.remote { white-space: normal; }
 .pd-comment-body.remote :deep(p) { margin: 0.5em 0; }
 .pd-comment-body.remote :deep(p:first-child) { margin-top: 0; }

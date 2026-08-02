@@ -475,6 +475,8 @@ async function saveEdit() {
     color: rgba(var(--fg-rgb),0.7);
     line-height: 1.6;
     white-space: pre-wrap;
+    overflow-wrap: break-word;
+    word-break: break-word;
     margin-bottom: 10px;
 }
 

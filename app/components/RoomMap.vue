@@ -192,7 +192,13 @@
         <WindowTimeline v-if="props.page === 'timeline' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'timeline' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-globe-02"></i> 연합 타임라인 열기
+            <i class="hgi hgi-stroke hgi-globe-02"></i> 타임라인 열기
+        </div>
+
+        <WindowPreferences v-if="props.page === 'preferences' && showOverlay" @close="closeOverlay" />
+        <div v-if="props.page === 'preferences' && !showOverlay"
+             class="reopen-btn" @click="openOverlay">
+            <i class="hgi hgi-stroke hgi-user-settings-01"></i> 내 설정 열기
         </div>
 
         <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) -->
@@ -1032,6 +1038,15 @@ onMounted(() => {
     gap: 10px;
 }
 
+.userchatbox {
+    flex: 1;
+    min-width: 0;
+}
+
+.msg {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
 .msg :deep(p) {
     margin: 0;
 }

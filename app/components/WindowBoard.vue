@@ -1029,6 +1029,15 @@ onMounted(() => {
     line-height: 1.8;
     font-size: 0.95rem;
     color: rgba(var(--fg-rgb),0.82);
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.post-content a,
+.comment-body a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: rgba(var(--fg-rgb),0.25);
 }
 
 .post-content p { margin: 0.5em 0; }
@@ -1093,7 +1102,7 @@ img.custom-emoji:hover {
     align-items: center;
 }
 
-.comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; }
+.comment-body { color: rgba(var(--fg-rgb),0.7); white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word; }
 .comment-body.remote { white-space: normal; }
 .comment-body.remote p { margin: 0.5em 0; }
 .comment-body.remote p:first-child { margin-top: 0; }

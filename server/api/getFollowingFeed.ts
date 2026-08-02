@@ -6,10 +6,10 @@ export default eventHandler(async (event) => {
     const { userid } = await readBody(event)
     if (!userid) return []
 
-    // 로컬 유저 팔로우 → posts
+    // 로컬 유저 팔로우 → posts (본인 글도 같이 — 타임라인이니 내가 쓴 글도 보여야 함)
     const followingRows = await db.select({ userid: follows.userid }).from(follows)
         .where(eq(follows.followerUserId, userid))
-    const followingIds = followingRows.map(r => r.userid)
+    const followingIds = [...new Set([...followingRows.map(r => r.userid), userid])]
 
     let localItems: any[] = []
     if (followingIds.length) {
