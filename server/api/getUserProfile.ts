@@ -1,6 +1,6 @@
 import { db } from '../utils/db'
-import { users, posts, follows } from '../db/schema'
-import { eq, and, desc, count } from 'drizzle-orm'
+import { users, posts, follows, rooms } from '../db/schema'
+import { eq, and, desc, count, inArray } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
     const { username, viewerUserId } = await readBody(event)
@@ -29,6 +29,15 @@ export default defineEventHandler(async (event) => {
         .where(eq(posts.userid, user.id))
         .orderBy(desc(posts.createdAt))
         .limit(20)
+
+    const roomIds = [...new Set(userPosts.map((p) => p.roomid))]
+    const postRooms = roomIds.length
+        ? await db.select({ id: rooms.id, path: rooms.path, knownas: rooms.knownas }).from(rooms).where(inArray(rooms.id, roomIds))
+        : []
+    const roomById = new Map(postRooms.map((r) => [r.id, r]))
+    for (const post of userPosts) {
+        ;(post as any).room = roomById.get(post.roomid) ?? null
+    }
 
     const [{ c: followerCount }] = await db.select({ c: count() }).from(follows)
         .where(and(eq(follows.userid, user.id), eq(follows.accepted, true)))

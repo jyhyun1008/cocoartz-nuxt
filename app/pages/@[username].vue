@@ -208,6 +208,10 @@ async function saveEdit() {
 
                     <div v-if="topLevelPosts.length" class="posts-list">
                         <NuxtLink v-for="post in topLevelPosts" :key="post.id" :to="`/post/${post.id}`" class="profile-post">
+                            <div v-if="post.room" class="pp-room-tag">
+                                <i class="hgi hgi-stroke hgi-grid"></i>
+                                {{ post.room.knownas }}
+                            </div>
                             <div class="pp-title">{{ post.title }}</div>
                             <div class="pp-content">{{ post.content }}</div>
                             <div class="pp-date">{{ formatDate(post.createdAt) }}</div>
@@ -527,6 +531,16 @@ async function saveEdit() {
 }
 
 .profile-post:hover { background: rgba(var(--fg-rgb),0.07); }
+
+.pp-room-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(var(--fg-rgb),0.35);
+    margin-bottom: 4px;
+}
 
 .pp-title {
     font-weight: 700;

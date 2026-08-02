@@ -708,6 +708,11 @@ onMounted(() => {
     border-radius: 0;
     margin: 0 0.05em;
     vertical-align: middle;
+    transition: transform 0.15s ease;
+}
+.pd-content :deep(img.custom-emoji:hover),
+.pd-comment-body :deep(img.custom-emoji:hover) {
+    transform: scale(1.8);
 }
 
 .reactions-row {

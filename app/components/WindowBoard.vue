@@ -33,9 +33,9 @@
                                 <i class="hgi hgi-stroke hgi-globe-02"></i>
                                 <template v-if="entry.post.summary">
                                     <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
-                                    <span>{{ entry.post.summary }}</span>
+                                    <span v-html="entry.post.summary"></span>
                                 </template>
-                                <span v-else class="preview-text">{{ stripHtml(entry.post.content) }}</span>
+                                <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(entry.post.content)"></span>
                             </div>
                             <div class="post-card-meta">
                                 <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
@@ -316,10 +316,26 @@ async function loadMore() {
 const hasMoreToShow = computed(() => hasMoreLocal.value || hasMoreRemote.value)
 
 await loadFirstPage()
-watch([() => route.params.page, () => props.isFederated, userId], loadFirstPage)
+// props.ids(roomid)도 감시해야 함 — 다른 게시판으로 넘어가도 이 컴포넌트가 언마운트되지 않고
+// 재사용되는 경우(v-if 조건은 그대로 true인 채 부모의 roomData만 바뀌는 경우) roomid가 바뀌었는데
+// 새로고침을 안 해서 이전 방 글이 계속 보이는 문제가 있었음
+watch([() => route.params.page, () => props.isFederated, () => props.ids?.roomid, userId], loadFirstPage)
 
 function stripHtml(html) {
     return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 싶어서, 그 img 태그만 플레이스홀더로
+// 빼놨다가 나머지 태그를 다 지운 뒤 다시 끼워넣음 — v-html로 렌더링해야 실제 이미지로 보임
+function stripHtmlKeepEmoji(html) {
+    if (!html) return ''
+    const emojiTags = []
+    const withPlaceholders = html.replace(/<img[^>]*class="[^"]*custom-emoji[^"]*"[^>]*>/g, (match) => {
+        emojiTags.push(match)
+        return ` EMOJI${emojiTags.length - 1} `
+    })
+    const stripped = withPlaceholders.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    return stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
 }
 
 // 원격 글 작성자의 서버 뱃지 — actorUrl에서 호스트만 뽑아서 서버 홈으로 링크 연결
@@ -1037,9 +1053,9 @@ onMounted(() => {
     margin: 6px 0;
 }
 
-/* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
-.post-content img.custom-emoji,
-.comment-body img.custom-emoji {
+/* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로.
+   제목/CW 줄(.post-card-title)에도 나오므로 특정 부모 클래스에 안 묶고 전역으로 잡음 */
+img.custom-emoji {
     display: inline-block;
     width: 1.35em;
     height: 1.35em;
@@ -1047,6 +1063,10 @@ onMounted(() => {
     border-radius: 0;
     margin: 0 0.05em;
     vertical-align: middle;
+    transition: transform 0.15s ease;
+}
+img.custom-emoji:hover {
+    transform: scale(1.8);
 }
 
 .comments-section { border-top: 1px solid rgba(var(--fg-rgb),0.08); padding-top: 4px; }

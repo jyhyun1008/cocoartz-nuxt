@@ -31,7 +31,7 @@
                     </div>
                     <template v-if="p.isRemote">
                         <div v-if="p.summary" class="timeline-cw">
-                            <i class="hgi hgi-stroke hgi-alert-02"></i> {{ p.summary }}
+                            <i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="p.summary"></span>
                         </div>
                         <div class="timeline-post-body" v-html="p.content"></div>
                     </template>
@@ -184,7 +184,7 @@ async function unfollowRemote(id) {
 }
 
 /* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
-.timeline-post-body img.custom-emoji {
+img.custom-emoji {
     display: inline-block;
     width: 1.35em;
     height: 1.35em;
@@ -192,6 +192,10 @@ async function unfollowRemote(id) {
     border-radius: 0;
     margin: 0 0.05em;
     vertical-align: middle;
+    transition: transform 0.15s ease;
+}
+img.custom-emoji:hover {
+    transform: scale(1.8);
 }
 
 .timeline-post-body p { margin: 0.5em 0; }
