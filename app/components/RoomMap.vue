@@ -50,6 +50,14 @@
                             <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
                         </div>
                     </div>
+                    <!-- 맵 아이템 (스프라이트 스태킹) — 맵 편집기에서 배치한 아이템(mapInfo[1])을 그대로 렌더 -->
+                    <MapItem
+                        v-for="(item, idx) in mapItems"
+                        :key="`item-${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`"
+                        :layers="getItemLayers(item.itemid)"
+                        :position="item.position"
+                        :top-ratio="topRatio"
+                    />
                     <!-- 로컬 캐릭터 -->
                     <CharacterMoving
                         :layers="localCharLayers"
@@ -587,6 +595,11 @@ const sortedTiles = computed(() => {
 
 const TILE_W = 128
 const TILE_IMG_H = 128  // 타일 이미지는 정사각형(128×128) 가정
+
+// 맵에 배치된 아이템 — mapInfo[0]이 타일 배열이듯, mapInfo[1]이 아이템 배열.
+// 맵 편집기(WindowMapEditor)에서 저장한 위치/itemid를 그대로 읽어와 렌더만 함
+const { getItemLayers } = useItemCatalog()
+const mapItems = computed(() => mapInfo.value?.[1] ?? [])
 
 const charDepth = ref(0)
 

@@ -32,6 +32,13 @@
                         <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
                     </div>
                 </div>
+                <MapItem
+                    v-for="(item, idx) in itemsBack"
+                    :key="`wme-item-${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`"
+                    :layers="getItemLayers(item.itemid)"
+                    :position="item.position"
+                    :top-ratio="topRatio"
+                />
             </div>
         </div>
 
@@ -58,6 +65,13 @@
                             <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
                         </div>
                     </div>
+                    <MapItem
+                        v-for="(item, idx) in itemsFront"
+                        :key="`wme-item-${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`"
+                        :layers="getItemLayers(item.itemid)"
+                        :position="item.position"
+                        :top-ratio="topRatio"
+                    />
                 </div>
             </div>
         </div>
@@ -88,15 +102,33 @@
                     v-for="tid in TILE_IDS"
                     :key="tid"
                     class="palette-tile-btn"
-                    :class="{ active: !isErasing && selectedTile === tid }"
-                    @click="isErasing = false; selectedTile = tid"
+                    :class="{ active: placementMode === 'tile' && !isErasing && selectedTile === tid }"
+                    @click="placementMode = 'tile'; isErasing = false; selectedTile = tid"
                 >
                     <img :src="`/tileset/${tid}.png`" />
                 </div>
                 <div
                     class="palette-tile-btn erase-btn"
-                    :class="{ active: isErasing }"
-                    @click="isErasing = true"
+                    :class="{ active: placementMode === 'tile' && isErasing }"
+                    @click="placementMode = 'tile'; isErasing = true"
+                >✕</div>
+            </div>
+            <div class="palette-label">아이템</div>
+            <div class="palette-tiles-row">
+                <div
+                    v-for="def in ITEM_CATALOG"
+                    :key="def.id"
+                    class="palette-tile-btn"
+                    :class="{ active: placementMode === 'item' && !isErasing && selectedItem === def.id }"
+                    :title="def.name"
+                    @click="placementMode = 'item'; isErasing = false; selectedItem = def.id"
+                >
+                    <img :src="def.layers[0]" />
+                </div>
+                <div
+                    class="palette-tile-btn erase-btn"
+                    :class="{ active: placementMode === 'item' && isErasing }"
+                    @click="placementMode = 'item'; isErasing = true"
                 >✕</div>
             </div>
             <div class="palette-label">높이</div>
@@ -131,6 +163,7 @@ const emit = defineEmits(['saved', 'cancel'])
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
+const { ITEM_CATALOG, getItemLayers } = useItemCatalog()
 
 const TILE_W = 128
 const TILE_IMG_H = 128
@@ -183,7 +216,11 @@ const tilesScaleStyle = computed(() => ({
 
 // ─── 편집 상태 ────────────────────────────────
 const editTiles = ref([])
+const editItems = ref([])
+// 'tile' | 'item' — 팔레트에서 뭘 골랐느냐에 따라 클릭했을 때 타일을 놓을지 아이템을 놓을지 결정
+const placementMode = ref('tile')
 const selectedTile = ref(1)
+const selectedItem = ref(ITEM_CATALOG[0]?.id ?? 1)
 const selectedZ = ref(0)
 const isErasing = ref(false)
 const hoverCell = ref(null)
@@ -200,6 +237,19 @@ const editGridCells = computed(() => {
 
 function handleCellClick(x, y) {
     const z = selectedZ.value
+    if (placementMode.value === 'item') {
+        const idx = editItems.value.findIndex(
+            it => it.position.x === x && it.position.y === y && (it.position.z ?? 0) === z
+        )
+        if (isErasing.value) {
+            if (idx !== -1) editItems.value.splice(idx, 1)
+        } else if (idx !== -1) {
+            editItems.value[idx] = { position: { x, y, z }, itemid: selectedItem.value }
+        } else {
+            editItems.value.push({ position: { x, y, z }, itemid: selectedItem.value })
+        }
+        return
+    }
     const idx = editTiles.value.findIndex(
         t => t.position.x === x && t.position.y === y && (t.position.z ?? 0) === z
     )
@@ -217,7 +267,7 @@ function handleCellClick(x, y) {
 async function saveMap() {
     isSaving.value = true
     try {
-        const mapJson = JSON.stringify([editTiles.value])
+        const mapJson = JSON.stringify([editTiles.value, editItems.value])
         await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
             method: 'POST',
             body: { userid: userId.value, id: props.roomId, map: mapJson },
@@ -274,6 +324,10 @@ const sortedTiles = computed(() =>
 const tilesBack = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) === 0))
 const tilesFront = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) >= 1))
 
+// 아이템도 타일이랑 같은 z 기준으로 두 그룹(z=0 / z≥1)에 나눠서, 같은 레이어 그룹 안에서 같이 그려짐
+const itemsBack = computed(() => editItems.value.filter(it => (it.position.z ?? 0) === 0))
+const itemsFront = computed(() => editItems.value.filter(it => (it.position.z ?? 0) >= 1))
+
 function getFilePath(tile) { return `/tileset/${tile.itemid}.png` }
 
 function getTileContainerStyle(tile) {
@@ -317,6 +371,7 @@ const tileSideBottomImgStyle = computed(() => ({
 
 onMounted(() => {
     editTiles.value = JSON.parse(JSON.stringify(mapInfo.value?.[0] ?? []))
+    editItems.value = JSON.parse(JSON.stringify(mapInfo.value?.[1] ?? []))
 
     // 초기 panY: 그리드 중앙이 화면 중앙에 오도록 계산
     // tile (cx,cy) 중심 screen_y = panY + H/2 + screenY*z  (screenY = (cx+cy)*(dynH/2))
@@ -390,6 +445,20 @@ onMounted(() => {
     pointer-events: none;
 }
 
+/* .edit-cell도 팔레트와 같은 문제였음: UserRoomEmbed.vue에만 pointer-events:auto가 정의돼 있어서
+   그 컴포넌트가 같이 로드 안 된 페이지에서는 조상의 pointer-events:none을 그대로 물려받아
+   그리드를 클릭해도 아무 반응이 없었음(=편집 불가) */
+.edit-cell {
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    transition: background 0.1s;
+}
+
+.edit-cell-hover {
+    background: rgba(255, 255, 255, 0.28) !important;
+}
+
 #wme-palette {
     position: absolute;
     top: 10px;
@@ -405,4 +474,121 @@ onMounted(() => {
     gap: 8px;
     min-width: 160px;
 }
+
+/* 팔레트 안 타일 스와치 — UserRoomEmbed.vue의 같은 이름 클래스에 기대서 크기가 잡혔었는데
+   그 컴포넌트가 같이 마운트 안 되는 페이지(설정 > 맵 편집)에서는 크기 규칙이 아예 없어서
+   원본 타일 이미지 크기 그대로 패널을 넘치도록 렌더됐음 → 여기서도 직접 정의해줌 */
+.palette-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.palette-tiles-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.palette-tile-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.1s, background 0.1s;
+    flex-shrink: 0;
+}
+
+.palette-tile-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+}
+
+.palette-tile-btn.active {
+    border-color: var(--accent, #D21F3C);
+    background: rgba(210, 31, 60, 0.2);
+}
+
+.palette-tile-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.erase-btn {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.erase-btn.active {
+    border-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+}
+
+.palette-z-row {
+    display: flex;
+    gap: 4px;
+}
+
+.palette-z-btn {
+    flex: 1;
+    padding: 4px 0;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.palette-z-btn.active {
+    background: var(--accent, #D21F3C);
+    border-color: var(--accent, #D21F3C);
+    color: white;
+}
+
+.palette-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.palette-cancel-btn, .palette-save-btn {
+    flex: 1;
+    padding: 6px 0;
+    border-radius: 7px;
+    border: none;
+    font-size: 0.8rem;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.15s;
+}
+
+.palette-cancel-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.palette-cancel-btn:hover { background: rgba(255, 255, 255, 0.18); }
+
+.palette-save-btn {
+    background: var(--accent, #D21F3C);
+    color: white;
+}
+
+.palette-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.palette-save-btn:not(:disabled):hover { opacity: 0.85; }
 </style>
