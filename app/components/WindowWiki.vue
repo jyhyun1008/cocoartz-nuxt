@@ -241,11 +241,15 @@ function toSlug(title) {
     return title.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w가-힣ㄱ-ㅎㅏ-ㅣ-]/g, '')
 }
 
+// [[문서명]] → 문서명 그대로 표시하며 링크. [[문서명|표시할 텍스트]] → 표시할 텍스트로 보이되
+// 링크는 문서명 쪽으로 감(예: [[설치 가이드|이곳을 참조해주세요]])
 function preprocessWikiLinks(content) {
-    return content.replace(/\[\[([^\]]+)\]\]/g, (_, name) => {
-        const slug = toSlug(name.trim())
+    return content.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target, label) => {
+        const targetTrimmed = target.trim()
+        const displayText = (label ?? target).trim()
+        const slug = toSlug(targetTrimmed)
         const href = `${props.channelPath}/${encodeURIComponent(slug)}`
-        return `<a href="${href}" class="wiki-internal-link">${name.trim()}</a>`
+        return `<a href="${href}" class="wiki-internal-link">${displayText}</a>`
     })
 }
 
