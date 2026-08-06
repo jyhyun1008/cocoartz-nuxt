@@ -71,8 +71,10 @@ export const chats = pgTable('chats', {
 
 export const posts = pgTable('posts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    serverid: integer().notNull(),
-    roomid: integer().notNull(),
+    // 개인 타임라인에서 원격 팔로우 피드 글에 단 답글(remoteParentObjectId 참고)은 특정 방에 속하지
+    // 않아서 nullable — 그 외 일반 게시판 글은 항상 값이 채워짐
+    serverid: integer(),
+    roomid: integer(),
     userid: integer(),
     title: text().notNull(),
     content: text().notNull(),

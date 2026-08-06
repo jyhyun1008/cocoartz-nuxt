@@ -247,6 +247,40 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
     }
 }
 
+// 인바운드 답글(Create+inReplyTo) 하나를 posts에 캐시해두는 공통 로직 — 로컬 글에 대한 답글이든,
+// 우리가 알고 있는 원격 글(연합 게시판/개인 팔로잉 피드 원본, 혹은 그에 대해 이미 캐시해둔 답글)에
+// 대한 답글이든 저장 방식은 동일하고 어느 쪽에 매달지(replyto vs remoteParentObjectId)만 다름
+async function saveIncomingReplyPost(
+    object: Record<string, unknown>,
+    actorUrl_: string,
+    objectId: string,
+    opts: { replyto?: string; remoteParentObjectId?: string; serverid?: number | null; roomid?: number | null },
+) {
+    const actorData = await fetchActor(actorUrl_)
+    const preferredUsername = actorData?.preferredUsername as string || ''
+    const actorDomain = new URL(actorUrl_).hostname
+    const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag)
+    const contentWithImages = content + extractImageAttachmentsHtml(object.attachment)
+
+    await db.insert(posts).values({
+        serverid: opts.serverid ?? null,
+        roomid: opts.roomid ?? null,
+        userid: null,
+        title: content.slice(0, 50) || '(원격 답글)',
+        content: contentWithImages,
+        replyto: opts.replyto ?? null,
+        remoteParentObjectId: opts.remoteParentObjectId ?? null,
+        objectId,
+        remoteActorUrl: actorUrl_,
+        remoteActorName: (actorData?.name as string) || preferredUsername,
+        remoteActorHandle: preferredUsername ? `@${preferredUsername}@${actorDomain}` : '',
+        remoteActorIconUrl: (actorData?.icon as Record<string, string> | undefined)?.url || '',
+        remoteActorInbox: (actorData?.endpoints as Record<string, string> | undefined)?.sharedInbox
+            || actorData?.inbox as string || '',
+        createdAt: new Date((object.published as string) || Date.now()),
+    })
+}
+
 async function handleCreate(body: Record<string, unknown>, domain: string, user: LocalUser) {
     const object = body.object as Record<string, unknown>
     if (!object || object.type !== 'Note') return
@@ -262,44 +296,48 @@ async function handleCreate(body: Record<string, unknown>, domain: string, user:
         return
     }
 
-    const parentId = parseLocalPostId(domain, inReplyTo)
-    if (!parentId) return
-    // 답글은 공개 범위와 무관하게 전부 받음 — 부모 글(우리 게시판 글)이 이미 공개인 이상
-    // 답글 자체의 공개 범위는 그 대화에 참여했다는 맥락일 뿐이라 걸러낼 이유가 없고,
-    // 로컬↔원격 양방향 답글 스레드가 목표라 여기서 막으면 대화가 끊김.
-    // (공개 범위 필터링은 handleCreateFromFollowedAccount의 원본 글 쪽에만 적용됨)
-
-    const [parent] = await db.select().from(posts).where(eq(posts.id, parentId))
-    if (!parent) return
-    const [room] = await db.select().from(rooms).where(eq(rooms.id, parent.roomid))
-    if (!room?.federated) return
-
     const [existing] = await db.select().from(posts).where(eq(posts.objectId, objectId))
     if (existing) return
 
-    const actorData = await fetchActor(actorUrl_)
-    const preferredUsername = actorData?.preferredUsername as string || ''
-    const actorDomain = new URL(actorUrl_).hostname
-    const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag)
-    const contentWithImages = content + extractImageAttachmentsHtml(object.attachment)
+    // 답글은 공개 범위와 무관하게 전부 받음 — 부모 글이 이미 공개인 이상 답글 자체의 공개 범위는
+    // 그 대화에 참여했다는 맥락일 뿐이라 걸러낼 이유가 없고, 로컬↔원격 양방향 답글 스레드가
+    // 목표라 여기서 막으면 대화가 끊김. (공개 범위 필터링은 handleCreateFromFollowedAccount의
+    // 원본 글 쪽에만 적용됨)
+    const parentId = parseLocalPostId(domain, inReplyTo)
+    if (parentId) {
+        const [parent] = await db.select().from(posts).where(eq(posts.id, parentId))
+        if (!parent) return
+        // roomid가 있는(=일반 게시판 글타래) 부모면 그 방이 연합 게시판인지 확인. roomid가 없는
+        // 부모(개인 타임라인/연합 게시판에서 원격 글에 단 답글 스텁)는 애초에 연합 답글을 주고받으려고
+        // 만든 것이므로 방 검사 없이 그대로 허용
+        if (parent.roomid !== null) {
+            const [room] = await db.select().from(rooms).where(eq(rooms.id, parent.roomid))
+            if (!room?.federated) return
+        }
+        await saveIncomingReplyPost(object, actorUrl_, objectId, {
+            replyto: String(parentId),
+            serverid: parent.serverid,
+            roomid: parent.roomid,
+        })
+        console.log(`[inbox] 원격 답글 저장: ${objectId} → post#${parentId}`)
+        return
+    }
 
-    await db.insert(posts).values({
-        serverid: parent.serverid,
-        roomid: parent.roomid,
-        userid: null,
-        title: content.slice(0, 50) || '(원격 답글)',
-        content: contentWithImages,
-        replyto: String(parentId),
-        objectId,
-        remoteActorUrl: actorUrl_,
-        remoteActorName: (actorData?.name as string) || preferredUsername,
-        remoteActorHandle: preferredUsername ? `@${preferredUsername}@${actorDomain}` : '',
-        remoteActorIconUrl: (actorData?.icon as Record<string, string> | undefined)?.url || '',
-        remoteActorInbox: (actorData?.endpoints as Record<string, string> | undefined)?.sharedInbox
-            || actorData?.inbox as string || '',
-        createdAt: new Date((object.published as string) || Date.now()),
-    })
-    console.log(`[inbox] 원격 답글 저장: ${objectId} → post#${parentId}`)
+    // 로컬 글에 대한 답글이 아니면, 우리가 이미 아는 원격 글(연합 게시판/개인 팔로잉 피드의 원본,
+    // 혹은 그에 대해 이미 캐시해둔 답글)에 달린 답글인지 확인해서 맞으면 댓글로 캐시해둔다.
+    // getRemoteFeedPostReplies가 objectId 기준으로 조회하므로 연합 게시판/개인 타임라인 어느 쪽
+    // 상세보기에서든 그대로 노출됨 — 이게 이번에 추가된 "연합으로 들어온 답글도 댓글로 캐시" 기능.
+    const [knownTimelinePost] = await db.select({ id: remoteTimelinePosts.id }).from(remoteTimelinePosts)
+        .where(eq(remoteTimelinePosts.objectId, inReplyTo))
+    const [knownFeedPost] = knownTimelinePost ? [] : await db.select({ id: remoteFeedPosts.id }).from(remoteFeedPosts)
+        .where(eq(remoteFeedPosts.objectId, inReplyTo))
+    const [knownCachedReply] = (knownTimelinePost || knownFeedPost) ? [] : await db.select({ id: posts.id }).from(posts)
+        .where(eq(posts.objectId, inReplyTo))
+
+    if (!knownTimelinePost && !knownFeedPost && !knownCachedReply) return
+
+    await saveIncomingReplyPost(object, actorUrl_, objectId, { remoteParentObjectId: inReplyTo })
+    console.log(`[inbox] 원격 글에 달린 원격 답글 캐시: ${objectId} → ${inReplyTo}`)
 }
 
 async function handleLike(body: Record<string, unknown>, domain: string) {

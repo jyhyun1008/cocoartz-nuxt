@@ -39,12 +39,15 @@ export default eventHandler(async (event) => {
         .limit(30)
 
     const remoteItems = remoteRows.map((r) => ({
-        id: `remote-${r.id}`,
+        id: `remote-${r.id}`, // 로컬 글과 id 공간이 겹칠 수 있어 v-for :key 충돌 방지용 접두사
+        feedPostId: r.id, // 좋아요/답글 API 호출용 실제 숫자 id
+        objectId: r.objectId, // 댓글 목록 조회(getRemoteFeedPostReplies)용
         content: r.content,
         summary: r.summary,
         createdAt: r.published,
         sortDate: r.published,
         isRemote: true,
+        liked: r.liked,
         sourceActorUrl: r.sourceActorUrl,
         sourceHandle: r.sourceHandle,
         sourceName: r.sourceName,

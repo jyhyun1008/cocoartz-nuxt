@@ -68,9 +68,41 @@
                 </div>
                 <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
 
+                <div v-if="userId" class="post-meta">
+                    <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
+                        ♥ {{ currentRemotePost.liked ? '좋아요 취소' : '좋아요' }}
+                    </button>
+                </div>
+
                 <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
                     원 계정에서 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
                 </a>
+
+                <div class="comments-section">
+                    <div class="comments-title">댓글 {{ remoteReplies.length }}</div>
+                    <div v-for="comment in remoteReplies" :key="comment.id" class="comment">
+                        <div class="comment-meta">
+                            <template v-if="comment.remoteActorHandle">
+                                <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
+                                    <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
+                                </a>
+                            </template>
+                            <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
+                            <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
+                        </div>
+                        <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
+                        <div v-else class="comment-body">{{ comment.content }}</div>
+                    </div>
+                    <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
+                </div>
+
+                <div v-if="userId" class="comment-form">
+                    <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" @keydown.enter="submitRemoteReply" />
+                    <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim()">작성</button>
+                </div>
+                <div v-else class="empty" style="padding:8px 0">로그인 후 좋아요/댓글을 남길 수 있어요.</div>
             </div>
         </div>
     </div>
@@ -108,10 +140,41 @@ function stripHtmlKeepEmoji(html) {
 const currentView = ref('list')
 const currentRemotePost = ref(null)
 const showRemoteContent = ref(false)
+const remoteReplyContent = ref('')
+const remoteReplies = ref([])
 
-function openRemotePost(post) {
+async function openRemotePost(post) {
     currentRemotePost.value = post
     showRemoteContent.value = false
+    remoteReplyContent.value = ''
     currentView.value = 'remote-detail'
+    remoteReplies.value = await $fetch(`${apiBaseUrl}/api/getRemoteFeedPostReplies`, {
+        method: 'POST',
+        body: { objectId: post.objectId },
+    }).catch(() => [])
+}
+
+async function toggleRemoteLike() {
+    if (!currentRemotePost.value) return
+    const result = await $fetch(`${apiBaseUrl}/api/likeFollowingFeedPost`, {
+        method: 'POST',
+        body: { id: currentRemotePost.value.feedPostId, userid: userId.value },
+    })
+    currentRemotePost.value.liked = result.liked
+}
+
+async function submitRemoteReply() {
+    if (!remoteReplyContent.value.trim() || !currentRemotePost.value) return
+    const content = remoteReplyContent.value.trim()
+    remoteReplyContent.value = ''
+    const reply = await $fetch(`${apiBaseUrl}/api/replyToFollowingFeedPost`, {
+        method: 'POST',
+        body: {
+            userid: userId.value,
+            feedPostId: currentRemotePost.value.feedPostId,
+            content,
+        },
+    })
+    remoteReplies.value = [...remoteReplies.value, reply]
 }
 </script>

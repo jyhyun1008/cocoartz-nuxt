@@ -1,6 +1,6 @@
 import { db } from '../utils/db'
 import { users, posts, follows, rooms, remoteFollows } from '../db/schema'
-import { eq, and, desc, count, inArray } from 'drizzle-orm'
+import { eq, and, desc, count, inArray, isNull } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
     const { username, viewerUserId } = await readBody(event)
@@ -26,7 +26,8 @@ export default defineEventHandler(async (event) => {
         createdAt: posts.createdAt,
         roomid: posts.roomid,
     }).from(posts)
-        .where(eq(posts.userid, user.id))
+        // remoteParentObjectId가 있는 글은 개인 타임라인에서 원격 글에 단 답글 스텁이라 프로필엔 안 보여야 함
+        .where(and(eq(posts.userid, user.id), isNull(posts.remoteParentObjectId)))
         .orderBy(desc(posts.createdAt))
         .limit(20)
 
