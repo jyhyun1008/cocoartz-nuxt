@@ -1,6 +1,6 @@
 import { db } from '../../../utils/db'
-import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts } from '../../../db/schema'
-import { eq, and, count } from 'drizzle-orm'
+import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts, remoteTimelinePosts, remoteTimelinePostLikes } from '../../../db/schema'
+import { eq, and, count, inArray, type SQL } from 'drizzle-orm'
 import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl, isPublicAudience } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
@@ -213,6 +213,8 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
     const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag) + extractImageAttachmentsHtml(object.attachment)
     if (!content) return
     const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
+    const isPublic = isPublicAudience(object, activity)
+    const published = new Date((object.published as string) || Date.now())
 
     await db.insert(remoteFeedPosts).values({
         userid: user.id,
@@ -223,10 +225,26 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         objectId,
         content,
         summary,
-        isPublic: isPublicAudience(object, activity),
-        published: new Date((object.published as string) || Date.now()),
+        isPublic,
+        published,
     })
     console.log(`[inbox] 원격 글 개인 피드 저장: ${objectId} → @${user.username}`)
+
+    // 공개 글이면 유저 구분 없는 서버 공용 연합 타임라인에도 반영(연합 게시판용) — 다른 로컬 유저가
+    // 같은 계정을 팔로우해서 동시에 들어와도 objectId unique라 중복 없이 한 번만 저장됨
+    if (isPublic) {
+        await db.insert(remoteTimelinePosts).values({
+            sourceActorUrl: actorUrl_,
+            sourceInbox: follow.targetInbox,
+            sourceHandle: follow.targetHandle,
+            sourceName: follow.targetName,
+            sourceIconUrl: follow.targetIconUrl,
+            objectId,
+            content,
+            summary,
+            published,
+        }).onConflictDoNothing({ target: remoteTimelinePosts.objectId })
+    }
 }
 
 async function handleCreate(body: Record<string, unknown>, domain: string, user: LocalUser) {
@@ -349,6 +367,15 @@ async function handleAnnounce(body: Record<string, unknown>, domain: string) {
     console.log(`[inbox] 원격 부스트: ${actorUrl_} → post#${postId}`)
 }
 
+// remoteTimelinePosts는 FK 제약이 없는 스키마 스타일이라, 삭제 전에 딸린 좋아요(remoteTimelinePostLikes)부터 정리해야 함
+async function deleteRemoteTimelinePosts(condition: SQL) {
+    const rows = await db.select({ id: remoteTimelinePosts.id }).from(remoteTimelinePosts).where(condition)
+    if (!rows.length) return
+    const ids = rows.map((r) => r.id)
+    await db.delete(remoteTimelinePostLikes).where(inArray(remoteTimelinePostLikes.remoteTimelinePostId, ids))
+    await db.delete(remoteTimelinePosts).where(condition)
+}
+
 async function handleDelete(body: Record<string, unknown>) {
     const actorUrl_ = body.actor as string | undefined
     if (!actorUrl_) return
@@ -366,12 +393,14 @@ async function handleDelete(body: Record<string, unknown>) {
         await db.delete(boosts).where(eq(boosts.actorUrl, actorUrl_))
         await db.delete(posts).where(eq(posts.remoteActorUrl, actorUrl_))
         await db.delete(remoteFeedPosts).where(eq(remoteFeedPosts.sourceActorUrl, actorUrl_))
+        await deleteRemoteTimelinePosts(eq(remoteTimelinePosts.sourceActorUrl, actorUrl_))
         console.log(`[inbox] 원격 계정 정리: ${actorUrl_}`)
         return
     }
 
     await db.delete(posts).where(eq(posts.objectId, deletedObjectId))
     await db.delete(remoteFeedPosts).where(eq(remoteFeedPosts.objectId, deletedObjectId))
+    await deleteRemoteTimelinePosts(eq(remoteTimelinePosts.objectId, deletedObjectId))
     console.log(`[inbox] 원격 글 삭제 반영: ${deletedObjectId}`)
 }
 
@@ -399,6 +428,9 @@ async function handleUpdate(body: Record<string, unknown>) {
     await db.update(likes)
         .set({ remoteActorName: actorName, remoteActorHandle: actorHandle, remoteActorIconUrl: actorIconUrl })
         .where(eq(likes.remoteActorUrl, actorUrl_))
+    await db.update(remoteTimelinePosts)
+        .set({ sourceName: actorName, sourceHandle: actorHandle, sourceIconUrl: actorIconUrl })
+        .where(eq(remoteTimelinePosts.sourceActorUrl, actorUrl_))
     await db.update(boosts)
         .set({ actorName, actorHandle, actorIconUrl })
         .where(eq(boosts.actorUrl, actorUrl_))

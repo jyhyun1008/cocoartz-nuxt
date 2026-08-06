@@ -232,3 +232,33 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
 }, (table) => [
     uniqueIndex('remote_feed_posts_userid_object_idx').on(table.userid, table.objectId),
 ])
+
+// 서버(인스턴스) 전체가 공유하는 연합 타임라인 — 로컬 유저 중 누군가가 팔로우해서 인박스로 받은
+// 공개 원격 글을 유저 구분 없이 objectId 기준 한 번만 저장. 로그인 여부와 무관하게 연합 게시판에 노출됨
+export const remoteTimelinePosts = pgTable('remote_timeline_posts', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    sourceActorUrl: text().notNull(),
+    // 좋아요/답글을 원 작성자에게 보낼 때 필요 — 뷰어가 그 계정을 개인적으로 팔로우 안 해도 되도록 여기 캐시
+    sourceInbox: text().notNull(),
+    sourceHandle: text(),
+    sourceName: text(),
+    sourceIconUrl: text(),
+    objectId: text().notNull(),
+    content: text().notNull(),
+    summary: text(),
+    published: timestamp({ withTimezone: true }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('remote_timeline_posts_object_id_idx').on(table.objectId),
+])
+
+// 로컬 유저가 연합 타임라인 글에 좋아요 — 뷰어별 상태라 공용 글 테이블과 분리해서 관리
+export const remoteTimelinePostLikes = pgTable('remote_timeline_post_likes', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    remoteTimelinePostId: integer().notNull(),
+    userid: integer().notNull(),
+    likeActivityId: text(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('remote_timeline_post_likes_post_user_idx').on(table.remoteTimelinePostId, table.userid),
+])

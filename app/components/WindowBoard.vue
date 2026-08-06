@@ -210,7 +210,7 @@
                 </div>
                 <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
 
-                <div class="post-meta">
+                <div v-if="userId" class="post-meta">
                     <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
                         ♥ {{ currentRemotePost.liked ? '좋아요 취소' : '좋아요' }}
                     </button>
@@ -240,10 +240,11 @@
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
                 </div>
 
-                <div class="comment-form">
+                <div v-if="userId" class="comment-form">
                     <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" @keydown.enter="submitRemoteReply" />
                     <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim()">작성</button>
                 </div>
+                <div v-else class="empty" style="padding:8px 0">로그인 후 좋아요/댓글을 남길 수 있어요.</div>
             </div>
         </div>
 
@@ -311,10 +312,10 @@ async function fetchLocalPage(offset) {
 }
 
 async function fetchRemotePage(offset) {
-    if (!props.isFederated || !userId.value) return { posts: [], hasMore: false }
+    if (!props.isFederated) return { posts: [], hasMore: false }
     const res = await $fetch(`${apiBaseUrl}/api/getRemoteFeedPosts`, {
         method: 'POST',
-        body: { userid: userId.value, offset },
+        body: { viewerUserId: userId.value ?? null, offset },
     }).catch(() => null)
     return res && Array.isArray(res.posts) ? res : { posts: [], hasMore: false }
 }

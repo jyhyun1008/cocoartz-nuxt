@@ -1,30 +1,27 @@
 import { db } from '../utils/db'
-import { users, posts, remoteFeedPosts, remoteFollows } from '../db/schema'
-import { eq, and } from 'drizzle-orm'
+import { users, posts, remoteTimelinePosts } from '../db/schema'
+import { eq } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { actorUrl, postObjectUrl, buildCreateActivity } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
 import { extractMarkdownImages } from '../utils/ap/attachments'
 import { marked } from 'marked'
 
-// 팔로우 피드에 뜬 원격 글에 댓글을 달면, 로컬에는 글타래 없이 posts에만 저장해두고(목록/타임라인에는
+// 연합 타임라인(공용) 글에 댓글을 달면, 로컬에는 글타래 없이 posts에만 저장해두고(목록/타임라인에는
 // 안 보임 — remoteParentObjectId 필터로 제외됨) 원 작성자에게는 실제 답글(Create+inReplyTo)로 배포한다.
+// 글이 서버 공용이라 뷰어가 그 계정을 개인적으로 팔로우하지 않아도 되고, 글에 캐시된 sourceInbox로 바로 배송함
 export default eventHandler(async (event) => {
     const { userid, remoteFeedPostId, serverid, roomid, content } = await readBody(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     const trimmed = String(content || '').trim()
     if (!trimmed) throw createError({ statusCode: 400, message: '내용을 입력해주세요' })
 
-    const [feedPost] = await db.select().from(remoteFeedPosts).where(eq(remoteFeedPosts.id, remoteFeedPostId))
-    if (!feedPost || feedPost.userid !== userid) {
-        throw createError({ statusCode: 404, message: '글을 찾을 수 없습니다' })
-    }
+    const [feedPost] = await db.select().from(remoteTimelinePosts).where(eq(remoteTimelinePosts.id, remoteFeedPostId))
+    if (!feedPost) throw createError({ statusCode: 404, message: '글을 찾을 수 없습니다' })
 
-    const [follow] = await db.select().from(remoteFollows)
-        .where(and(eq(remoteFollows.userid, userid), eq(remoteFollows.targetActorUrl, feedPost.sourceActorUrl)))
     const [user] = await db.select().from(users).where(eq(users.id, userid))
     const actor = await ensureActor(userid)
-    if (!follow || !user || !actor) throw createError({ statusCode: 500, message: '답글을 보낼 수 없습니다' })
+    if (!user || !actor) throw createError({ statusCode: 500, message: '답글을 보낼 수 없습니다' })
 
     const config = useRuntimeConfig()
     const domain = config.domain as string
@@ -50,7 +47,7 @@ export default eventHandler(async (event) => {
         attachment: attachments,
     })
     const myActorId = actorUrl(domain, user.username)
-    const delivered = await deliverToInbox(follow.targetInbox, activity, myActorId, actor.privateKey)
+    const delivered = await deliverToInbox(feedPost.sourceInbox, activity, myActorId, actor.privateKey)
         .catch(() => false)
 
     return { ...post, objectId, user, delivered }

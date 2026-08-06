@@ -1,21 +1,33 @@
 import { db } from '../utils/db'
-import { remoteFeedPosts } from '../db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { remoteTimelinePosts, remoteTimelinePostLikes } from '../db/schema'
+import { desc, and, eq, inArray } from 'drizzle-orm'
 
 const PAGE_SIZE = 20
 
-// 연합 게시판에 로그인 유저 본인이 팔로우한 원격 계정의 글을 같이 띄우기 위한 용도
-// 게시판은 다들 보는 공개 공간이라 전체공개(isPublic)인 글만 노출 — 홈 공개/팔로워 공개는 제외
+// 연합 게시판 — 로컬 유저 중 누군가가 팔로우해서 인박스로 받은 공개 원격 글을 서버 전체가 공유하는
+// 연합 타임라인(remoteTimelinePosts)에서 그대로 보여줌. 로그인 여부와 무관하게 조회 가능하고,
+// viewerUserId가 있으면 그 사람이 좋아요했는지만 추가로 표시해줌
 export default eventHandler(async (event) => {
-    const { userid, offset } = await readBody(event)
-    if (!userid) return { posts: [], hasMore: false }
+    const { viewerUserId, offset } = await readBody(event)
 
-    const rows = await db.select().from(remoteFeedPosts)
-        .where(and(eq(remoteFeedPosts.userid, userid), eq(remoteFeedPosts.isPublic, true)))
-        .orderBy(desc(remoteFeedPosts.published))
+    const rows = await db.select().from(remoteTimelinePosts)
+        .orderBy(desc(remoteTimelinePosts.published))
         .limit(PAGE_SIZE + 1)
         .offset(offset ?? 0)
 
     const hasMore = rows.length > PAGE_SIZE
-    return { posts: rows.slice(0, PAGE_SIZE), hasMore }
+    const posts = rows.slice(0, PAGE_SIZE) as Array<typeof rows[number] & { liked: boolean }>
+
+    if (viewerUserId && posts.length) {
+        const ids = posts.map((p) => p.id)
+        const likedRows = await db.select({ remoteTimelinePostId: remoteTimelinePostLikes.remoteTimelinePostId })
+            .from(remoteTimelinePostLikes)
+            .where(and(inArray(remoteTimelinePostLikes.remoteTimelinePostId, ids), eq(remoteTimelinePostLikes.userid, viewerUserId)))
+        const likedSet = new Set(likedRows.map((r) => r.remoteTimelinePostId))
+        for (const post of posts) post.liked = likedSet.has(post.id)
+    } else {
+        for (const post of posts) post.liked = false
+    }
+
+    return { posts, hasMore }
 })
