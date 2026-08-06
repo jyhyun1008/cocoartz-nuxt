@@ -113,32 +113,39 @@
         <div v-else-if="currentView === 'create' || currentView === 'edit'" id="wiki-wrapper">
             <div class="create-form">
                 <input v-model="editTitle" placeholder="페이지 제목" class="post-input" />
-                <div class="wiki-toolbar">
-                    <button class="toolbar-btn" @click="insertMarkdown('**', '**')"><b>B</b></button>
-                    <button class="toolbar-btn" @click="insertMarkdown('*', '*')"><i>I</i></button>
-                    <button class="toolbar-btn" @click="insertMarkdown('## ', '')">H</button>
-                    <button class="toolbar-btn" @click="insertMarkdown('- ', '')">•</button>
-                    <button class="toolbar-btn" @click="insertMarkdown('[링크](', ')')" title="링크"><i class="hgi hgi-stroke hgi-link-01"></i></button>
-                    <div class="toolbar-emoji-wrap" ref="emojiWrapRef">
-                        <button ref="emojiBtnRef" class="toolbar-btn" @click.stop="showEmojiPicker = !showEmojiPicker" title="이모지">
-                            <i class="hgi hgi-stroke hgi-smile"></i>
-                        </button>
-                        <EmojiPicker
-                            v-if="showEmojiPicker"
-                            placement="bottom"
-                            :anchor="emojiBtnRef"
-                            @select="(e) => { insertMarkdown(e, ''); showEmojiPicker = false }"
-                        />
-                    </div>
-                    <span class="toolbar-sep"></span>
-                    <span class="toolbar-hint">마크다운 지원</span>
+                <div class="editor-tabs">
+                    <button class="editor-tab-btn" :class="{ active: editorTab === 'write' }" @click="editorTab = 'write'">작성</button>
+                    <button class="editor-tab-btn" :class="{ active: editorTab === 'preview' }" @click="editorTab = 'preview'">미리보기</button>
                 </div>
-                <textarea
-                    ref="editorRef"
-                    v-model="editContent"
-                    placeholder="내용을 입력하세요... (마크다운 사용 가능)"
-                    class="post-textarea wiki-textarea"
-                ></textarea>
+                <template v-if="editorTab === 'write'">
+                    <div class="wiki-toolbar">
+                        <button class="toolbar-btn" @click="insertMarkdown('**', '**')"><b>B</b></button>
+                        <button class="toolbar-btn" @click="insertMarkdown('*', '*')"><i>I</i></button>
+                        <button class="toolbar-btn" @click="insertMarkdown('## ', '')">H</button>
+                        <button class="toolbar-btn" @click="insertMarkdown('- ', '')">•</button>
+                        <button class="toolbar-btn" @click="insertMarkdown('[링크](', ')')" title="링크"><i class="hgi hgi-stroke hgi-link-01"></i></button>
+                        <div class="toolbar-emoji-wrap" ref="emojiWrapRef">
+                            <button ref="emojiBtnRef" class="toolbar-btn" @click.stop="showEmojiPicker = !showEmojiPicker" title="이모지">
+                                <i class="hgi hgi-stroke hgi-smile"></i>
+                            </button>
+                            <EmojiPicker
+                                v-if="showEmojiPicker"
+                                placement="bottom"
+                                :anchor="emojiBtnRef"
+                                @select="(e) => { insertMarkdown(e, ''); showEmojiPicker = false }"
+                            />
+                        </div>
+                        <span class="toolbar-sep"></span>
+                        <span class="toolbar-hint">마크다운 지원</span>
+                    </div>
+                    <textarea
+                        ref="editorRef"
+                        v-model="editContent"
+                        placeholder="내용을 입력하세요... (마크다운 사용 가능)"
+                        class="post-textarea wiki-textarea"
+                    ></textarea>
+                </template>
+                <div v-else class="wiki-content preview-pane" v-html="editPreviewContent"></div>
                 <div class="wiki-form-actions">
                     <button class="submit-btn" @click="submitPage" :disabled="!editTitle.trim() || !editContent.trim()">
                         {{ currentView === 'create' ? '페이지 생성' : '변경사항 저장' }}
@@ -222,6 +229,7 @@ watch(pages, async (newPages) => {
 }, { immediate: true })
 const editTitle = ref('')
 const editContent = ref('')
+const editorTab = ref('write')
 const editorRef = ref(null)
 const showEmojiPicker = ref(false)
 const emojiWrapRef = ref(null)
@@ -258,6 +266,11 @@ const renderedContent = computed(() => {
     return String(marked.parse(preprocessWikiLinks(currentPage.value.content)))
 })
 
+// 작성/편집 중 미리보기 탭 — 실제 렌더링(renderedContent)과 같은 파이프라인(위키 내부링크 처리 포함)을 씀
+const editPreviewContent = computed(() =>
+    String(marked.parse(preprocessWikiLinks(editContent.value.trim() || '_미리볼 내용이 없습니다._'))),
+)
+
 async function openPage(id) {
     const data = await $fetch(`${apiBaseUrl}/api/getWikiPage`, {
         method: 'POST',
@@ -270,12 +283,14 @@ async function openPage(id) {
 function startCreate() {
     editTitle.value = ''
     editContent.value = ''
+    editorTab.value = 'write'
     currentView.value = 'create'
 }
 
 function startEdit() {
     editTitle.value = currentPage.value.title
     editContent.value = currentPage.value.content
+    editorTab.value = 'write'
     currentView.value = 'edit'
 }
 
