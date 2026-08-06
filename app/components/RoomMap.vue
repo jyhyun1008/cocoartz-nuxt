@@ -57,6 +57,7 @@
                         :layers="getItemLayers(item.itemid)"
                         :position="item.position"
                         :top-ratio="topRatio"
+                        :blur-px="getDepthBlur(item.position.x + item.position.y)"
                     />
                     <!-- 로컬 캐릭터 -->
                     <CharacterMoving
@@ -607,6 +608,14 @@ function getFilePath(tile) {
     return `/tileset/${tile.itemid}.png`
 }
 
+// 피사계심도(초점 흐림): 캐릭터가 있는 깊이(x+y)에서 멀어질수록 흐려짐. 타일뿐 아니라
+// 아이템에도 그대로 씀 — depth(=x+y)만 넣어주면 동일한 흐림값을 돌려줌
+function getDepthBlur(depth) {
+    const depthDiff = Math.abs(depth - charDepth.value)
+    // zoom이 클수록 화면에서 커지므로 blur도 같이 강해보임 → zoomLevel로 보정
+    return (Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1)
+}
+
 // 타일 컨테이너 위치
 // Y step = topRatio * TILE_IMG_H 에 맞춰야 계단 현상이 없음.
 // (step이 top face 높이와 불일치하면 overlap=0 → 계단처럼 보임)
@@ -621,9 +630,7 @@ function getTileContainerStyle(tile) {
     const screenX = (x - y) * (TILE_W / 2)
     const screenY = (x + y) * (dynH / 2) - z * sideH
     const scale = (1 + (x + y) * 0.004).toFixed(3)
-    const depthDiff = Math.abs((x + y) - charDepth.value)
-    // zoom이 클수록 타일이 화면에서 커지므로 blur도 같이 강해보임 → zoomLevel로 보정
-    const blur = (Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1)
+    const blur = getDepthBlur(x + y)
     return {
         left: `calc(50% + ${screenX - TILE_W / 2}px)`,
         top: `calc(50% + ${screenY - dynH / 2}px)`,

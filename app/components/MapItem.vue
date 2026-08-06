@@ -105,6 +105,9 @@ const props = defineProps({
     shadowStepRatio: { type: Number, default: 0.025 },
     // 겹쳐 쌓을 복제본 개수
     shadowEchoCount: { type: Number, default: 4 },
+    // 피사계심도(초점 흐림) — RoomMap의 타일이 쓰는 것과 동일한 px 값을 그대로 받아서 스택 전체에
+    // 한 번에 적용(레이어마다 따로 안 걸고 wrapper 하나에만 걸어서 성능/일관성 둘 다 챙김)
+    blurPx: { type: Number, default: 0 },
 })
 
 const TILE_W = 128
@@ -162,6 +165,7 @@ const wrapperStyle = computed(() => ({
     width: `${props.displayWidth}px`,
     height: `${layerHeight.value}px`,
     zIndex: props.zIndex ?? defaultZIndex.value,
+    filter: props.blurPx > 0 ? `blur(${props.blurPx}px)` : undefined,
 }))
 
 // 레이어 i의 (그림자 없는) 기본 이동량 — 맨 아래 레이어(마지막 인덱스)는 0, 위로 갈수록 한 단씩 더 밀림
