@@ -64,6 +64,15 @@ export function useRoomSocket() {
 
     } else if (data.type === 'chat') {
       realtimeChats.value = [...realtimeChats.value, data.chat]
+
+    // 수정/삭제는 새 채팅을 추가하는 게 아니라 realtimeChats에 이미 들어있거나(방금 온 실시간
+    // 메시지) chatData/chatHistory(REST로 미리 불러온 과거 메시지)에 있는 기존 항목에 적용돼야
+    // 함 — 컴포넌트가 두 출처를 합칠 때 wsType으로 구분해서 반영하도록 마커만 append해둠
+    } else if (data.type === 'chat_edit') {
+      realtimeChats.value = [...realtimeChats.value, { wsType: 'chat_edit', id: data.chatid, content: data.content }]
+
+    } else if (data.type === 'chat_delete') {
+      realtimeChats.value = [...realtimeChats.value, { wsType: 'chat_delete', id: data.chatid }]
     }
   }
 
@@ -120,6 +129,14 @@ export function useRoomSocket() {
     rawSend({ type: 'chat', serverid, roomid, content })
   }
 
+  function editChat(chatid: number, content: string) {
+    rawSend({ type: 'chat_edit', chatid, content })
+  }
+
+  function deleteChat(chatid: number) {
+    rawSend({ type: 'chat_delete', chatid })
+  }
+
   return {
     presenceByRoom: readonly(presenceByRoom),
     otherUsersInRoom: readonly(otherUsersInRoom),
@@ -128,5 +145,7 @@ export function useRoomSocket() {
     joinRoom,
     sendPosition,
     sendChat,
+    editChat,
+    deleteChat,
   }
 }

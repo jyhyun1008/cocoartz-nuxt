@@ -1,5 +1,5 @@
 import { db } from '../utils/db'
-import { chats, users } from '../db/schema'
+import { chats, users, chatReactions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 interface PeerInfo {
@@ -133,6 +133,36 @@ export default defineWebSocketHandler({
       // Broadcast to others, send confirmation to sender separately
       broadcastToRoom(info.roomPath, { type: 'chat', chat: chatWithUser }, peer.id)
       sendTo(peer, { type: 'chat', chat: chatWithUser })
+
+    } else if (data.type === 'chat_edit') {
+      const info = peerMap.get(peer.id)
+      if (!info) return
+      const { chatid } = data
+      const content = String(data.content ?? '').trim()
+      if (!chatid || !content) return
+
+      const [chat] = await db.select().from(chats).where(eq(chats.id, chatid))
+      if (!chat || chat.userid !== info.userId) return
+
+      await db.update(chats).set({ content, edited: true }).where(eq(chats.id, chatid))
+      const payload = { type: 'chat_edit', chatid, content }
+      broadcastToRoom(info.roomPath, payload, peer.id)
+      sendTo(peer, payload)
+
+    } else if (data.type === 'chat_delete') {
+      const info = peerMap.get(peer.id)
+      if (!info) return
+      const { chatid } = data
+      if (!chatid) return
+
+      const [chat] = await db.select().from(chats).where(eq(chats.id, chatid))
+      if (!chat || chat.userid !== info.userId) return
+
+      await db.delete(chatReactions).where(eq(chatReactions.chatid, chatid))
+      await db.delete(chats).where(eq(chats.id, chatid))
+      const payload = { type: 'chat_delete', chatid }
+      broadcastToRoom(info.roomPath, payload, peer.id)
+      sendTo(peer, payload)
     }
   },
 

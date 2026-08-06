@@ -105,8 +105,30 @@
                                 {{ chat.user?.knownas ?? chat.user?.username }}
                             </NuxtLink>
                             <span class="datetime">{{ formatDate(chat.createdAt) }}</span>
+                            <span v-if="chat.edited" class="edited-tag">(수정됨)</span>
+                            <div v-if="chat.userid === userId && editingChatId !== chat.id" class="chat-msg-actions">
+                                <button class="post-icon-btn" @click="startEditChat(chat)" title="수정">
+                                    <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
+                                </button>
+                                <button class="post-icon-btn danger" @click="deleteChatMessage(chat)" title="삭제">
+                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="msg" v-html="renderMd(chat.content)"></div>
+                        <div v-if="editingChatId === chat.id" class="chat-edit-form">
+                            <textarea
+                                v-model="editingContent"
+                                class="chat-textarea"
+                                rows="1"
+                                @keydown.enter.exact.prevent="submitEditChat(chat)"
+                                @keydown.esc="cancelEditChat"
+                            ></textarea>
+                            <div class="chat-edit-actions">
+                                <button class="back-btn-header" @click="cancelEditChat">취소</button>
+                                <button class="submit-btn" @click="submitEditChat(chat)" :disabled="!editingContent.trim()">저장</button>
+                            </div>
+                        </div>
+                        <div v-else class="msg" v-html="renderMd(chat.content)"></div>
                         <div class="reactions-row chat-reactions-row">
                             <button
                                 v-for="r in getChatReactions(chat)"
@@ -256,7 +278,7 @@ const props = defineProps({
     path: { type: String, required: true },
 })
 
-const { connect, joinRoom, sendPosition, sendChat: wsSendChat, otherUsersInRoom, realtimeChats } = useRoomSocket()
+const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, otherUsersInRoom, realtimeChats } = useRoomSocket()
 
 // 캐시 키는 route.params.page가 아니라 실제 방 경로(props.path) 기준이어야 함.
 // noti.vue처럼 [page]/index.vue 라우트를 안 쓰는 정적 페이지들(index/settings/members/info/noti)은
@@ -306,12 +328,23 @@ const mapInfo = computed(() => {
     return isJSON(rawMap) ? JSON.parse(rawMap) : rawMap
 })
 
-// 초기 HTTP 채팅 + WebSocket 실시간 채팅 합산 (ID 기준 중복 제거)
+// 초기 HTTP 채팅 + WebSocket 실시간 채팅 합산. realtimeChats에는 새 채팅뿐 아니라 기존 메시지에
+// 적용할 수정/삭제 마커(wsType)도 같이 들어오므로, Map으로 순서를 유지하면서 반영해야 함
+// (Map.set은 이미 있는 키의 값만 바꾸고 순서는 그대로 유지하므로 정렬이 안 흐트러짐)
 const chats = computed(() => {
-    const base = chatData.value ?? []
-    const seen = new Set(base.map(c => c.id))
-    const fresh = realtimeChats.value.filter(c => !seen.has(c.id))
-    return [...base, ...fresh]
+    const map = new Map()
+    for (const c of (chatData.value ?? [])) map.set(c.id, c)
+    for (const item of realtimeChats.value) {
+        if (item.wsType === 'chat_edit') {
+            const existing = map.get(item.id)
+            if (existing) map.set(item.id, { ...existing, content: item.content, edited: true })
+        } else if (item.wsType === 'chat_delete') {
+            map.delete(item.id)
+        } else if (!map.has(item.id)) {
+            map.set(item.id, item)
+        }
+    }
+    return [...map.values()]
 })
 const chatsWrapper = ref(null)
 
@@ -688,6 +721,29 @@ function sendChat() {
     chatInput.value = ''
     nextTick(() => { if (chatInputEl.value) chatInputEl.value.style.height = 'auto' })
     wsSendChat(serverAndRoomId.value.serverid, serverAndRoomId.value.roomid, content)
+}
+
+// 채팅 수정/삭제 — 삭제는 확인 모달 없이 바로 지움(가벼운 메시지라 되돌릴 필요까진 없다고 판단)
+const editingChatId = ref(null)
+const editingContent = ref('')
+
+function startEditChat(chat) {
+    editingChatId.value = chat.id
+    editingContent.value = chat.content
+}
+function cancelEditChat() {
+    editingChatId.value = null
+    editingContent.value = ''
+}
+function submitEditChat(chat) {
+    const content = editingContent.value.trim()
+    if (!content) return
+    wsEditChat(chat.id, content)
+    editingChatId.value = null
+    editingContent.value = ''
+}
+function deleteChatMessage(chat) {
+    wsDeleteChat(chat.id)
 }
 
 // 발끝 screen_y = center + (16 + charBotH) * z
@@ -1160,6 +1216,35 @@ onMounted(() => {
 
 .large .datetime {
     color: #00000088;
+}
+
+.edited-tag {
+    font-size: 0.72rem;
+    color: lightgray;
+    opacity: 0.7;
+}
+
+.large .edited-tag {
+    color: #00000088;
+}
+
+.chat-msg-actions {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.chat-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 4px 0;
+}
+
+.chat-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .avatar {

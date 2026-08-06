@@ -24,8 +24,30 @@
                             {{ chat.user?.knownas ?? chat.user?.username }}
                         </NuxtLink>
                         <span class="datetime">{{ formatTime(chat.createdAt) }}</span>
+                        <span v-if="chat.edited" class="edited-tag">(수정됨)</span>
+                        <div v-if="chat.userid === userId && editingChatId !== chat.id" class="chat-msg-actions">
+                            <button class="post-icon-btn" @click="startEditChat(chat)" title="수정">
+                                <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
+                            </button>
+                            <button class="post-icon-btn danger" @click="wsDeleteChat(chat.id)" title="삭제">
+                                <i class="hgi hgi-stroke hgi-delete-02"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="msg" v-html="renderMd(chat.content)"></div>
+                    <div v-if="editingChatId === chat.id" class="chat-edit-form">
+                        <textarea
+                            v-model="editingContent"
+                            class="chat-textarea"
+                            rows="1"
+                            @keydown.enter.exact.prevent="submitEditChat(chat)"
+                            @keydown.esc="cancelEditChat"
+                        ></textarea>
+                        <div class="chat-edit-actions">
+                            <button class="back-btn-header" @click="cancelEditChat">취소</button>
+                            <button class="submit-btn" @click="submitEditChat(chat)" :disabled="!editingContent.trim()">저장</button>
+                        </div>
+                    </div>
+                    <div v-else class="msg" v-html="renderMd(chat.content)"></div>
                 </div>
             </div>
             <div v-if="!chatList.length" class="empty">아직 메시지가 없습니다. 입력하면 읽어줍니다.</div>
@@ -69,7 +91,8 @@ const props = defineProps({
     },
 })
 
-const { sendChat: wsSendChat, realtimeChats } = useRoomSocket()
+const { sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, realtimeChats } = useRoomSocket()
+const { userId } = useCurrentUser()
 const chatInput = ref('')
 const chatInputEl = ref(null)
 
@@ -85,12 +108,41 @@ const chatsWrapper = ref(null)
 const chatHistory = ref([])   // 방 입장 시 REST로 불러온 과거 채팅
 const voiceSize = ref('large')
 
-// 과거 채팅(REST) + 실시간 채팅(WS) 합산, ID 기준 중복 제거 — 메인 챗방(RoomMap.vue)과 동일 패턴
+// 과거 채팅(REST) + 실시간 채팅(WS) 합산 — 메인 챗방(RoomMap.vue)과 동일 패턴.
+// realtimeChats에는 수정/삭제 마커(wsType)도 섞여 오므로 Map으로 반영(순서 유지)
 const chatList = computed(() => {
-    const seen = new Set(chatHistory.value.map(c => c.id))
-    const fresh = realtimeChats.value.filter(c => !seen.has(c.id))
-    return [...chatHistory.value, ...fresh]
+    const map = new Map()
+    for (const c of chatHistory.value) map.set(c.id, c)
+    for (const item of realtimeChats.value) {
+        if (item.wsType === 'chat_edit') {
+            const existing = map.get(item.id)
+            if (existing) map.set(item.id, { ...existing, content: item.content, edited: true })
+        } else if (item.wsType === 'chat_delete') {
+            map.delete(item.id)
+        } else if (!map.has(item.id)) {
+            map.set(item.id, item)
+        }
+    }
+    return [...map.values()]
 })
+
+const editingChatId = ref(null)
+const editingContent = ref('')
+function startEditChat(chat) {
+    editingChatId.value = chat.id
+    editingContent.value = chat.content
+}
+function cancelEditChat() {
+    editingChatId.value = null
+    editingContent.value = ''
+}
+function submitEditChat(chat) {
+    const content = editingContent.value.trim()
+    if (!content) return
+    wsEditChat(chat.id, content)
+    editingChatId.value = null
+    editingContent.value = ''
+}
 
 const formatTime = formatDate
 
@@ -125,8 +177,9 @@ function sendChat() {
 }
 
 // 실시간(WS) 채팅 수신 시 TTS로 읽어주기 (본인 발화 포함 — echo로 한 번만 옴)
+// 수정/삭제 마커(wsType)는 새 발화가 아니므로 TTS 대상에서 제외
 watch(realtimeChats, (list, prevList) => {
-    const newOnes = list.slice(prevList?.length ?? 0)
+    const newOnes = list.slice(prevList?.length ?? 0).filter(c => !c.wsType)
     for (const chat of newOnes) speak(chat.content, chat.user?.knownas)
     if (newOnes.length) scrollToBottom()
 })

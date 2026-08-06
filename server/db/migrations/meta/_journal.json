@@ -85,6 +85,13 @@
       "when": 1785996367259,
       "tag": "0011_free_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785999259190,
+      "tag": "0012_happy_hulk",
+      "breakpoints": true
     }
   ]
 }

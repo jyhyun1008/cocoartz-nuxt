@@ -67,6 +67,8 @@ export const chats = pgTable('chats', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     history: text(),
     replyto: text(),
+    // 채팅 메시지 수정 시 true — "(수정됨)" 표시용. 삭제는 이력 안 남기고 그냥 row 자체를 지움
+    edited: boolean().default(false).notNull(),
 })
 
 export const posts = pgTable('posts', {
