@@ -18,6 +18,8 @@
     "@aws-sdk/client-s3": "^3.1101.0",
     "@nuxt/image": "^2.0.0",
     "@paralleldrive/cuid2": "^3.0.4",
+    "@sableclient/twemoji-font": "^1.0.4",
+    "@twemoji/api": "^17.0.3",
     "@vite-pwa/nuxt": "^1.1.1",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.44.7",

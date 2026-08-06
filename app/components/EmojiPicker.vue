@@ -7,6 +7,7 @@
                 class="ep-native"
                 locale="ko"
                 data-source="/emoji-data/ko.json"
+                emoji-version="17.0"
             ></emoji-picker>
             <div v-else class="emoji-picker-loading">불러오는 중...</div>
         </div>
@@ -14,6 +15,11 @@
 </template>
 
 <script setup>
+// 실제 게시글/댓글/리액션에 쓰이는 이모지는 twemoji.client.ts가 렌더링 시점에 Twemoji 이미지로
+// 바꿔주지만, emoji-picker-element는 Shadow DOM 안에서 자체적으로 그리기 때문에 그 방식이 안 닿음.
+// 그래서 피커 자체도 OS 기본 이모지 폰트 대신 Twemoji COLR 폰트로 그리도록 --emoji-font-family로 지정.
+import '@sableclient/twemoji-font'
+
 // 프리셋 몇 개가 아니라 유니코드 이모지 전체 중 아무거나 고를 수 있는 피커.
 // emoji-picker-element는 DOM 커스텀 엘리먼트라 서버에선 등록이 안 되므로 mounted 이후에만 렌더링함.
 // body로 teleport하는 이유: 채팅 작은창/모달처럼 backdrop-filter가 걸린 조상 안에 있으면
@@ -95,6 +101,7 @@ emoji-picker {
     --button-active-background: rgba(var(--fg-rgb), 0.12);
     --button-hover-background: rgba(var(--fg-rgb), 0.08);
     --category-font-color: rgba(var(--fg-rgb), 0.9);
+    --emoji-font-family: Twemoji;
     --indicator-color: var(--accent);
     --input-border-color: rgba(var(--fg-rgb), 0.15);
     --input-font-color: rgba(var(--fg-rgb), 0.85);

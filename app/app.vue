@@ -194,4 +194,12 @@ body {
 #infowindow-wrapper ::-webkit-scrollbar-thumb:hover,
 #voiceroom-wrapper ::-webkit-scrollbar-thumb:hover,
 #chatroom-wrapper.large ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+
+/* twemoji.client.ts가 유니코드 이모지 자리에 삽입하는 이미지 — 글자 크기에 맞춰 인라인으로 보이게 함 */
+img.twemoji {
+    height: 1em;
+    width: 1em;
+    margin: 0 0.05em 0 0.1em;
+    vertical-align: -0.1em;
+}
 </style>
