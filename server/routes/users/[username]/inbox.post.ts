@@ -4,7 +4,7 @@ import { eq, and, count, inArray, type SQL } from 'drizzle-orm'
 import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl, isPublicAudience } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
-import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji } from '../../../utils/ap/sanitize'
+import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderActorName } from '../../../utils/ap/sanitize'
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 
 const MAX_FOLLOWERS_PER_USER = 5000
@@ -121,7 +121,7 @@ async function handleFollow(body: Record<string, unknown>, user: LocalUser, acto
 
     const preferredUsername = actorData.preferredUsername as string || ''
     const actorDomain = new URL(followerActorUrl).hostname
-    const remoteActorName = (actorData.name as string) || preferredUsername
+    const remoteActorName = renderActorName((actorData.name as string) || preferredUsername, actorData.tag)
     const remoteActorHandle = preferredUsername ? `@${preferredUsername}@${actorDomain}` : ''
     const remoteActorIconUrl = (actorData.icon as Record<string, string> | undefined)?.url || ''
 
@@ -272,7 +272,7 @@ async function saveIncomingReplyPost(
         remoteParentObjectId: opts.remoteParentObjectId ?? null,
         objectId,
         remoteActorUrl: actorUrl_,
-        remoteActorName: (actorData?.name as string) || preferredUsername,
+        remoteActorName: renderActorName((actorData?.name as string) || preferredUsername, actorData?.tag),
         remoteActorHandle: preferredUsername ? `@${preferredUsername}@${actorDomain}` : '',
         remoteActorIconUrl: (actorData?.icon as Record<string, string> | undefined)?.url || '',
         remoteActorInbox: (actorData?.endpoints as Record<string, string> | undefined)?.sharedInbox
@@ -366,7 +366,7 @@ async function handleLike(body: Record<string, unknown>, domain: string) {
         postid: postId,
         userid: null,
         remoteActorUrl: actorUrl_,
-        remoteActorName: (actorData?.name as string) || preferredUsername,
+        remoteActorName: renderActorName((actorData?.name as string) || preferredUsername, actorData?.tag),
         remoteActorHandle: preferredUsername ? `@${preferredUsername}@${actorDomain}` : '',
         remoteActorIconUrl: (actorData?.icon as Record<string, string> | undefined)?.url || '',
         activityId: activityId ?? null,
@@ -397,7 +397,7 @@ async function handleAnnounce(body: Record<string, unknown>, domain: string) {
     await db.insert(boosts).values({
         postid: postId,
         actorUrl: actorUrl_,
-        actorName: (actorData?.name as string) || preferredUsername,
+        actorName: renderActorName((actorData?.name as string) || preferredUsername, actorData?.tag),
         actorHandle: preferredUsername ? `@${preferredUsername}@${actorDomain}` : '',
         actorIconUrl: (actorData?.icon as Record<string, string> | undefined)?.url || '',
         activityId,
@@ -456,7 +456,7 @@ async function handleUpdate(body: Record<string, unknown>) {
 
     const preferredUsername = actorData.preferredUsername as string || ''
     const actorDomain = new URL(actorUrl_).hostname
-    const actorName = (actorData.name as string) || preferredUsername
+    const actorName = renderActorName((actorData.name as string) || preferredUsername, actorData.tag)
     const actorHandle = preferredUsername ? `@${preferredUsername}@${actorDomain}` : ''
     const actorIconUrl = (actorData.icon as Record<string, string> | undefined)?.url || ''
 
@@ -472,4 +472,10 @@ async function handleUpdate(body: Record<string, unknown>) {
     await db.update(boosts)
         .set({ actorName, actorHandle, actorIconUrl })
         .where(eq(boosts.actorUrl, actorUrl_))
+    await db.update(follows)
+        .set({ remoteActorName: actorName, remoteActorHandle: actorHandle, remoteActorIconUrl: actorIconUrl })
+        .where(eq(follows.followerActorUrl, actorUrl_))
+    await db.update(remoteFollows)
+        .set({ targetName: actorName, targetHandle: actorHandle, targetIconUrl: actorIconUrl })
+        .where(eq(remoteFollows.targetActorUrl, actorUrl_))
 }

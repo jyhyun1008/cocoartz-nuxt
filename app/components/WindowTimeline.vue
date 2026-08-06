@@ -35,10 +35,28 @@
                                     <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(p.content)"></span>
                                 </div>
                                 <div class="post-card-meta">
-                                    <span class="post-author remote-handle">{{ p.sourceName || p.sourceHandle }}</span>
+                                    <span v-if="p.sourceName" class="post-author remote-handle" v-html="p.sourceName"></span>
+                                    <span v-else class="post-author remote-handle">{{ p.sourceHandle }}</span>
                                     <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                                 </div>
                             </div>
+                            <a
+                                class="remote-server-badge"
+                                :href="`https://${remoteServerHost(p.sourceActorUrl)}`"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                :title="remoteServerInfo[remoteServerHost(p.sourceActorUrl)]?.name || remoteServerHost(p.sourceActorUrl)"
+                                :style="{ background: badgeBg(remoteServerHost(p.sourceActorUrl)) }"
+                                @click.stop
+                            >
+                                <img
+                                    v-if="badgeImgSrc(remoteServerHost(p.sourceActorUrl))"
+                                    :src="badgeImgSrc(remoteServerHost(p.sourceActorUrl))"
+                                    alt=""
+                                    @error="onBadgeImgError(badgeImgSrc(remoteServerHost(p.sourceActorUrl)))"
+                                />
+                                <span v-else>{{ remoteServerHost(p.sourceActorUrl)[0]?.toUpperCase() }}</span>
+                            </a>
                         </div>
                     </template>
                 </div>
@@ -46,6 +64,9 @@
                     아직 팔로우한 사람이 없거나, 팔로우한 사람이 쓴 글이 없습니다.<br />
                     <NuxtLink to="/preferences" style="color:var(--accent)">설정에서 원격 계정을 팔로우해보세요.</NuxtLink>
                 </div>
+                <button v-if="hasMoreToShow" class="load-more-btn" :disabled="loadingMore" @click="loadMore">
+                    {{ loadingMore ? '불러오는 중...' : '더보기' }}
+                </button>
             </template>
             <div v-else class="empty">로그인 후 이용할 수 있습니다.</div>
         </div>
@@ -56,7 +77,8 @@
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
                         <i class="hgi hgi-stroke hgi-globe-02"></i>
-                        {{ currentRemotePost.sourceName || currentRemotePost.sourceHandle }}
+                        <span v-if="currentRemotePost.sourceName" v-html="currentRemotePost.sourceName"></span>
+                        <span v-else>{{ currentRemotePost.sourceHandle }}</span>
                         <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
                     </a>
                     <span class="datetime">{{ formatDate(currentRemotePost.createdAt) }}</span>
@@ -85,7 +107,8 @@
                             <template v-if="comment.remoteActorHandle">
                                 <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
+                                    <span v-else>{{ comment.remoteActorHandle }}</span>
                                     <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                 </a>
                             </template>
@@ -115,15 +138,73 @@ defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
 
-const { data: followingFeedData } = await useAsyncData(
-    'following-feed',
-    () => userId.value
-        ? $fetch(`${apiBaseUrl}/api/getFollowingFeed`, { method: 'POST', body: { userid: userId.value } }).then(res => Array.isArray(res) ? res : [])
-        : Promise.resolve([]),
-    { watch: [userId] },
-)
+// 로컬 팔로우 글/원격 팔로우 글을 각자 독립적으로 페이지네이션(WindowBoard.vue의 게시판 목록과 동일한 패턴) —
+// "더보기" 클릭 시 두 소스 모두 다음 페이지를 불러와서 누적한 뒤 날짜순으로 다시 합쳐서 보여줌
+const PAGE_SIZE = 20
 
-const followingFeed = computed(() => followingFeedData.value ?? [])
+const localItems = ref([])
+const localOffset = ref(0)
+const hasMoreLocal = ref(false)
+
+const remoteItems = ref([])
+const remoteOffset = ref(0)
+const hasMoreRemote = ref(false)
+
+const loadingMore = ref(false)
+
+async function fetchFeedPage(lOffset, rOffset) {
+    if (!userId.value) return { localPosts: [], hasMoreLocal: false, remotePosts: [], hasMoreRemote: false }
+    return await $fetch(`${apiBaseUrl}/api/getFollowingFeed`, {
+        method: 'POST',
+        body: { userid: userId.value, localOffset: lOffset, remoteOffset: rOffset },
+    }).catch(() => ({ localPosts: [], hasMoreLocal: false, remotePosts: [], hasMoreRemote: false }))
+}
+
+async function loadFirstPage() {
+    localOffset.value = 0
+    remoteOffset.value = 0
+    const res = await fetchFeedPage(0, 0)
+    localItems.value = res.localPosts ?? []
+    hasMoreLocal.value = res.hasMoreLocal ?? false
+    remoteItems.value = res.remotePosts ?? []
+    hasMoreRemote.value = res.hasMoreRemote ?? false
+}
+
+await loadFirstPage()
+watch(userId, loadFirstPage)
+
+async function loadMore() {
+    if (loadingMore.value) return
+    loadingMore.value = true
+    try {
+        const tasks = []
+        if (hasMoreLocal.value) {
+            const nextOffset = localOffset.value + PAGE_SIZE
+            tasks.push(fetchFeedPage(nextOffset, remoteOffset.value).then((res) => {
+                localOffset.value = nextOffset
+                localItems.value = [...localItems.value, ...(res.localPosts ?? [])]
+                hasMoreLocal.value = res.hasMoreLocal ?? false
+            }))
+        }
+        if (hasMoreRemote.value) {
+            const nextOffset = remoteOffset.value + PAGE_SIZE
+            tasks.push(fetchFeedPage(localOffset.value, nextOffset).then((res) => {
+                remoteOffset.value = nextOffset
+                remoteItems.value = [...remoteItems.value, ...(res.remotePosts ?? [])]
+                hasMoreRemote.value = res.hasMoreRemote ?? false
+            }))
+        }
+        await Promise.all(tasks)
+    } finally {
+        loadingMore.value = false
+    }
+}
+
+const hasMoreToShow = computed(() => hasMoreLocal.value || hasMoreRemote.value)
+
+const followingFeed = computed(() =>
+    [...localItems.value, ...remoteItems.value].sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()),
+)
 
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 나머지 태그만 지움 (WindowBoard.vue와 동일 로직)
 function stripHtmlKeepEmoji(html) {
@@ -136,6 +217,50 @@ function stripHtmlKeepEmoji(html) {
     const stripped = withPlaceholders.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
     return stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
 }
+
+// 원격 글 작성자의 서버 뱃지 (WindowBoard.vue와 동일 로직)
+function remoteServerHost(actorUrl) {
+    try { return new URL(actorUrl).host } catch { return '' }
+}
+
+function remoteServerFallbackColor(host) {
+    let hash = 0
+    for (let i = 0; i < host.length; i++) hash = host.charCodeAt(i) + ((hash << 5) - hash)
+    return `hsl(${Math.abs(hash) % 360}, 55%, 42%)`
+}
+function badgeBg(host) {
+    return remoteServerInfo.value[host]?.themeColor || remoteServerFallbackColor(host)
+}
+
+const remoteServerInfo = ref({})
+async function loadRemoteServerInfo(host) {
+    if (!host || host in remoteServerInfo.value) return
+    remoteServerInfo.value = { ...remoteServerInfo.value, [host]: null }
+    const info = await $fetch(`${apiBaseUrl}/api/getRemoteServerInfo`, {
+        method: 'POST',
+        body: { host },
+    }).catch(() => null)
+    remoteServerInfo.value = { ...remoteServerInfo.value, [host]: info }
+}
+
+const failedBadgeSrcs = ref(new Set())
+function badgeImgSrc(host) {
+    const iconUrl = remoteServerInfo.value[host]?.iconUrl
+    if (iconUrl && !failedBadgeSrcs.value.has(iconUrl)) return iconUrl
+    const favicon = `https://${host}/favicon.ico`
+    if (!failedBadgeSrcs.value.has(favicon)) return favicon
+    return null
+}
+function onBadgeImgError(src) {
+    failedBadgeSrcs.value = new Set(failedBadgeSrcs.value).add(src)
+}
+
+watch(followingFeed, (feed) => {
+    for (const p of feed) {
+        if (!p.isRemote) continue
+        loadRemoteServerInfo(remoteServerHost(p.sourceActorUrl))
+    }
+}, { immediate: true })
 
 const currentView = ref('list')
 const currentRemotePost = ref(null)

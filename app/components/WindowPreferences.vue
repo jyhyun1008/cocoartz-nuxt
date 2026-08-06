@@ -46,7 +46,8 @@
                                 <NuxtImg v-if="f.targetIconUrl" :src="f.targetIconUrl" class="admin-icon-preview-img" />
                                 <i v-else class="hgi hgi-stroke hgi-user-group"></i>
                             </div>
-                            <span class="admin-ch-name">{{ f.targetName || f.targetHandle }}</span>
+                            <span v-if="f.targetName" class="admin-ch-name" v-html="f.targetName"></span>
+                            <span v-else class="admin-ch-name">{{ f.targetHandle }}</span>
                             <code class="admin-ch-path">{{ f.targetHandle }}</code>
                             <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': f.accepted }">
                                 {{ f.accepted ? '팔로잉' : '대기중' }}

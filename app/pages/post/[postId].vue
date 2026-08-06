@@ -279,7 +279,8 @@ onMounted(() => {
                             <template v-if="comment.remoteActorHandle">
                                 <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="pd-author remote-author" title="fediverse에서 온 답글">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
+                                    <span v-else>{{ comment.remoteActorHandle }}</span>
                                     <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                 </a>
                             </template>

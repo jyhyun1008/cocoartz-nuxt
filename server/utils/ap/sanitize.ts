@@ -14,6 +14,23 @@ export function sanitizeHtml(html: string): string {
         .replace(/(href|src|action)\s*=\s*'(?:javascript|data|vbscript):[^']*'/gi, "$1='#'")
 }
 
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+}
+
+// 원격 액터의 표시 이름(Person.name)에 커스텀 이모지(:shortcode:)가 섞여 있을 때 이미지로 치환.
+// name은 (content와 달리) 원래 HTML이 아니라 순수 텍스트라서 sanitizeHtml 대신 먼저 통째로
+// escape한 뒤, 우리가 직접 만든 <img> 마커만 renderCustomEmoji로 끼워넣는다
+// (그래야 악의적인 표시 이름에 <script> 같은 실제 태그가 섞여 있어도 무해한 텍스트로만 남음)
+export function renderActorName(name: string, tag: unknown): string {
+    return renderCustomEmoji(escapeHtml(name || ''), tag)
+}
+
 // AP Note의 tag 배열에 담긴 커스텀 이모지(type:'Emoji')로 본문 속 :shortcode: 텍스트를
 // 실제 이미지로 치환. 미스키/마스토돈 등은 content HTML에 :shortcode: 문자열만 그대로 두고
 // tag 쪽에 아이콘 URL을 따로 실어 보내서, 클라이언트(원래는 웹 UI)가 직접 치환하는 방식이라

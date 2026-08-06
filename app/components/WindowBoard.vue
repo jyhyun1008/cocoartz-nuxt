@@ -38,7 +38,8 @@
                                 <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(entry.post.content)"></span>
                             </div>
                             <div class="post-card-meta">
-                                <span class="post-author remote-handle">{{ entry.post.sourceName || entry.post.sourceHandle }}</span>
+                                <span v-if="entry.post.sourceName" class="post-author remote-handle" v-html="entry.post.sourceName"></span>
+                                <span v-else class="post-author remote-handle">{{ entry.post.sourceHandle }}</span>
                                 <span class="datetime">{{ formatDate(entry.post.published) }}</span>
                             </div>
                         </div>
@@ -172,7 +173,8 @@
                             <template v-if="comment.remoteActorHandle">
                                 <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
+                                    <span v-else>{{ comment.remoteActorHandle }}</span>
                                     <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                 </a>
                             </template>
@@ -198,14 +200,15 @@
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
                         <i class="hgi hgi-stroke hgi-globe-02"></i>
-                        {{ currentRemotePost.sourceName || currentRemotePost.sourceHandle }}
+                        <span v-if="currentRemotePost.sourceName" v-html="currentRemotePost.sourceName"></span>
+                        <span v-else>{{ currentRemotePost.sourceHandle }}</span>
                         <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
                     </a>
                     <span class="datetime">{{ formatDate(currentRemotePost.published) }}</span>
                 </div>
 
                 <div v-if="currentRemotePost.summary && !showRemoteContent" class="remote-cw-gate">
-                    <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> {{ currentRemotePost.summary }}</div>
+                    <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
                     <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
                 <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
@@ -227,7 +230,8 @@
                             <template v-if="comment.remoteActorHandle">
                                 <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                    {{ comment.remoteActorName || comment.remoteActorHandle }}
+                                    <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
+                                    <span v-else>{{ comment.remoteActorHandle }}</span>
                                     <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                 </a>
                             </template>

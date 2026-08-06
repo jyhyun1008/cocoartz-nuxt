@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { resolveWebfinger, fetchActor, buildFollowActivity, actorUrl } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
+import { renderActorName } from '../utils/ap/sanitize'
 
 export default eventHandler(async (event) => {
     const { userid, handle } = await readBody(event)
@@ -51,7 +52,7 @@ export default eventHandler(async (event) => {
         targetActorUrl,
         targetInbox: inboxUrl,
         targetHandle,
-        targetName: (actorData.name as string) || preferredUsername,
+        targetName: renderActorName((actorData.name as string) || preferredUsername, actorData.tag),
         targetIconUrl: (actorData.icon as Record<string, string> | undefined)?.url || '',
         accepted: false,
         followActivityId: follow.id,
