@@ -167,11 +167,24 @@ const gapPerLayer = computed(() => gapRatio.value * stackBaseHeight.value * prop
 // 맨 아래 레이어는 추가 이동이 0이라 항상 wrapper 맨 위(0px)에서 시작하므로 이 식이 그대로 성립
 const groundLocalY = computed(() => layerHeight.value * props.groundRatio)
 
+// wrapper의 height는 원래 layerHeight(레이어 한 장 높이)만 잡고, 위쪽 레이어들은 그 박스
+// 바깥(음수 y)으로 translateY만으로 삐져나가게 그렸었음 — overflow를 안 걸어놨으니 데스크톱
+// 크로미움에서는 잘리지 않았는데, 모바일 사파리(iOS)는 filter(피사계심도 blur)가 걸린 요소를
+// 그 요소 자기 박스 크기로 암묵적으로 클리핑해버리는 버릇이 있어서, 박스 밖으로 나간 위쪽
+// 레이어(뾰족한 꼭대기)가 잘려 보이는 문제가 있었음. → wrapper 박스 자체를 스택 전체(맨 위
+// 레이어 꼭대기 ~ 그림자 트레일 맨 아래)를 다 담을 만큼 키우고, 그만큼 top을 위로 당기고
+// 내부 레이어들은 translateY에 그 보정값을 더해서, 화면상 절대 위치는 그대로 유지하면서
+// 박스만 넉넉하게 키움.
+const extraTop = computed(() => (props.layers.length - 1) * gapPerLayer.value)
+const extraBottom = computed(() =>
+    props.shadowTrail ? layerHeight.value * props.shadowStepRatio * props.shadowEchoCount : 0)
+const wrapperHeight = computed(() => layerHeight.value + extraTop.value + extraBottom.value)
+
 const wrapperStyle = computed(() => ({
     left: `calc(50% + ${screenX.value - props.displayWidth / 2}px)`,
-    top: `calc(50% + ${anchorY.value - groundLocalY.value}px)`,
+    top: `calc(50% + ${anchorY.value - groundLocalY.value - extraTop.value}px)`,
     width: `${props.displayWidth}px`,
-    height: `${layerHeight.value}px`,
+    height: `${wrapperHeight.value}px`,
     zIndex: props.zIndex ?? defaultZIndex.value,
     filter: props.blurPx > 0 ? `blur(${props.blurPx}px)` : undefined,
 }))
@@ -183,7 +196,8 @@ function baseShiftFor(i) {
 }
 
 // 레이어 i의 추가 이동(위로): 모든 레이어는 항상 같은 layerHeight로 렌더돼서 이미지 자체 비율은
-// 서로 동일하게 유지됨.
+// 서로 동일하게 유지됨. wrapper가 extraTop만큼 위로 커진 만큼, 레이어는 그만큼 아래로 더 밀어줘야
+// (=+extraTop) 화면상 절대 위치가 원래와 똑같이 유지됨.
 // z-index: 레이어 하나당 (echo 개수+1)칸씩 구간을 나눠서, 그 레이어 자기 몫의 구간 맨 위에 크리스피한
 // 본체가, 그 아래로 echo들이 순서대로(가까운 것부터) 이어지고, 그다음 레이어 구간이 이어지는 식.
 // 그려지는 순서: 1.png → 1.png의 echo들(가까운 것→먼 것) → 2.png → 2.png의 echo들 → …
@@ -194,7 +208,7 @@ function layerStyle(i) {
     return {
         zIndex: (props.layers.length - i) * Z_GROUP_SIZE.value,
         height: `${layerHeight.value}px`,
-        transform: `translateY(${(-baseShiftFor(i)).toFixed(2)}px)`,
+        transform: `translateY(${(-baseShiftFor(i) + extraTop.value).toFixed(2)}px)`,
     }
 }
 
@@ -204,11 +218,11 @@ function layerStyle(i) {
 function echoStyle(i, e) {
     const h = layerHeight.value
     const downOffset = h * props.shadowStepRatio * e
-    const opacity = props.shadowOpacity 
+    const opacity = props.shadowOpacity
     return {
         zIndex: (props.layers.length - i) * Z_GROUP_SIZE.value - e,
         height: `${h}px`,
-        transform: `translateY(${(-baseShiftFor(i) + downOffset).toFixed(2)}px)`,
+        transform: `translateY(${(-baseShiftFor(i) + extraTop.value + downOffset).toFixed(2)}px)`,
         opacity: opacity.toFixed(3),
     }
 }

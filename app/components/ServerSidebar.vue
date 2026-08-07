@@ -247,7 +247,6 @@ const notiPath = '/noti'
         z-index: 9998;
         transform: translateX(-100%);
         transition: transform 0.2s ease;
-        box-shadow: 4px 0 16px rgba(0,0,0,0.35);
     }
 
     #sidebar-wrapper.open {
