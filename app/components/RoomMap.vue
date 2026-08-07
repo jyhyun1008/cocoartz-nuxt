@@ -878,28 +878,53 @@ onMounted(() => {
     window.addEventListener('keyup', onKeyup)
     mapWrapper?.addEventListener('wheel', onWheel, { passive: false })
 
-    // 핀치 줌 (두 손가락). 한 손가락 터치는 그대로 통과시켜 채팅 스크롤 등을 방해하지 않음
+    // 핀치 줌 (두 손가락) + 한 손가락 세로 드래그 줌.
+    // 채팅/조이스틱/버튼/오버레이 창 등은 전부 pointer-events가 있어서 터치하면 e.target이 그
+    // 요소 자신이 됨 — #map-front는 pointer-events:none이라 맵 위를 터치하면 통과해서 e.target이
+    // #map-wrapper 자체가 됨. 그래서 "e.target===mapWrapper"만 맵 배경 터치로 취급하면
+    // 채팅 스크롤 등 다른 UI의 한 손가락 터치는 그대로 안 건드리고 지나감.
     let pinchStartDist = null
+    let singleTouchY = null
     function touchDistance(touches) {
         const [a, b] = touches
         return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
     }
     function onMapTouchStart(e) {
-        if (e.touches.length === 2) pinchStartDist = touchDistance(e.touches)
+        if (e.touches.length === 2) {
+            pinchStartDist = touchDistance(e.touches)
+            singleTouchY = null
+        } else if (e.touches.length === 1 && e.target === mapWrapper) {
+            singleTouchY = e.touches[0].clientY
+        } else {
+            singleTouchY = null
+        }
     }
     function onMapTouchMove(e) {
-        if (e.touches.length !== 2 || pinchStartDist === null) return
         if (controlsBlocked.value) return
-        e.preventDefault()
-        const dist = touchDistance(e.touches)
-        const delta = (dist - pinchStartDist) * 0.004
-        if (Math.abs(delta) > 0.003) {
-            applyZoomDelta(delta)
-            pinchStartDist = dist
+        if (e.touches.length === 2 && pinchStartDist !== null) {
+            e.preventDefault()
+            const dist = touchDistance(e.touches)
+            const delta = (dist - pinchStartDist) * 0.004
+            if (Math.abs(delta) > 0.003) {
+                applyZoomDelta(delta)
+                pinchStartDist = dist
+            }
+            return
+        }
+        if (e.touches.length === 1 && singleTouchY !== null) {
+            const y = e.touches[0].clientY
+            const dy = y - singleTouchY
+            // 아래로 드래그 = 확대, 위로 드래그 = 축소 (당겨서 확대하는 느낌)
+            if (Math.abs(dy) > 2) {
+                e.preventDefault()
+                applyZoomDelta(dy * 0.005)
+                singleTouchY = y
+            }
         }
     }
     function onMapTouchEnd(e) {
         if (e.touches.length < 2) pinchStartDist = null
+        if (e.touches.length < 1) singleTouchY = null
     }
     mapWrapper?.addEventListener('touchstart', onMapTouchStart, { passive: true })
     mapWrapper?.addEventListener('touchmove', onMapTouchMove, { passive: false })
