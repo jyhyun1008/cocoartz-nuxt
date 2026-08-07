@@ -27,6 +27,22 @@
                 :style="layerStyle(i)"
             />
         </div>
+        <!-- 클릭/호버 판정 영역을 스택 전체 박스(그림자 트레일·층간 여백까지 포함해 꽤 큰 여유
+             박스임)가 아니라 레이어 한 장 높이만큼만, 세로 가운데에 두는 작은 히트박스로 따로 둠 —
+             뒤로 돌리기(flipBack) 보정 오프셋 때문에 레이어들이 이 여유 박스 안에서 이리저리 움직이는데,
+             전체 박스를 그대로 클릭 영역으로 쓰면 뒤로 돌리기 켠 아이템만 유독 세로로 긴 영역이 다
+             클릭/호버로 잡히는 문제가 있었음. 정확히 스프라이트 픽셀에 맞추는 대신 "대충 가운데,
+             한 층 높이" 정도로 단순화(제목 말풍선도 이 박스 기준으로 뜨니 스프라이트 가운데 즈음에 옴) -->
+        <div
+            v-if="isClickable"
+            class="map-item-hitbox"
+            :style="hitboxStyle"
+            @mouseenter="isHovered = true"
+            @mouseleave="isHovered = false"
+            @click="handleClick"
+        >
+            <div v-if="isLinkClickable && props.title && isHovered" class="map-item-tooltip">{{ props.title }}</div>
+        </div>
     </div>
 </template>
 
@@ -123,7 +139,36 @@ const props = defineProps({
     // 줌이 바뀌어도 이미지 안에서 차지하는 비중이 똑같이 유지됨. 아이템별로 다르므로
     // useItemCatalog.ts의 아이템 정의에 같이 들고 있다가 넘겨줌 — 안 주면 보정 없음(전부 0)
     flipBackOffsets: { type: Array, default: () => [] },
+    // 맵 편집기에서 아이템별로 지정한 제목/링크 — link가 있고 interactive가 켜져 있을 때만
+    // 마우스 오버/클릭이 동작함(장식용 아이템은 그대로 클릭이 뒤로 통과돼야 하므로 기본 꺼짐)
+    title: { type: String, default: '' },
+    link: { type: String, default: '' },
+    interactive: { type: Boolean, default: false },
+    // 맵 편집기의 "선택 모드" 전용 — true면 링크 유무와 상관없이 클릭을 받아서 select만 emit함.
+    // (지도 위 아이템을 좌표 역산 없이 직접 클릭해서 고르기 위함 — z로 인해 화면상 위치가 떠 있는
+    // 아이템도 실제로 보이는 스프라이트를 그대로 클릭하면 되게)
+    editable: { type: Boolean, default: false },
+    // 맵 편집기에서 현재 편집 패널에 열려있는 아이템인지 — 여러 층에 걸쳐 있어도 어떤 게 선택된
+    // 건지 눈으로 바로 알 수 있게 살짝 빛나는 테두리를 줌
+    selected: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['select'])
+
+const isHovered = ref(false)
+// 실제 맵에서의 호버/툴팁/링크이동 여부 — editable(편집기 선택 모드)과는 별개
+const isLinkClickable = computed(() => props.interactive && !!props.link)
+const isClickable = computed(() => props.editable || isLinkClickable.value)
+
+function handleClick() {
+    if (props.editable) {
+        emit('select')
+        return
+    }
+    if (!isLinkClickable.value) return
+    if (props.link.startsWith('/')) navigateTo(props.link)
+    else window.open(props.link, '_blank', 'noopener,noreferrer')
+}
 
 const TILE_W = 128
 
@@ -195,18 +240,34 @@ const extraBottom = computed(() =>
     props.shadowTrail ? layerHeight.value * props.shadowStepRatio * props.shadowEchoCount : 0)
 const wrapperHeight = computed(() => layerHeight.value + extraTop.value + extraBottom.value)
 
+// 클릭/호버용 히트박스 — 레이어 한 장 높이만큼, wrapper 세로 가운데에 위치(위 설명 참고)
+const hitboxStyle = computed(() => ({
+    top: `calc(50% - ${(layerHeight.value / 2).toFixed(2)}px)`,
+    height: `${layerHeight.value.toFixed(2)}px`,
+}))
+
 const wrapperStyle = computed(() => ({
     left: `calc(50% + ${screenX.value - props.displayWidth / 2}px)`,
     top: `calc(50% + ${anchorY.value - groundLocalY.value - extraTop.value}px)`,
     width: `${props.displayWidth}px`,
     height: `${wrapperHeight.value}px`,
     zIndex: props.zIndex ?? defaultZIndex.value,
-    filter: props.blurPx > 0 ? `blur(${props.blurPx}px)` : undefined,
 }))
 
-const stackStyle = computed(() => ({
-    transform: props.flipX ? 'scaleX(-1)' : undefined,
-}))
+// 피사계심도(blur)는 wrapper가 아니라 .map-item-stack(스프라이트 본체)에만 걸어서, 같은 wrapper
+// 안의 형제인 말풍선 툴팁(.map-item-tooltip)은 안 흐려지게 함 — filter는 자식으로 상속/전파되는
+// 효과라 wrapper에 걸면 툴팁까지 같이 블러 처리돼버림. .map-item-stack의 박스 크기는 wrapper와
+// 동일(100%/100%)해서 위 iOS 클리핑 보정(wrapperHeight 확장)은 그대로 유효함.
+const stackStyle = computed(() => {
+    const filters = []
+    if (props.blurPx > 0) filters.push(`blur(${props.blurPx}px)`)
+    if (props.selected) filters.push('drop-shadow(0 0 6px #4fc3f7)', 'drop-shadow(0 0 10px #4fc3f7)')
+    if (isLinkClickable.value && isHovered.value) filters.push('brightness(1.35)')
+    return {
+        transform: props.flipX ? 'scaleX(-1)' : undefined,
+        filter: filters.length ? filters.join(' ') : undefined,
+    }
+})
 
 // 레이어 i의 (그림자 없는) 기본 이동량 — 맨 아래 레이어(마지막 인덱스)는 0, 위로 갈수록 한 단씩 더 밀림
 function baseShiftFor(i) {
@@ -281,6 +342,7 @@ function echoStyle(i, e) {
     position: relative;
     width: 100%;
     height: 100%;
+    transition: filter 0.15s ease;
 }
 
 .map-item-layer {
@@ -289,5 +351,34 @@ function echoStyle(i, e) {
     left: 0;
     width: 100%;
     display: block;
+}
+
+.map-item-hitbox {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.map-item-tooltip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: max-content;
+    max-width: 200px;
+    padding: 5px 9px;
+    background: rgba(255,255,255,0.95);
+    color: #1a1a22;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    pointer-events: none;
+    z-index: 10001;
 }
 </style>

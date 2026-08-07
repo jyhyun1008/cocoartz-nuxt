@@ -44,6 +44,9 @@
                         :flip-x="!!item.flip"
                         :flip-back="!!item.flipBack"
                         :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
+                        :title="item.title"
+                        :link="item.link"
+                        interactive
                     />
                     <!-- 로컬 캐릭터 -->
                     <CharacterMoving
@@ -682,11 +685,11 @@ function getTileContainerStyle(tile) {
     const scale = (1 + (x + y) * 0.004).toFixed(3)
     const blur = getDepthBlur(x + y)
     // z-index = 4n + k (n = 화면상 깊이 슬롯, k = 그 슬롯 안에서의 높이 순번 0~3).
-    // n = x+y+2z → 화면상 같은 높이(같은 n)에 있는 좌표끼리는 같은 슬롯을 놓고 경쟁함
-    // (예: z=1인 타일의 n은 z=0 타일보다 (x+y)가 2 작아도 화면상 같은 자리에 옴).
-    // k=z(0~2)는 그 타일 자신의 층. 아이템의 k(=z+1, MapItem.vue의 defaultZIndex)는 이 타일
-    // 스킴이랑 맞춰서 "자기가 놓인 층의 바로 위 슬롯"에 옴 — 캐릭터 z-index는 아직 이 스킴에
-    // 안 맞춰져 있음(별도로 손볼 예정, 지금은 그대로 둠).
+    // n=x+y, k=z(0~2)는 그 타일 자신의 층 — 같은 (x+y)를 가진 타일끼리는 층(z)으로만 순서가
+    // 갈림. 아이템(MapItem.vue의 defaultZIndex)은 n=x+y+2z, k=z+1로 스케일이 달라서 타일과
+    // 정확히 같은 슬롯을 공유하진 않지만, 실제 배치에서 문제되는 조합은 sortedTiles의 DOM
+    // 순서(아래 x+y+2z 기준 정렬)가 동률 구간을 추가로 보정해줘서 지금 보이는 결과가 맞음
+    // — 캐릭터 z-index는 아직 이 스킴에 안 맞춰져 있음(별도로 손볼 예정, 지금은 그대로 둠).
     const n = x + y
     const k = z
     const zIndex = 4 * n + k
