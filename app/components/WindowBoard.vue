@@ -37,6 +37,10 @@
                     <!-- 연합 팔로잉 피드(외부) 글 -->
                     <div v-else class="post-card external-post-card" @click="openRemotePost(entry.post)">
                         <div class="external-post-body">
+                            <div v-if="entry.post.boostedByName || entry.post.boostedByHandle" class="boost-banner">
+                                <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
+                                <span v-if="entry.post.boostedByName" v-html="entry.post.boostedByName"></span><span v-else>{{ entry.post.boostedByHandle }}</span>님이 재게시했습니다
+                            </div>
                             <div class="post-card-title">
                                 <i class="hgi hgi-stroke hgi-globe-02"></i>
                                 <template v-if="entry.post.summary">
@@ -240,6 +244,10 @@
         <!-- 연합 팔로잉 피드 글 상세 (원격) -->
         <div v-else-if="currentView === 'remote-detail' && currentRemotePost" id="board-wrapper">
             <div class="post-detail">
+                <div v-if="currentRemotePost.boostedByName || currentRemotePost.boostedByHandle" class="boost-banner">
+                    <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
+                    <span v-if="currentRemotePost.boostedByName" v-html="currentRemotePost.boostedByName"></span><span v-else>{{ currentRemotePost.boostedByHandle }}</span>님이 재게시했습니다
+                </div>
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
                         <i class="hgi hgi-stroke hgi-globe-02"></i>
@@ -832,6 +840,15 @@ onMounted(() => {
     min-width: 0;
     flex: 1;
 }
+
+.boost-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: rgba(var(--fg-rgb),0.5);
+}
+.boost-banner .hgi-arrow-reload-horizontal { color: #7cc4ff; }
 
 .remote-server-badge {
     width: 34px;

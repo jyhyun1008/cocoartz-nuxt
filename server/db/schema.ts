@@ -241,6 +241,12 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     sourceHandle: text(),
     sourceName: text(),
     sourceIconUrl: text(),
+    // 이 글이 팔로우 계정의 직접 작성글이 아니라 부스트(Announce)로 들어온 경우, 누가 부스트했는지
+    // (원본 작성자 정보는 위 source* 필드에 그대로 유지됨). 직접 작성글이면 전부 null
+    boostedByActorUrl: text(),
+    boostedByName: text(),
+    boostedByHandle: text(),
+    boostedByIconUrl: text(),
     objectId: text().notNull(),
     content: text().notNull(),
     // 원격 글의 CW(content warning)/서두 텍스트. 없으면 null → 목록에서 본문 미리보기로 대체 표시
@@ -268,6 +274,11 @@ export const remoteTimelinePosts = pgTable('remote_timeline_posts', {
     sourceHandle: text(),
     sourceName: text(),
     sourceIconUrl: text(),
+    // 부스트(Announce)로 들어온 글이면 누가 부스트했는지 (원본 작성자는 위 source* 필드 그대로)
+    boostedByActorUrl: text(),
+    boostedByName: text(),
+    boostedByHandle: text(),
+    boostedByIconUrl: text(),
     objectId: text().notNull(),
     content: text().notNull(),
     summary: text(),

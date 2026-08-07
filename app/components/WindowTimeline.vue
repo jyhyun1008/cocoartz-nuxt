@@ -34,6 +34,10 @@
                         <!-- 원격 글: 미리보기 카드, 클릭하면 상세보기 -->
                         <div v-else class="post-card external-post-card" @click="openRemotePost(p)">
                             <div class="external-post-body">
+                                <div v-if="p.boostedByName || p.boostedByHandle" class="boost-banner">
+                                    <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
+                                    <span v-if="p.boostedByName" v-html="p.boostedByName"></span><span v-else>{{ p.boostedByHandle }}</span>님이 재게시했습니다
+                                </div>
                                 <div class="post-card-title">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>
                                     <template v-if="p.summary">
@@ -82,6 +86,10 @@
         <!-- 원격 글 상세 -->
         <div v-else-if="currentView === 'remote-detail' && currentRemotePost" id="board-wrapper">
             <div class="post-detail">
+                <div v-if="currentRemotePost.boostedByName || currentRemotePost.boostedByHandle" class="boost-banner">
+                    <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
+                    <span v-if="currentRemotePost.boostedByName" v-html="currentRemotePost.boostedByName"></span><span v-else>{{ currentRemotePost.boostedByHandle }}</span>님이 재게시했습니다
+                </div>
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
                         <i class="hgi hgi-stroke hgi-globe-02"></i>

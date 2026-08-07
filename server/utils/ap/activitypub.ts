@@ -183,6 +183,22 @@ export async function fetchActor(url: string): Promise<Record<string, unknown> |
     }
 }
 
+// 부스트(Announce)의 대상처럼, 임의의 원격 오브젝트(Note 등)를 URL로 직접 가져올 때 사용 —
+// fetchActor와 완전히 동일한 패턴(서명 없는 GET + SSRF 차단)
+export async function fetchObject(url: string): Promise<Record<string, unknown> | null> {
+    if (!isPublicUrl(url)) {
+        console.warn(`[fetchObject] 차단: ${url}`)
+        return null
+    }
+    try {
+        const res = await fetch(url, { headers: { Accept: AP_CONTENT_TYPE } })
+        if (!res.ok) return null
+        return await res.json() as Record<string, unknown>
+    } catch {
+        return null
+    }
+}
+
 export async function resolveWebfinger(resource: string): Promise<string | null> {
     const match = resource.match(/^@?([^@]+)@(.+)$/)
     if (!match) return null

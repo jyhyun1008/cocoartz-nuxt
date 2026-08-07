@@ -1,7 +1,7 @@
 import { db } from '../../../utils/db'
 import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts, remoteTimelinePosts, remoteTimelinePostLikes } from '../../../db/schema'
 import { eq, and, count, inArray, type SQL } from 'drizzle-orm'
-import { buildAcceptActivity, fetchActor, parseLocalPostId, actorUrl, isPublicAudience } from '../../../utils/ap/activitypub'
+import { buildAcceptActivity, fetchActor, fetchObject, parseLocalPostId, actorUrl, isPublicAudience } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
 import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderActorName } from '../../../utils/ap/sanitize'
@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
             await handleLike(body, domain)
             break
         case 'Announce':
-            await handleAnnounce(body, domain)
+            await handleAnnounce(body, domain, user)
             break
         case 'Delete':
             await handleDelete(body)
@@ -384,14 +384,19 @@ async function handleLike(body: Record<string, unknown>, domain: string) {
     console.log(`[inbox] 원격 좋아요: ${actorUrl_} → post#${postId}`)
 }
 
-async function handleAnnounce(body: Record<string, unknown>, domain: string) {
+async function handleAnnounce(body: Record<string, unknown>, domain: string, user: LocalUser) {
     const objectId = typeof body.object === 'string' ? body.object : (body.object as Record<string, unknown>)?.id as string
     const actorUrl_ = body.actor as string
     const activityId = body.id as string | undefined
     if (!objectId || !actorUrl_ || !activityId) return
 
     const postId = parseLocalPostId(domain, objectId)
-    if (!postId) return
+    if (!postId) {
+        // 우리 글이 아니라 순수 원격↔원격 부스트 — 내가 팔로우 중인 계정이 다른 원격 글을 재게시한
+        // 경우로, 개인 피드/연합 타임라인에 "OO님이 재게시했습니다"로 보여주기 위한 처리로 넘김
+        await handleAnnounceFromFollowedAccount(objectId, actorUrl_, user)
+        return
+    }
     const [post] = await db.select().from(posts).where(eq(posts.id, postId))
     if (!post) return
     const [room] = await db.select().from(rooms).where(eq(rooms.id, post.roomid))
@@ -413,6 +418,76 @@ async function handleAnnounce(body: Record<string, unknown>, domain: string) {
         activityId,
     })
     console.log(`[inbox] 원격 부스트: ${actorUrl_} → post#${postId}`)
+}
+
+// 내가 팔로우 중인 원격 계정이 (우리 글이 아닌) 다른 원격 글을 부스트한 경우 — 원본 글 자체를
+// 가져와서 handleCreateFromFollowedAccount와 동일한 방식으로 개인 피드/연합 타임라인에 저장하되,
+// "누가 부스트했는지"는 boostedBy* 필드에 별도로 남겨서 화면에 "OO님이 재게시했습니다"로 표시함
+async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: string, user: LocalUser) {
+    const [follow] = await db.select().from(remoteFollows)
+        .where(and(eq(remoteFollows.userid, user.id), eq(remoteFollows.targetActorUrl, actorUrl_)))
+    if (!follow?.accepted) return
+
+    const [existing] = await db.select().from(remoteFeedPosts)
+        .where(and(eq(remoteFeedPosts.userid, user.id), eq(remoteFeedPosts.objectId, objectId)))
+    if (existing) return
+
+    const object = await fetchObject(objectId)
+    if (!object || object.type !== 'Note') return
+
+    const attributedTo = typeof object.attributedTo === 'string' ? object.attributedTo : null
+    if (!attributedTo) return
+    const authorData = await fetchActor(attributedTo)
+    if (!authorData) return
+    const authorPreferredUsername = authorData.preferredUsername as string || ''
+    const authorDomain = new URL(attributedTo).hostname
+    const authorHandle = authorPreferredUsername ? `@${authorPreferredUsername}@${authorDomain}` : ''
+    const authorName = renderActorName((authorData.name as string) || authorPreferredUsername, authorData.tag)
+    const authorIconUrl = (authorData.icon as Record<string, string> | undefined)?.url || ''
+    const authorInbox = authorData.inbox as string || ''
+    if (!authorInbox) return
+
+    const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag) + extractImageAttachmentsHtml(object.attachment)
+    if (!content) return
+    const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
+    const isPublic = isPublicAudience(object)
+    const published = new Date((object.published as string) || Date.now())
+
+    await db.insert(remoteFeedPosts).values({
+        userid: user.id,
+        sourceActorUrl: attributedTo,
+        sourceHandle: authorHandle,
+        sourceName: authorName,
+        sourceIconUrl: authorIconUrl,
+        boostedByActorUrl: actorUrl_,
+        boostedByName: follow.targetName,
+        boostedByHandle: follow.targetHandle,
+        boostedByIconUrl: follow.targetIconUrl,
+        objectId,
+        content,
+        summary,
+        isPublic,
+        published,
+    })
+    console.log(`[inbox] 원격 부스트 개인 피드 저장: ${follow.targetHandle} → ${objectId}`)
+
+    if (isPublic) {
+        await db.insert(remoteTimelinePosts).values({
+            sourceActorUrl: attributedTo,
+            sourceInbox: authorInbox,
+            sourceHandle: authorHandle,
+            sourceName: authorName,
+            sourceIconUrl: authorIconUrl,
+            boostedByActorUrl: actorUrl_,
+            boostedByName: follow.targetName,
+            boostedByHandle: follow.targetHandle,
+            boostedByIconUrl: follow.targetIconUrl,
+            objectId,
+            content,
+            summary,
+            published,
+        }).onConflictDoNothing({ target: remoteTimelinePosts.objectId })
+    }
 }
 
 // remoteTimelinePosts는 FK 제약이 없는 스키마 스타일이라, 삭제 전에 딸린 좋아요(remoteTimelinePostLikes)부터 정리해야 함

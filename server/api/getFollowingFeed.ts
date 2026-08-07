@@ -68,6 +68,10 @@ export default eventHandler(async (event) => {
         sourceHandle: r.sourceHandle,
         sourceName: r.sourceName,
         sourceIconUrl: r.sourceIconUrl,
+        boostedByActorUrl: r.boostedByActorUrl,
+        boostedByName: r.boostedByName,
+        boostedByHandle: r.boostedByHandle,
+        boostedByIconUrl: r.boostedByIconUrl,
     }))
     remotePosts = applyMuteFilter(remotePosts, muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
 
