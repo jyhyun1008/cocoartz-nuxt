@@ -860,6 +860,7 @@ async function doDelete() {
     font-size: 0.9rem;
     color: rgba(var(--fg-rgb),0.85);
     flex: 1;
+    min-width: 0; /* flex:1만으로는 형제 요소들 때문에 줄어들지 않아 행이 넘칠 수 있음(플렉스박스 기본값 이슈) */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

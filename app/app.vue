@@ -83,6 +83,10 @@ onMounted(() => useTheme().init())
 body {
     line-height: 1.8;
     margin: 0;
+    /* 안쪽 어딘가에서 요소가 뷰포트보다 넓어져도(모바일에서 특히) 페이지 전체가 옆으로
+       스크롤되면서 내용이 화면 밖으로 밀려나 보이는 걸 막는 안전장치 — 넓은 콘텐츠는
+       각자의 컨테이너 안에서만 스크롤돼야 함 */
+    overflow-x: hidden;
     background-color: var(--page-bg);
     transition: background-color 0.15s;
     /* 모바일 사파리가 v-if로 숨겼다 다시 보여지는 텍스트(목록↔상세 전환 등)의 폰트 크기를

@@ -861,6 +861,8 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 
 .external-post-card {
@@ -925,11 +927,15 @@ onMounted(() => {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    max-width: 100%;
+    min-width: 0;
     font-weight: 700;
     font-size: 0.85rem;
     color: rgba(var(--fg-rgb),0.5);
     white-space: nowrap;
-    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
 }
 
 .datetime {
