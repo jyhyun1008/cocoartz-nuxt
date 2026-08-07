@@ -338,11 +338,17 @@ function getTileContainerStyle(tile) {
     const screenX = (x - y) * (TILE_W / 2)
     const screenY = (x + y) * (dynH / 2) - z * sideH
     const scale = (1 + (x + y) * 0.004).toFixed(3)
+    // z-index는 RoomMap.vue의 getTileContainerStyle/MapItem.vue의 defaultZIndex와 반드시 같은
+    // "4n+k" 스케일을 써야 함 — 예전엔 (x+y)*10+z*2+10000 이라는 별도 스케일을 썼는데, 그러면
+    // 타일은 10000대, 아이템(MapItem.vue)은 그대로 4n+k(수십대)라서 아이템이 항상 모든 타일
+    // 뒤에 완전히 가려져(z-index가 훨씬 낮아서) 편집기에서만 아이템이 안 보이는 버그가 있었음
+    const n = x + y
+    const k = z
     return {
         left: `calc(50% + ${screenX - TILE_W / 2}px)`,
         top: `calc(50% + ${screenY - dynH / 2}px)`,
         transform: `scale(${scale})`,
-        zIndex: (x + y) * 10 + z * 2 + 10000,
+        zIndex: 4 * n + k,
     }
 }
 
