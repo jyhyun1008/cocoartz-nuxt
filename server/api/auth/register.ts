@@ -2,6 +2,7 @@ import { db } from '../../utils/db'
 import { users, servers } from '../../db/schema'
 import { eq, or, count } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
+import { sendMail } from '../../utils/mailer'
 
 export default eventHandler(async (event) => {
     const { username, email, password } = await readBody(event)
@@ -52,6 +53,15 @@ export default eventHandler(async (event) => {
     }).returning({ id: users.id, username: users.username })
 
     if (!approved) {
+        // 관리자들에게 새 가입 신청을 알림 — 이메일 설정이 안 됐거나 실패해도 가입 신청 자체엔 영향 없음
+        const admins = await db.select({ email: users.email }).from(users).where(eq(users.isAdmin, true))
+        for (const admin of admins) {
+            void sendMail({
+                to: admin.email,
+                subject: `[가입 신청] ${username.trim()}님이 가입을 신청했습니다`,
+                text: `${username.trim()}(${email.trim()})님이 가입을 신청했어요. 관리자 설정의 "가입 승인" 탭에서 승인/거절할 수 있어요.`,
+            }).catch(() => {})
+        }
         return { id: newUser.id, username: newUser.username, pendingApproval: true }
     }
 

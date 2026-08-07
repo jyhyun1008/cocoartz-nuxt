@@ -247,6 +247,55 @@
                 </button>
                 <p v-if="saveMsg" class="admin-save-msg">{{ saveMsg }}</p>
             </div>
+
+            <!-- 이메일 설정 -->
+            <div v-if="activeTab === 'email'" class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">이메일 설정</span>
+                </div>
+                <p class="admin-label-hint" style="margin:-4px 0 10px">
+                    가입 승인제일 때 새 가입 신청은 관리자에게, 승인 처리는 신청자 본인에게 메일로 알려드려요.
+                </p>
+
+                <label class="admin-label">SMTP 호스트</label>
+                <input v-model="emailForm.smtpHost" placeholder="smtp.example.com" class="post-input" />
+
+                <label class="admin-label">포트 / 보안 연결</label>
+                <div class="admin-color-row">
+                    <input v-model.number="emailForm.smtpPort" type="number" placeholder="587" class="post-input" style="max-width:120px" />
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                        <input type="checkbox" v-model="emailForm.smtpSecure" /> TLS(465) 사용
+                    </label>
+                </div>
+
+                <label class="admin-label">계정</label>
+                <input v-model="emailForm.smtpUser" placeholder="user@example.com" class="post-input" />
+
+                <label class="admin-label">비밀번호 <span class="admin-label-hint">{{ emailSmtpPasswordSet ? '설정됨 — 바꾸려면 새로 입력' : '미설정' }}</span></label>
+                <input v-model="emailForm.smtpPassword" type="password" :placeholder="emailSmtpPasswordSet ? '변경하지 않으려면 비워두세요' : ''" class="post-input" />
+
+                <label class="admin-label">발신 이름 <span class="admin-label-hint">선택</span></label>
+                <input v-model="emailForm.fromName" placeholder="코코아츠" class="post-input" />
+
+                <label class="admin-label">발신 주소 <span class="admin-label-hint">선택, 비우면 계정으로</span></label>
+                <input v-model="emailForm.fromAddress" placeholder="no-reply@example.com" class="post-input" />
+
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;margin-top:4px">
+                    <input type="checkbox" v-model="emailForm.enabled" /> 이메일 발송 사용
+                </label>
+
+                <p v-if="emailError" class="admin-error">{{ emailError }}</p>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+                    <button class="submit-btn" @click="submitEmailSettings" :disabled="emailSaving">
+                        {{ emailSaving ? '저장 중...' : '저장' }}
+                    </button>
+                    <button class="admin-add-btn" style="margin-left:0" @click="sendTestEmail" :disabled="emailTesting">
+                        {{ emailTesting ? '보내는 중...' : '테스트 메일 보내기' }}
+                    </button>
+                </div>
+                <p v-if="emailSaveMsg" class="admin-save-msg">{{ emailSaveMsg }}</p>
+                <p v-if="emailTestMsg" class="admin-label-hint">{{ emailTestMsg }}</p>
+            </div>
         </div>
 
         <!-- 새 채널 만들기 -->
@@ -485,9 +534,73 @@ async function deleteCustomEmoji(id) {
     }
 }
 
+// 이메일 설정
+const emailForm = reactive({ smtpHost: '', smtpPort: 587, smtpSecure: false, smtpUser: '', smtpPassword: '', fromAddress: '', fromName: '', enabled: false })
+const emailSmtpPasswordSet = ref(false)
+const emailSaving = ref(false)
+const emailSaveMsg = ref('')
+const emailError = ref('')
+const emailTesting = ref(false)
+const emailTestMsg = ref('')
+
+async function loadEmailSettings() {
+    try {
+        const data = await $fetch(`${apiBaseUrl}/api/admin/getEmailSettings`, {
+            method: 'POST',
+            body: { userid: userId.value },
+        })
+        emailForm.smtpHost = data.smtpHost ?? ''
+        emailForm.smtpPort = data.smtpPort ?? 587
+        emailForm.smtpSecure = !!data.smtpSecure
+        emailForm.smtpUser = data.smtpUser ?? ''
+        emailForm.smtpPassword = ''
+        emailForm.fromAddress = data.fromAddress ?? ''
+        emailForm.fromName = data.fromName ?? ''
+        emailForm.enabled = !!data.enabled
+        emailSmtpPasswordSet.value = !!data.smtpPasswordSet
+    } catch (err) {
+        emailError.value = err?.data?.message ?? '이메일 설정을 불러오지 못했습니다'
+    }
+}
+
+async function submitEmailSettings() {
+    emailSaving.value = true
+    emailError.value = ''
+    emailSaveMsg.value = ''
+    try {
+        const data = await $fetch(`${apiBaseUrl}/api/admin/updateEmailSettings`, {
+            method: 'POST',
+            body: { userid: userId.value, ...emailForm },
+        })
+        emailForm.smtpPassword = ''
+        emailSmtpPasswordSet.value = !!data.smtpPasswordSet
+        emailSaveMsg.value = '저장되었습니다!'
+        setTimeout(() => { emailSaveMsg.value = '' }, 2500)
+    } catch (err) {
+        emailError.value = err?.data?.message ?? '오류가 발생했습니다'
+    }
+    emailSaving.value = false
+}
+
+async function sendTestEmail() {
+    emailTesting.value = true
+    emailTestMsg.value = ''
+    try {
+        const result = await $fetch(`${apiBaseUrl}/api/admin/sendTestEmail`, {
+            method: 'POST',
+            body: { userid: userId.value },
+        })
+        emailTestMsg.value = result.ok ? '테스트 메일을 보냈어요! 메일함을 확인해보세요.' : `실패: ${result.error}`
+    } catch (err) {
+        emailTestMsg.value = `실패: ${err?.data?.message ?? '오류가 발생했습니다'}`
+    }
+    emailTesting.value = false
+}
+
 onMounted(() => {
     ensureCustomEmojisLoaded()
     ensureObjectStorageStatusLoaded()
+    loadEmailSettings()
 })
 
 async function handleServerIconFile(e) {
@@ -548,6 +661,7 @@ const tabs = computed(() => [
         : []),
     { id: 'pinned', label: '기본 페이지', icon: 'hgi hgi-stroke hgi-map-01' },
     { id: 'channels', label: '채널 목록', icon: 'hgi hgi-stroke hgi-grid' },
+    { id: 'email', label: '이메일', icon: 'hgi hgi-stroke hgi-mail-01' },
 ])
 // 가입 승인 탭이 사라졌는데 거기 있던 상태였으면 서버 정보 탭으로 돌려보냄
 watch(tabs, (list) => {

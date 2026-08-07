@@ -339,3 +339,20 @@ export const linkPreviews = pgTable('link_previews', {
     embedUrl: text(),
     fetchedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
+
+// 서버가 보내는 이메일(가입 신청/승인 알림 등)용 SMTP 설정 — 단일 테넌트라 서버당 1행만 씀.
+// ⚠️ servers 테이블과 달리 이 테이블은 절대 공개(인증 없는) 엔드포인트에서 select하면 안 됨
+// (getServerBySlug.ts처럼 전체 컬럼을 그대로 내려주는 곳에 smtpPassword가 노출되면 큰일 남) —
+// server/api/admin/*.ts 관리자 전용 엔드포인트와 server/utils/mailer.ts에서만 조회할 것
+export const emailSettings = pgTable('email_settings', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    smtpHost: text(),
+    smtpPort: integer().default(587),
+    smtpSecure: boolean().default(false).notNull(), // true=암시적 TLS(보통 465), false=STARTTLS(보통 587)
+    smtpUser: text(),
+    smtpPassword: text(), // 평문 저장 — 위 경고 참고
+    fromAddress: text(),
+    fromName: text(),
+    enabled: boolean().default(false).notNull(), // 꺼져있거나 필수값이 비어있으면 발송 자체를 스킵
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+})

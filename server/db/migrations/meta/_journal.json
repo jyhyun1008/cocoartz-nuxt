@@ -134,6 +134,13 @@
       "when": 1786093610889,
       "tag": "0018_quiet_kabuki",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786131468006,
+      "tag": "0019_woozy_zombie",
+      "breakpoints": true
     }
   ]
 }
