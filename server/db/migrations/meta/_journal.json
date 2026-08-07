@@ -148,6 +148,13 @@
       "when": 1786138578475,
       "tag": "0020_certain_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786139791132,
+      "tag": "0021_wandering_starhawk",
+      "breakpoints": true
     }
   ]
 }

@@ -328,7 +328,7 @@ const serverAndRoomId = computed(() => ({
     roomid: roomData.value?.id ?? 0,
 }))
 
-const { userId } = useCurrentUser()
+const { userId, isLoggedIn } = useCurrentUser()
 
 const { data: chatData, refresh: refreshChatData } = await useAsyncData(
     chatKey,
@@ -723,6 +723,9 @@ const COIN_SPAWN_INTERVAL_MS = 5 * 60 * 1000
 let coinSpawnTimer = null
 
 function maybeSpawnCoin() {
+    // 로그아웃 상태(구경만 하는 손님)한테는 어차피 못 먹으니 아예 안 띄움 — 안 그러면 코인이
+    // 뜨는데 지나가도 안 먹히는(collectCoin이 401로 조용히 실패하는) 것처럼 보임
+    if (!isLoggedIn.value) return
     if (Object.keys(coinBubbles.value).length > 0) return
     if (!mapItems.value.length) return
     const idx = Math.floor(Math.random() * mapItems.value.length)
@@ -756,6 +759,8 @@ async function collectCoin() {
 // 판정 때의 칸과 비교해서 실제로 바뀐 경우에만 검사
 const lastCheckedTile = ref({ x: null, y: null })
 function checkCoinCollection() {
+    // 코인 뜬 채로(1분 이내) 로그아웃하는 극단적인 경우까지 대비 — 로그인 안 된 상태면 판정 자체를 건너뜀
+    if (!isLoggedIn.value) return
     const lx = localPosition.value.x
     const ly = localPosition.value.y
     const tx = Math.round(lx / 4 - ly / 2)

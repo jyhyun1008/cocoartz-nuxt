@@ -17,6 +17,12 @@ export const users = pgTable('users', {
     // true면 이 유저를 팔로우하려는 요청(로컬/원격 모두)이 바로 승인되지 않고 대기 상태(follows.accepted=false)로
     // 쌓여서, 본인이 직접 승인/거절해야 함. 기본값 false(지금까지처럼 전부 자동 승인)
     requireFollowApproval: boolean().default(false).notNull(),
+    // null이 아니면 영구정지(그 시각에 정지됨). 관리자 정지/영구정지 기능(server/utils/userStatus.ts)에서 씀
+    bannedAt: timestamp({ withTimezone: true }),
+    banReason: text(),
+    // null이 아니고 미래 시각이면 그때까지 일시정지 중. 지나면 별도 해제 없이 자동으로 풀림
+    suspendedUntil: timestamp({ withTimezone: true }),
+    suspendReason: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     lastLogin: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

@@ -2,6 +2,7 @@ import { db } from '../../utils/db'
 import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
+import { getUserBlockStatus } from '../../utils/userStatus'
 
 export default eventHandler(async (event) => {
     const { email, password } = await readBody(event)
@@ -26,6 +27,14 @@ export default eventHandler(async (event) => {
 
     if (!user.approved) {
         throw createError({ statusCode: 403, message: '관리자 승인 대기 중인 계정입니다' })
+    }
+
+    const status = getUserBlockStatus(user)
+    if (status.blocked) {
+        throw createError({
+            statusCode: 403,
+            message: status.kind === 'banned' ? '영구정지된 계정입니다' : '일시정지된 계정입니다',
+        })
     }
 
     await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, user.id))

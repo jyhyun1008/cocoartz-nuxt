@@ -145,6 +145,65 @@
                 <p v-if="pendingError" class="admin-error">{{ pendingError }}</p>
             </div>
 
+            <!-- 멤버 관리: 재화 지급 / 정지 / 영구정지 -->
+            <div v-if="activeTab === 'members'" class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">멤버 관리</span>
+                </div>
+                <input v-model="memberSearch" placeholder="이름/아이디로 검색" class="post-input" style="margin-bottom:10px" />
+                <div class="admin-channel-list">
+                    <template v-for="m in filteredMembers" :key="m.id">
+                        <div class="admin-channel-item">
+                            <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
+                                <NuxtImg v-if="m.avatar" :src="m.avatar" class="admin-icon-preview-img" />
+                                <i v-else class="hgi hgi-stroke hgi-user"></i>
+                            </div>
+                            <span class="admin-ch-name">{{ m.knownas || m.username }}</span>
+                            <code class="admin-ch-path">@{{ m.username }}</code>
+                            <span v-if="memberStatusLabel(m)" class="admin-ch-type-badge admin-ch-federated-badge">{{ memberStatusLabel(m) }}</span>
+                            <div class="admin-ch-actions">
+                                <button class="admin-icon-btn" @click="toggleMemberPanel(m.id)" title="관리">
+                                    <i class="hgi hgi-stroke hgi-user-edit-01"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="expandedMemberId === m.id" class="member-action-panel">
+                            <div class="member-action-row">
+                                <label class="admin-label" style="margin:0">재화 지급</label>
+                                <input v-model.number="grantAmountDraft" type="number" placeholder="예: 50 (마이너스면 차감)" class="post-input" style="max-width:180px" />
+                                <button class="admin-add-btn" style="margin-left:0" :disabled="!grantAmountDraft" @click="doGrantCurrency(m.id)">지급</button>
+                            </div>
+                            <p v-if="grantMsg[m.id]" class="admin-save-msg" style="margin:2px 0 0">{{ grantMsg[m.id] }}</p>
+
+                            <div class="member-action-row" style="margin-top:10px">
+                                <template v-if="m.bannedAt">
+                                    <span class="admin-error" style="margin:0">영구정지됨<template v-if="m.banReason"> · {{ m.banReason }}</template></span>
+                                    <button class="admin-add-btn" style="margin-left:auto" @click="doUnban(m.id)">영구정지 해제</button>
+                                </template>
+                                <template v-else-if="isSuspended(m)">
+                                    <span class="admin-error" style="margin:0">{{ formatSuspendUntil(m.suspendedUntil) }}까지 정지<template v-if="m.suspendReason"> · {{ m.suspendReason }}</template></span>
+                                    <button class="admin-add-btn" style="margin-left:auto" @click="doUnsuspend(m.id)">정지 해제</button>
+                                </template>
+                                <template v-else>
+                                    <select v-model="suspendDurationDraft[m.id]" class="admin-select" style="max-width:120px">
+                                        <option value="3600000">1시간</option>
+                                        <option value="86400000">1일</option>
+                                        <option value="259200000">3일</option>
+                                        <option value="604800000">7일</option>
+                                    </select>
+                                    <input v-model="suspendReasonDraft[m.id]" placeholder="사유(선택)" class="post-input" style="flex:1;min-width:80px" />
+                                    <button class="admin-add-btn" style="margin-left:0" @click="doSuspend(m.id)">정지</button>
+                                    <button class="admin-add-btn danger-btn" style="margin-left:0" @click="banTarget = m">영구정지</button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <div v-if="!filteredMembers.length" class="empty" style="padding:20px 0">멤버가 없습니다.</div>
+                </div>
+                <p v-if="memberActionError" class="admin-error">{{ memberActionError }}</p>
+            </div>
+
             <!-- 기본 페이지(마을 / 공지 게시판) 맵 편집 -->
             <div v-if="activeTab === 'pinned'" class="admin-section">
                 <div class="admin-section-header">
@@ -399,6 +458,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- 영구정지 확인 모달 -->
+        <div v-if="banTarget" class="admin-confirm-overlay" @click.self="banTarget = null">
+            <div class="admin-confirm-box">
+                <p class="admin-confirm-msg">
+                    <strong>{{ banTarget.knownas || banTarget.username }}</strong>님을 정말 영구정지할까요?<br />
+                    <span style="font-size:0.82rem;opacity:0.55">로그인 자체가 막히고, 이미 접속 중이면 즉시 끊깁니다.</span>
+                </p>
+                <input v-model="banReasonDraft" placeholder="사유(선택)" class="post-input" style="margin-bottom:10px" />
+                <div class="admin-confirm-actions">
+                    <button class="back-btn-header" @click="banTarget = null">취소</button>
+                    <button class="submit-btn danger-btn" @click="doBan" :disabled="memberActionBusy">
+                        {{ memberActionBusy ? '처리 중...' : '영구정지' }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -473,6 +549,118 @@ async function rejectUser(id) {
         await refreshPendingUsers()
     } catch (e) {
         pendingError.value = e?.data?.message ?? '거절에 실패했습니다'
+    }
+}
+
+// ─── 멤버 관리: 재화 지급 / 정지 / 영구정지 ──────────────────────────
+const { data: membersForAdminData, refresh: refreshMembersForAdmin } = await useAsyncData(
+    'members-for-admin',
+    () => $fetch(`${apiBaseUrl}/api/admin/getMembersForAdmin`, {
+        method: 'POST',
+        body: { userid: userId.value },
+    }).then(res => Array.isArray(res) ? res : []).catch(() => []),
+)
+const membersForAdmin = computed(() => membersForAdminData.value ?? [])
+const memberSearch = ref('')
+const filteredMembers = computed(() => {
+    const q = memberSearch.value.trim().toLowerCase()
+    if (!q) return membersForAdmin.value
+    return membersForAdmin.value.filter(m =>
+        (m.username || '').toLowerCase().includes(q) || (m.knownas || '').toLowerCase().includes(q)
+    )
+})
+
+const expandedMemberId = ref(null)
+function toggleMemberPanel(id) {
+    expandedMemberId.value = expandedMemberId.value === id ? null : id
+}
+
+function isSuspended(m) {
+    return !!m.suspendedUntil && new Date(m.suspendedUntil).getTime() > Date.now()
+}
+function formatSuspendUntil(until) {
+    return new Date(until).toLocaleString('ko-KR')
+}
+function memberStatusLabel(m) {
+    if (m.bannedAt) return '영구정지'
+    if (isSuspended(m)) return '정지 중'
+    if (!m.approved) return '승인 대기'
+    return ''
+}
+
+const memberActionBusy = ref(false)
+const memberActionError = ref('')
+
+const grantAmountDraft = ref(null)
+const grantMsg = reactive({})
+async function doGrantCurrency(id) {
+    if (!grantAmountDraft.value) return
+    memberActionError.value = ''
+    try {
+        const res = await $fetch(`${apiBaseUrl}/api/admin/grantCurrency`, {
+            method: 'POST',
+            body: { userid: userId.value, id, serverid: serverData.value?.id, amount: grantAmountDraft.value },
+        })
+        grantMsg[id] = `지급 완료! 현재 잔액: ${res.balance}`
+        grantAmountDraft.value = null
+    } catch (e) {
+        memberActionError.value = e?.data?.message ?? '지급에 실패했습니다'
+    }
+}
+
+const suspendDurationDraft = reactive({})
+const suspendReasonDraft = reactive({})
+async function doSuspend(id) {
+    const durationMs = Number(suspendDurationDraft[id] ?? 3600000)
+    const until = new Date(Date.now() + durationMs).toISOString()
+    memberActionError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/suspendUser`, {
+            method: 'POST',
+            body: { userid: userId.value, id, until, reason: suspendReasonDraft[id] },
+        })
+        await refreshMembersForAdmin()
+    } catch (e) {
+        memberActionError.value = e?.data?.message ?? '정지에 실패했습니다'
+    }
+}
+async function doUnsuspend(id) {
+    memberActionError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/unsuspendUser`, { method: 'POST', body: { userid: userId.value, id } })
+        await refreshMembersForAdmin()
+    } catch (e) {
+        memberActionError.value = e?.data?.message ?? '정지 해제에 실패했습니다'
+    }
+}
+
+const banTarget = ref(null)
+const banReasonDraft = ref('')
+async function doBan() {
+    if (!banTarget.value) return
+    memberActionBusy.value = true
+    memberActionError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/banUser`, {
+            method: 'POST',
+            body: { userid: userId.value, id: banTarget.value.id, reason: banReasonDraft.value },
+        })
+        banTarget.value = null
+        banReasonDraft.value = ''
+        await refreshMembersForAdmin()
+    } catch (e) {
+        memberActionError.value = e?.data?.message ?? '영구정지에 실패했습니다'
+    } finally {
+        memberActionBusy.value = false
+    }
+}
+async function doUnban(id) {
+    memberActionError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/unbanUser`, { method: 'POST', body: { userid: userId.value, id } })
+        await refreshMembersForAdmin()
+    } catch (e) {
+        memberActionError.value = e?.data?.message ?? '영구정지 해제에 실패했습니다'
     }
 }
 
@@ -663,6 +851,7 @@ const tabs = computed(() => [
     ...(serverForm.registrationMode === 'approval' || pendingUsers.value.length
         ? [{ id: 'pending', label: '가입 승인', icon: 'hgi hgi-stroke hgi-tick-01' }]
         : []),
+    { id: 'members', label: '멤버 관리', icon: 'hgi hgi-stroke hgi-user-list' },
     { id: 'pinned', label: '기본 페이지', icon: 'hgi hgi-stroke hgi-map-01' },
     { id: 'channels', label: '채널 목록', icon: 'hgi hgi-stroke hgi-grid' },
     { id: 'email', label: '이메일', icon: 'hgi hgi-stroke hgi-mail-01' },
@@ -1026,6 +1215,24 @@ async function doDelete() {
 }
 
 .admin-channel-item:hover { background: rgba(var(--fg-rgb),0.07); }
+
+.member-action-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    margin: 2px 0 8px;
+    border-radius: 7px;
+    background: rgba(var(--fg-rgb),0.03);
+    border: 1px solid rgba(var(--fg-rgb),0.08);
+}
+
+.member-action-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
 
 .admin-channel-item.is-title {
     background: rgba(var(--fg-rgb),0.02);

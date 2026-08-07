@@ -1,6 +1,7 @@
 import { db } from '../utils/db'
 import { chats, users, chatReactions } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { getUserBlockStatus } from '../utils/userStatus'
 
 interface PeerInfo {
   peer: any
@@ -64,6 +65,18 @@ function removePeer(peerId: string) {
   broadcastToAll({ type: 'presence', presence: buildPresence() }, peerId)
 }
 
+// 관리자가 정지/영구정지를 실행한 직후 호출됨(server/api/admin/banUser.ts 등) — 그 유저가 이미
+// 열어둔 연결(여러 탭이면 전부)을 그 자리에서 끊어서 "즉시 차단"이 되게 함. 같은 Node 프로세스
+// 안에서 모듈 상태(peerMap)를 그대로 공유하니 별도 통신 없이 바로 됨.
+export function kickUserConnections(userId: number) {
+  for (const [peerId, info] of peerMap) {
+    if (info.userId !== userId) continue
+    sendTo(info.peer, { type: 'kicked' })
+    try { info.peer.close?.() } catch {}
+    removePeer(peerId)
+  }
+}
+
 export default defineWebSocketHandler({
   async message(peer, message) {
     let data: any
@@ -87,6 +100,14 @@ export default defineWebSocketHandler({
       }
 
       const [user] = await db.select().from(users).where(eq(users.id, userId))
+
+      // 정지/영구정지된 계정은 실시간 이동/채팅에도 못 들어오게 막음(HTTP 쪽 미들웨어는 이
+      // 웹소켓 업그레이드 경로를 안 거치므로 여기서 따로 체크해야 함)
+      if (user && getUserBlockStatus(user).blocked) {
+        sendTo(peer, { type: 'join_rejected', reason: 'banned' })
+        peer.close?.()
+        return
+      }
 
       const info: PeerInfo = { peer, userId, user: user ?? null, roomPath, x, y }
 
