@@ -704,6 +704,51 @@ const sortedTiles = computed(() => {
 const TILE_W = 128
 const TILE_IMG_H = 128  // 타일 이미지는 정사각형(128×128) 가정
 
+// ─── 이동 충돌 판정용 타일 조회 ──────────────────────────
+// 물 블록(타일셋 2번, /public/tileset/2.png) — 지나갈 수 없는 타일
+const WATER_TILE_ID = 2
+
+function tilesAt(tx, ty) {
+    return (mapInfo.value?.[0] ?? []).filter(t => t.position.x === tx && t.position.y === ty)
+}
+function tileAt(tx, ty, z) {
+    return tilesAt(tx, ty).find(t => (t.position.z ?? 0) === z) ?? null
+}
+// 지금 (tx,ty)에 있는 타일들 중 가장 높은 층 — "아바타가 돌아다니는 층"을 이걸로 판단(캐릭터
+// 위치 자체엔 z가 따로 저장돼있지 않아서, 서 있는 자리의 최고층을 그때그때 다시 계산함)
+function topZAt(tx, ty) {
+    const ts = tilesAt(tx, ty)
+    if (!ts.length) return null
+    return Math.max(...ts.map(t => t.position.z ?? 0))
+}
+
+// (tx,ty)로 들어갈 수 있는지 — 현재 층(zCur) 기준으로만 판단(층이 다른 칸으로의 이동은 이번
+// 범위 밖 — 나중에 점프 등으로 따로 처리 예정). 막히는 경우 3가지:
+//   1) zCur에 타일이 아예 없음(지형 없음)
+//   2) zCur의 타일이 물 블록
+//   3) zCur+1에 타일이 있음(바로 위층에 지형이 있어서 못 지나감 — 낮은 천장에 막힘)
+function canEnterTile(tx, ty, zCur) {
+    const here = tileAt(tx, ty, zCur)
+    if (!here) return false
+    if (tileAt(tx, ty, zCur + 1)) return false
+    return here.itemid !== WATER_TILE_ID
+}
+
+// 이동 충돌 판정 전용 좌표 변환 — 실제로 캐릭터가 부딪히는 지점(발밑)이 화면상으로는 스폰
+// 지점/코인 수집에 쓰는 "타일 중심" 기준보다 반 칸 정도 안쪽(화면 아래쪽, S 방향)에 있는
+// 것처럼 느껴짐(위로 이동할 땐 실제보다 반 칸 일찍 막히고, 아래로 이동할 땐 반 칸 늦게 막히는
+// 걸로 체감된다는 피드백으로 보정값을 잡음) — localY를 1만큼 미리 내려서(=tx,ty를 +0.5씩
+// 앞당겨서) 위/아래 이동의 체감 충돌 지점을 맞춤. 스폰 지점/코인 수집 쪽 변환식은 이미 잘 맞아서
+// 안 건드림.
+const COLLISION_Y_OFFSET = -1
+function toCollisionTile(px, py) {
+    const effY = py + COLLISION_Y_OFFSET
+    return {
+        tx: Math.round(px / 4 - effY / 2),
+        ty: Math.round(-effY / 2 - px / 4),
+    }
+}
+
 // 맵에 배치된 아이템 — mapInfo[0]이 타일 배열이듯, mapInfo[1]이 아이템 배열.
 // 맵 편집기(WindowMapEditor)에서 저장한 위치/itemid를 그대로 읽어와 렌더만 함
 const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
@@ -1028,8 +1073,20 @@ onMounted(() => {
     function moveStep(code) {
         const delta = MOVES[code]
         if (!delta) return
-        position.x += delta[0]
-        position.y += delta[1]
+        const newX = position.x + delta[0]
+        const newY = position.y + delta[1]
+
+        // 실제로 칸(타일)이 바뀌는 이동일 때만 충돌 검사 — 한 칸 안에서의 잔이동(0.25 단위)은
+        // 반올림한 타일 좌표가 안 바뀌니 그냥 통과(코인 수집 판정의 lastCheckedTile과 같은 요령).
+        const { tx: curTx, ty: curTy } = toCollisionTile(position.x, position.y)
+        const { tx: newTx, ty: newTy } = toCollisionTile(newX, newY)
+        if (curTx !== newTx || curTy !== newTy) {
+            const zCur = topZAt(curTx, curTy) ?? 0
+            if (!canEnterTile(newTx, newTy, zCur)) return  // 지형 없음/물블록/위층에 막혀서 이동 취소
+        }
+
+        position.x = newX
+        position.y = newY
         localPosition.value = { ...position }
         charDepth.value = -position.y + 2
         updateMapPosition(position)
