@@ -67,6 +67,22 @@ const tileOffset = computed(() => {
     return Math.round(16 + 64 - dynH / 2)
 })
 
+// left/top엔 걷기(localX/localY)뿐 아니라 줌(topRatio → dynH/tileOffset)도 같이 들어있어서,
+// 걷는 모습을 부드럽게 보이려고 넣은 transition이 줌할 때도 그대로 걸려서 캐릭터가 줌을 못
+// 따라가고 붕 뜬 것처럼 뒤늦게 따라오는 문제가 있었음 — topRatio가 바뀌는 순간(=줌 중)만
+// transition을 잠깐 꺼서 그 변화는 즉시 반영되고, 그 외(걷기로 인한 변화)엔 그대로 부드럽게 움직임.
+// nextTick만으로 껐다 켜면 브라우저가 "transition:none"인 프레임을 실제로 그려보기도 전에
+// 이미 다시 켜진 상태로 다음 스타일을 계산해버려서(한 번도 안 그려진 상태는 트랜지션 판단에
+// 반영이 안 됨) 여전히 스르륵 움직이는 경우가 있었음 — rAF 두 번으로 최소 한 프레임은
+// "꺼진 채로" 실제로 그려지도록 보장함
+const suppressTransition = ref(false)
+watch(() => props.topRatio, () => {
+    suppressTransition.value = true
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => { suppressTransition.value = false })
+    })
+})
+
 const wrapperStyle = computed(() => {
     const dynH = props.topRatio * TILE_IMG_H
     return {
@@ -75,7 +91,7 @@ const wrapperStyle = computed(() => {
         left: `calc(50% + ${props.localX * (TILE_W / 4) - TILE_W / 2}px)`,
         top: `calc(50% + ${-props.localY * dynH / 2 - tileOffset.value - 48}px)`,
         width: `${TILE_W}px`,
-        transition: 'left 0.15s, top 0.15s',
+        transition: suppressTransition.value ? 'none' : 'left 0.15s, top 0.15s',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

@@ -50,6 +50,12 @@
                         :selected="selectedEditIndex === idx"
                         @select="selectedEditIndex = idx"
                     />
+                    <!-- 스폰 지점 표시(편집기 전용 — 실제 맵에는 안 그림). 지도 앱 핀처럼 아래로
+                         뾰족한 물방울 모양 — border-radius로 한쪽 모서리만 각지게 두고 45도 돌리는
+                         전형적인 CSS 핀 트릭. 안쪽 아이콘은 그 회전을 다시 반대로 상쇄해서 똑바로 보이게 함 -->
+                    <div class="spawn-marker" :style="getSpawnMarkerStyle()">
+                        <i class="hgi hgi-stroke hgi-flag-02 spawn-marker-icon"></i>
+                    </div>
                 </div>
             </div>
         </div>
@@ -117,13 +123,20 @@
                     @click="placementMode = 'item'; isErasing = true"
                 ><i class="hgi hgi-stroke hgi-eraser"></i></div>
             </div>
-            <button
-                class="palette-flip-btn select-mode-btn"
-                :class="{ active: placementMode === 'select' }"
-                @click="placementMode = 'select'; deselectItem()"
-            ><i class="hgi hgi-stroke hgi-mouse-left-click-01"></i> 배치된 아이템 선택/편집</button>
+            <div class="palette-flip-row">
+                <button
+                    class="palette-flip-btn select-mode-btn"
+                    :class="{ active: placementMode === 'select' }"
+                    @click="placementMode = 'select'; deselectItem()"
+                ><i class="hgi hgi-stroke hgi-mouse-left-click-01"></i> 아이템 선택/편집</button>
+                <button
+                    class="palette-flip-btn select-mode-btn"
+                    :class="{ active: placementMode === 'spawn' }"
+                    @click="placementMode = 'spawn'"
+                ><i class="hgi hgi-stroke hgi-flag-02"></i> 스폰 지점</button>
+            </div>
 
-            <template v-if="placementMode !== 'select'">
+            <template v-if="placementMode === 'tile' || placementMode === 'item'">
                 <div class="palette-flip-row">
                     <button
                         class="palette-flip-btn"
@@ -148,8 +161,24 @@
                 </div>
             </template>
 
+            <!-- 스폰 지점: 유저가 이 방에 처음 들어올 때 서는 위치. 좌표만 있으면 되니 층(z) 선택 +
+                 그리드 클릭만으로 충분 -->
+            <template v-else-if="placementMode === 'spawn'">
+                <div class="palette-hint">스폰 지점으로 쓸 칸을 지도에서 클릭하세요<br>현재: ({{ editSpawn.x }}, {{ editSpawn.y }}) · {{ ['바닥', '1층', '2층'][editSpawn.z] ?? '바닥' }}</div>
+                <div class="palette-label">층</div>
+                <div class="palette-z-row">
+                    <button
+                        v-for="(label, z) in ['바닥', '1층', '2층']"
+                        :key="z"
+                        class="palette-z-btn"
+                        :class="{ active: selectedZ === z }"
+                        @click="selectedZ = z"
+                    >{{ label }}</button>
+                </div>
+            </template>
+
             <!-- 배치된 아이템 선택/편집 패널 -->
-            <template v-else>
+            <template v-else-if="placementMode === 'select'">
                 <div v-if="!selectedEditItem" class="palette-hint">편집할 아이템을 지도에서 클릭하세요</div>
                 <template v-else>
                     <div class="palette-flip-row">
@@ -293,6 +322,11 @@ const hoverCell = ref(null)
 const isSaving = ref(false)
 const containerRef = ref(null)
 
+// 스폰 지점 — 유저가 이 방에 처음 들어올 때 서는 좌표. mapInfo(JSON)의 [tiles, items, spawn] 중
+// 세 번째 자리에 저장(기존 맵엔 없었으니 없으면 기본값 {x:0,y:0,z:0} — RoomMap.vue가 기존에 쓰던
+// 하드코딩 기본값과 동일해서 이 필드가 없는 옛날 맵도 그대로 이전과 똑같이 동작함)
+const editSpawn = ref({ x: 0, y: 0, z: 0 })
+
 // ─── 배치된 아이템 선택/편집 ('select' 모드에서만 동작, 타일에는 영향 없음) ──────
 const selectedEditIndex = ref(null)
 const movePending = ref(false)
@@ -323,6 +357,10 @@ const editGridCells = computed(() => {
 
 function handleCellClick(x, y) {
     const z = selectedZ.value
+    if (placementMode.value === 'spawn') {
+        editSpawn.value = { x, y, z }
+        return
+    }
     if (placementMode.value === 'select') {
         // 아이템 자체를 직접 클릭해서 고르는 방식으로 바뀜(MapItem의 editable/select 이벤트) —
         // 여기까지 클릭이 도달하는 건 이동 대상을 고르는 중(movePending)이거나, 빈 칸을 클릭한 경우.
@@ -362,7 +400,7 @@ function handleCellClick(x, y) {
 async function saveMap() {
     isSaving.value = true
     try {
-        const mapJson = JSON.stringify([editTiles.value, editItems.value])
+        const mapJson = JSON.stringify([editTiles.value, editItems.value, editSpawn.value])
         await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
             method: 'POST',
             body: { userid: userId.value, id: props.roomId, map: mapJson },
@@ -388,6 +426,30 @@ function getEditCellStyle(x, y) {
         clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
         cursor: isErasing.value ? 'cell' : 'crosshair',
         zIndex: 50000,
+    }
+}
+
+// 스폰 지점 마커(깃발) 위치 — 타일 z-index/오프셋 계산이랑 같은 isometric 식(getTileContainerStyle)
+// 재사용. 편집기 전용 안내 표시라 클릭은 안 받고(pointer-events:none), 그리드(z-index 50000)보다는
+// 낮게 둬서 클릭에 방해 안 되게 함
+function getSpawnMarkerStyle() {
+    const { x, y, z } = editSpawn.value
+    const dynH = TILE_IMG_H * topRatio.value
+    const S = (1 - topRatio.value) * TILE_IMG_H
+    const sideH = dynH * 3 / 4 + S / 2
+    const screenX = (x - y) * (TILE_W / 2)
+    const screenY = (x + y) * (dynH / 2) - z * sideH
+    // 핀의 뾰족한 끝이 타일 중심(screenX, screenY)에 딱 닿도록 위치 계산.
+    // .spawn-marker는 한 변 22px 정사각형을 45도 돌려서 만든 물방울 모양이라(border-radius로
+    // 한쪽 모서리만 각지게 두고 회전) 그 뾰족한 끝은 박스 중심에서 "정사각형 중심→모서리" 대각선
+    // 거리(half*√2)만큼 아래로 내려가 있음 — 그냥 절반(half)만큼만 내리면 끝이 타일 중심보다
+    // 위쪽에서 뜬 것처럼 보임(실제 버그였음)
+    const half = 11
+    const tipDrop = half * Math.SQRT2
+    return {
+        left: `calc(50% + ${screenX - half}px)`,
+        top: `calc(50% + ${screenY - half - tipDrop}px)`,
+        zIndex: 49999,
     }
 }
 
@@ -465,6 +527,10 @@ const tileSideBottomImgStyle = computed(() => ({
 onMounted(() => {
     editTiles.value = JSON.parse(JSON.stringify(mapInfo.value?.[0] ?? []))
     editItems.value = JSON.parse(JSON.stringify(mapInfo.value?.[1] ?? []))
+    const savedSpawn = mapInfo.value?.[2]
+    editSpawn.value = savedSpawn && typeof savedSpawn.x === 'number' && typeof savedSpawn.y === 'number'
+        ? { x: savedSpawn.x, y: savedSpawn.y, z: savedSpawn.z ?? 0 }
+        : { x: 0, y: 0, z: 0 }
 
     // 초기 panY: 그리드 중앙이 화면 중앙에 오도록 계산
     // tile (cx,cy) 중심 screen_y = panY + H/2 + screenY*z  (screenY = (cx+cy)*(dynH/2))
@@ -693,6 +759,27 @@ onMounted(() => {
 
 .select-mode-btn {
     margin-bottom: 2px;
+}
+
+.spawn-marker {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    background: var(--accent, #D21F3C);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    pointer-events: none;
+}
+
+.spawn-marker-icon {
+    /* 부모의 -45deg 회전을 반대로 상쇄해서 아이콘 자체는 똑바로 보이게 함 */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+    color: white;
+    font-size: 0.72rem;
 }
 
 .palette-hint {

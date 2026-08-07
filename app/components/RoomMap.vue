@@ -358,6 +358,15 @@ const mapInfo = computed(() => {
     return isJSON(rawMap) ? JSON.parse(rawMap) : rawMap
 })
 
+// 방에 처음 들어올 때 서는 위치 — 맵 편집기(WindowMapEditor.vue)에서 지정한 스폰 지점
+// (mapInfo[2])을 읽음. 옛날 맵이라 없으면 예전부터 쓰던 기본값(0,0)으로 그대로 폴백
+function getSpawnPoint() {
+    const spawn = mapInfo.value?.[2]
+    return spawn && typeof spawn.x === 'number' && typeof spawn.y === 'number'
+        ? { x: spawn.x, y: spawn.y }
+        : { x: 0, y: 0 }
+}
+
 // 초기 HTTP 채팅 + WebSocket 실시간 채팅 합산. realtimeChats에는 새 채팅뿐 아니라 기존 메시지에
 // 적용할 수정/삭제 마커(wsType)도 같이 들어오므로, Map으로 순서를 유지하면서 반영해야 함
 // (Map.set은 이미 있는 키의 값만 바꾸고 순서는 그대로 유지하므로 정렬이 안 흐트러짐)
@@ -581,14 +590,29 @@ watch(() => props.page, (newType) => {
     mapBlurred.value = OVERLAY_TYPES.includes(newType)
 }, { immediate: true })
 
-watch(() => route.params.page, (newPage) => {
+watch(() => route.params.page, () => {
     showOverlay.value = true
     showOverlay.value = true
     showChatPanel.value = true
     chatSize.value = 'little'
-    // 페이지 전환 시 WS 룸 재참가
-    const newPath = newPage ? `/${newPage}` : '/'
-    joinRoom(newPath, userId.value, localPosition.value.x, localPosition.value.y)
+    // WS 룸 재참가 + 스폰 위치 반영은 아래 roomData 워처가 담당함 — 여기서 바로 joinRoom을 부르면
+    // roomData(=이 방의 스폰 지점)가 아직 이전 방 것 그대로라(useAsyncData 갱신이 비동기라 한 틱
+    // 늦게 옴) 스폰이 아니라 이전 방에서 서 있던 좌표로 잘못 참가하게 됨
+})
+
+// 방(props.path)이 바뀌어서 roomData가 새 방 데이터로 갱신되면, 그 방의 스폰 지점으로 위치를
+// 리셋하고 새로 join — localPosition.roomPath가 이미 현재 방과 같으면(같은 방 안에서 맵만
+// 다시 저장되는 경우 등) 위치는 안 건드림. onMounted가 이미 첫 진입은 처리하므로 여기선
+// "방이 실제로 바뀐" 경우만 걸러내면 됨(immediate 안 씀 — 초기 진입 시 이 워처가 또 안 겹치게)
+watch(roomData, () => {
+    if (!roomData.value) return
+    if (localPosition.value.roomPath === props.path) return
+    const position = { roomPath: props.path, ...getSpawnPoint() }
+    localStorage.setItem('position', JSON.stringify(position))
+    localPosition.value = position
+    charDepth.value = -position.y + 2
+    updateMapPosition(position)
+    joinRoom(props.path, userId.value, position.x, position.y)
 })
 
 // 실시간 채팅 수신 시 스크롤 하단 유지
@@ -872,10 +896,10 @@ onMounted(() => {
     if (stored) {
         const parsed = JSON.parse(stored)
         position = parsed.roomPath !== props.path
-            ? { roomPath: props.path, x: 0, y: 0 }
+            ? { roomPath: props.path, ...getSpawnPoint() }
             : parsed
     } else {
-        position = { roomPath: props.path, x: 0, y: 0 }
+        position = { roomPath: props.path, ...getSpawnPoint() }
     }
     localStorage.setItem('position', JSON.stringify(position))
     localPosition.value = position
