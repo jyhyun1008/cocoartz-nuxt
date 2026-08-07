@@ -120,17 +120,50 @@ onMounted(() => {
 
     applyFrame({ row: 0, col: 1 })
 
-    window.addEventListener('keydown', (e) => {
-        if (!FRAMES[e.code] || e.repeat) return
-        let frameIdx = 0
-        const interval = setInterval(() => {
-            applyFrame(FRAMES[e.code][frameIdx])
+    // 눌려있는 이동 키들을 순서대로 추적 — 이전엔 keydown마다 "다음 keyup 아무거나"에 반응하는
+    // 1회성 리스너를 새로 달아서, A를 누른 채로 B를 눌렀다가 A를 떼면(B는 계속 누른 채) A의
+    // keyup에 B의 리스너까지 같이 반응해서 B를 누르고 있는데도 애니메이션이 idle로 꺼져버렸음.
+    // 이제 keyup마다 "그 키"만 목록에서 빼고, 아직 다른 키가 눌려있으면 그 키로 계속 재생함.
+    const activeKeys = []
+    let animInterval = null
+    let frameIdx = 0
+
+    function playAnim(code) {
+        frameIdx = 0
+        clearInterval(animInterval)
+        animInterval = setInterval(() => {
+            applyFrame(FRAMES[code][frameIdx])
             frameIdx = (frameIdx + 1) % 4
         }, 150)
-        window.addEventListener('keyup', () => {
-            clearInterval(interval)
-            applyFrame({ row: 0, col: 1 })
-        }, { once: true })
+    }
+    function stopAnim() {
+        clearInterval(animInterval)
+        animInterval = null
+        applyFrame({ row: 0, col: 1 })
+    }
+
+    function onKeydown(e) {
+        if (!FRAMES[e.code] || e.repeat) return
+        if (!activeKeys.includes(e.code)) activeKeys.push(e.code)
+        playAnim(e.code)
+    }
+    function onKeyup(e) {
+        if (!FRAMES[e.code]) return
+        const idx = activeKeys.indexOf(e.code)
+        if (idx !== -1) activeKeys.splice(idx, 1)
+        if (activeKeys.length > 0) {
+            playAnim(activeKeys[activeKeys.length - 1])
+        } else {
+            stopAnim()
+        }
+    }
+
+    window.addEventListener('keydown', onKeydown)
+    window.addEventListener('keyup', onKeyup)
+    onUnmounted(() => {
+        window.removeEventListener('keydown', onKeydown)
+        window.removeEventListener('keyup', onKeyup)
+        clearInterval(animInterval)
     })
 })
 </script>
