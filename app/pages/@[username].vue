@@ -852,6 +852,9 @@ function switchFollowListTab(type) {
 
 .edit-field input,
 .edit-field textarea {
+    /* input/textarea는 flex 자식일 때 기본 min-width가 auto라서, 버튼과 한 줄에 있으면
+       내용 크기 밑으로 안 줄어들고 좁은 화면에서 행 전체를 밀어버림 — 항상 줄어들 수 있게 함 */
+    min-width: 0;
     border: 1px solid rgba(var(--fg-rgb),0.1);
     border-radius: 8px;
     padding: 9px 12px;
@@ -866,6 +869,7 @@ function switchFollowListTab(type) {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .edit-upload-btn {

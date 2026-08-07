@@ -95,7 +95,7 @@
                         <input v-model="newEmojiShortcode" placeholder="샷코드 (영문 소문자/숫자/밑줄, 콜론 없이)" class="post-input" style="flex:1" />
                         <input type="file" ref="emojiFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleCustomEmojiFile" />
                         <button class="admin-add-btn" style="margin-left:0" @click="emojiFileInput?.click()" :disabled="customEmojiUploading || !newEmojiShortcode.trim()">
-                            {{ customEmojiUploading ? '업로드 중...' : '이미지 선택 후 업로드' }}
+                            {{ customEmojiUploading ? '업로드 중...' : '업로드' }}
                         </button>
                     </div>
                 </template>
