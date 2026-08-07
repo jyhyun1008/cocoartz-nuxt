@@ -1,5 +1,5 @@
 <template>
-    <div id="character-wrapper" :class="{ 'handheld-anim': props.animateSelf && !props.tileMode, 'tile-mode': props.tileMode }" :style="tileWrapperStyle">
+    <div id="character-wrapper" :class="{ 'handheld-anim': props.animateSelf && !props.tileMode, 'tile-mode': props.tileMode, 'jump-anim': props.jumping }" :style="tileWrapperStyle">
         <Transition name="bubble-fade">
             <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
@@ -38,8 +38,13 @@ const props = defineProps({
     tileMode: { type: Boolean, default: false },
     localX: { type: Number, default: 0 },
     localY: { type: Number, default: 0 },
+    // 지금 서 있는 층(0=바닥, 1=1층, 2=2층) — 타일/아이템의 z 오프셋과 같은 식으로 화면에서
+    // 그만큼 떠 보이게 함(RoomMap.vue의 getTileContainerStyle/MapItem.vue의 sideH와 동일한 계산)
+    localZ: { type: Number, default: 0 },
     zIndex: { type: Number, default: undefined },
     userId: { type: Number, default: null },
+    // 스페이스바 점프 — 별도 점프 스프라이트가 없어서 CSS로 살짝 튀어오르는 연출만 재생함
+    jumping: { type: Boolean, default: false },
 })
 
 const { bubbles } = useSpeechBubbles()
@@ -61,20 +66,32 @@ const tileOffset = computed(() => {
     return Math.round(16 + 64 - dynH / 2)
 })
 
+// 층(z) 한 칸의 화면상 높이차 — RoomMap.vue의 getTileContainerStyle/MapItem.vue와 완전히 같은 식
+// (z가 올라간 만큼 화면에서 그만큼 떠 보이게 함)
+const sideH = computed(() => {
+    const dynH = props.topRatio * TILE_IMG_H
+    const S = (1 - props.topRatio) * TILE_IMG_H
+    return dynH * 3 / 4 + S / 2
+})
+
+// ⚠️ z-index를 여기(wrapper)가 아니라 #character에 줌 — wrapper에 position+z-index를 같이
+// 주면 새 스태킹 컨텍스트가 생겨서 말풍선(.speech-bubble)까지 그 안에 갇혀버림(아이템 뒤로
+// 깔리는 몸통 때문에 말풍선까지 같이 가려지는 문제였음, OtherCharacter.vue와 동일한 이유).
 const tileWrapperStyle = computed(() => {
     if (!props.tileMode) return {}
     const dynH = props.topRatio * TILE_IMG_H
     return {
         position: 'absolute',
-        zIndex: props.zIndex ?? 'auto',
         left: `calc(50% + ${props.localX * (TILE_W / 4) - TILE_W / 2}px)`,
-        top: `calc(50% + ${-props.localY * dynH / 2 - tileOffset.value - 48}px)`,
+        top: `calc(50% + ${-props.localY * dynH / 2 - tileOffset.value - 48 - props.localZ * sideH.value}px)`,
         width: `${TILE_W}px`,
     }
 })
 
 const characterScale = computed(() => {
-    if (props.tileMode) return {}
+    if (props.tileMode) {
+        return { position: 'relative', zIndex: props.zIndex ?? 'auto' }
+    }
     return {
         transform: `scale(${props.zoomLevel})`,
         transformOrigin: 'center 48px',
@@ -269,5 +286,19 @@ onMounted(() => {
 
 .char-sprite-bottom {
     top: -64px;
+}
+
+/* 점프 스프라이트가 따로 없어서 CSS로만 살짝 튀어오르는 연출 — #character를 움직여서 tile-mode의
+   위치 지정(left/top, tileWrapperStyle)과 안 겹치게 함 */
+.jump-anim #character {
+    animation: jump-hop 0.4s linear;
+}
+
+/* 포물선(중력) 느낌 — 올라갈 땐 점점 느려지고(ease-out), 내려갈 땐 점점 빨라지게(ease-in)
+   구간별로 timing-function을 따로 줌(하나의 ease-in-out으로는 이 비대칭 느낌이 안 나옴) */
+@keyframes jump-hop {
+    0% { transform: translateY(0); animation-timing-function: ease-out; }
+    50% { transform: translateY(-32px); animation-timing-function: ease-in; }
+    100% { transform: translateY(0); }
 }
 </style>

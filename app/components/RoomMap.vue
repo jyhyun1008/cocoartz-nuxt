@@ -57,8 +57,10 @@
                         :tile-mode="true"
                         :local-x="localPosition.x"
                         :local-y="localPosition.y"
+                        :local-z="charZ"
                         :z-index="charZIndex"
                         :user-id="userId"
+                        :jumping="isJumping"
                     />
                     <!-- 다른 유저 -->
                     <OtherCharacter
@@ -68,10 +70,12 @@
                         :top-ratio="topRatio"
                         :local-x="other.x"
                         :local-y="other.y"
+                        :local-z="other.z ?? 0"
                         :z-index="getOtherZIndex(other)"
                         :direction="other.dir"
                         :name="other.user?.knownas ?? other.user?.username ?? '?'"
                         :user-id="other.userId"
+                        :jump-pulse="jumpPulses[other.userId]"
                     />
                 </div>
             </div>
@@ -304,7 +308,7 @@ const props = defineProps({
     path: { type: String, required: true },
 })
 
-const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, otherUsersInRoom, realtimeChats } = useRoomSocket()
+const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, otherUsersInRoom, realtimeChats, jumpPulses } = useRoomSocket()
 
 // 캐시 키는 route.params.page가 아니라 실제 방 경로(props.path) 기준이어야 함.
 // noti.vue처럼 [page]/index.vue 라우트를 안 쓰는 정적 페이지들(index/settings/members/info/noti)은
@@ -546,49 +550,44 @@ function updateMapPosition(pos) {
     mapTop.value = Math.round(pos.y * topRatio.value * 64) + calcMapTopOffset()
 }
 
-// (x,y) 칸(반올림)에 있는 "가리는 것"(아이템 전부 + z≥1 타일)들의 z-index 중 최솟값.
-// 0층 바닥타일은 절대 캐릭터를 못 가리는 예외라서 여기 집계에서 뺌.
-// 타일/아이템 z-index는 getTileContainerStyle / MapItem.vue의 defaultZIndex랑 완전히 같은
-// 4n+k 공식으로 재계산함(같은 척도라야 "바로 아래" 비교가 의미 있음).
-function getBlockersMinZ(x, y) {
-    const cx = Math.round(x)
-    const cy = Math.round(y)
+// 지금 서 있는 칸(반올림)에 "같은 층(z)"의 아이템이 있으면 그 z-index를 돌려줌(없으면 null).
+// 캐릭터 위치(px,py)는 아이템/타일과 다른 좌표계(로컬 이동 좌표)라 변환이 필요한데, 여기선
+// toCollisionTile(이동 충돌 판정 전용, 체감 보정 들어간 쪽)을 씀 — 순수 위치 변환(toCollisionTile
+// 없는 버전)으로 하면 "화면상 반 칸 정도 더 가야 실제로 가려지는(또는 벗어나는)" 것처럼 안
+// 맞았음. 캐릭터가 시각적으로 겹치는 지점 자체가 이동 충돌 때 겪은 것과 같은 반 칸 오차를
+// 가지고 있다는 뜻이라 같은 보정을 재사용함.
+// 아이템 z-index는 MapItem.vue의 defaultZIndex와 완전히 같은 4n+k 공식(n=x+y+2z, k=z+1).
+function getBlockerItemZ(px, py, zCur) {
+    const { tx: cx, ty: cy } = toCollisionTile(px, py)
     let min = null
-    const consider = (z) => { if (min === null || z < min) min = z }
-    for (const t of mapInfo.value?.[0] ?? []) {
-        const tz = t.position.z ?? 0
-        if (t.position.x === cx && t.position.y === cy && tz >= 1) {
-            consider(4 * (t.position.x + t.position.y + 2 * tz) + tz)
-        }
-    }
     for (const it of mapInfo.value?.[1] ?? []) {
         const iz = it.position.z ?? 0
-        if (it.position.x === cx && it.position.y === cy) {
-            consider(4 * (it.position.x + it.position.y + 2 * iz) + (iz + 1))
-        }
+        if (it.position.x !== cx || it.position.y !== cy || iz !== zCur) continue
+        const zIndex = 4 * (it.position.x + it.position.y + 2 * iz) + (iz + 1)
+        if (min === null || zIndex < min) min = zIndex
     }
     return min
 }
 
-// 캐릭터 z-index: 타일/아이템이랑 같은 4n+k 척도(n=x+y, k=1 — 0층 바닥(k=0)보다는 항상 위).
-// 단, 지금 서 있는 칸(반올림)에 아이템이나 z≥1 블록이 있으면 실제 깊이 계산 없이 무조건
-// 그것들 바로 뒤(최솟값-1)로 깔아버림 — "같은 칸에 있으면 캐릭터가 무조건 뒤" 규칙.
-// (같은 칸이 아니라 스치듯 지나가는 순간에 훅 나타났다 사라지는 건 알고 있는 한계 — 나중에 다듬을 예정)
-// ⚠️ CSS z-index는 정수만 허용 — 캐릭터는 0.25칸 단위로 움직이는데 4*(0.25의 배수)는 항상
-// 정수라 원래는 괜찮지만, 부동소수점 오차로 아주 드물게 어긋날 수 있어 Math.round로 방어.
-function getCharZIndex(x, y) {
-    // const blockerZ = getBlockersMinZ(x, y)
-    // if (blockerZ !== null) return blockerZ - 1
-    return (-4 * Math.round((y)*1) + 4)
+// 캐릭터 z-index: 기본은 y만 쓰는 단순 근사식(+층당 4씩) — 아이템과는 좌표계가 근본적으로 달라서
+// (이동 충돌 판정 때 겪은 반 칸 오차와 같은 종류 문제) 정확히 같은 척도로 맞추긴 어려움.
+// 대신 "지금 서 있는 칸에 같은 층 아이템이 있으면 그 아이템 바로 뒤(zIndex-1)로 무조건 깔아버림"
+// 규칙으로 예외 처리 — 근사식끼리의 우연한 동률/역전과 무관하게 "같은 칸+같은 층이면 아이템이
+// 항상 아바타보다 앞" 이 확실히 보장됨.
+function getCharZIndex(x, y, z = 0) {
+    const blockerZ = getBlockerItemZ(x, y, z)
+    if (blockerZ !== null) return blockerZ - 1
+    return (-4 * Math.round((y)*1) + 4) + 4 * z
 }
 
-const charZIndex = computed(() => getCharZIndex(localPosition.value.x, localPosition.value.y))
+const charZIndex = computed(() => getCharZIndex(localPosition.value.x, localPosition.value.y, charZ.value))
 
 // 다른 유저 z-index: local-x/y가 로컬 유저 기준 상대 오프셋이라 절대 좌표로 바꿔서 같은 공식 적용
 function getOtherZIndex(other) {
-    const ax = localPosition.value.x + other.x
-    const ay = localPosition.value.y + other.y
-    return getCharZIndex(ax, ay)
+    // other.x/y는 로컬 유저 기준 상대 오프셋이 아니라 이미 절대 좌표(웹소켓으로 각자 자기
+    // position.x/y를 그대로 보냄, _ws.ts도 그대로 중계만 함) — 여기서 로컬 좌표를 또 더하면
+    // 이중으로 밀려서 원점(0,0) 근처가 아니면 완전히 다른 칸으로 계산되는 버그가 있었음
+    return getCharZIndex(other.x, other.y, other.z ?? 0)
 }
 
 const isRoomPage = computed(() => props.page === 'none' || props.page === 'room')
@@ -641,8 +640,9 @@ watch(roomData, () => {
     localStorage.setItem('position', JSON.stringify(position))
     localPosition.value = position
     charDepth.value = -position.y + 2
+    charZ.value = computeCharZ(position.x, position.y)
     updateMapPosition(position)
-    joinRoom(props.path, userId.value, position.x, position.y)
+    joinRoom(props.path, userId.value, position.x, position.y, charZ.value)
 })
 
 // 실시간 채팅 수신 시 스크롤 하단 유지
@@ -727,11 +727,30 @@ function topZAt(tx, ty) {
 //   1) zCur에 타일이 아예 없음(지형 없음)
 //   2) zCur의 타일이 물 블록
 //   3) zCur+1에 타일이 있음(바로 위층에 지형이 있어서 못 지나감 — 낮은 천장에 막힘)
+// (px,py)(로컬 이동 좌표)에 서 있을 때의 층 — 스폰/방 전환 초기화, moveStep 양쪽에서 같이 씀
+function computeCharZ(px, py) {
+    // moveStep 안에서 층을 다시 계산할 때도 toCollisionTile을 쓰니, 스폰/방 전환 시 초기값도
+    // 같은 기준으로 맞춰야 나중에 실제로 걸을 때 층이 갑자기 바뀌는 것처럼 보이지 않음
+    const { tx, ty } = toCollisionTile(px, py)
+    return topZAt(tx, ty) ?? 0
+}
+
 function canEnterTile(tx, ty, zCur) {
     const here = tileAt(tx, ty, zCur)
     if (!here) return false
     if (tileAt(tx, ty, zCur + 1)) return false
     return here.itemid !== WATER_TILE_ID
+}
+
+// 스페이스바로 점프 중일 때만 씀 — 같은 층에서 막혀도 바로 위/아래 층에 유효한(물 아닌) 타일이
+// 있으면 그쪽으로 넘어갈 수 있게 해줌(평소엔 같은 층 안에서만 이동 가능 — canEnterTile 참고)
+function canEnterTileJumping(tx, ty, zCur) {
+    if (canEnterTile(tx, ty, zCur)) return true
+    const up = tileAt(tx, ty, zCur + 1)
+    if (up) return up.itemid !== WATER_TILE_ID
+    const down = tileAt(tx, ty, zCur - 1)
+    if (down) return down.itemid !== WATER_TILE_ID
+    return false
 }
 
 // 이동 충돌 판정 전용 좌표 변환 — 실제로 캐릭터가 부딪히는 지점(발밑)이 화면상으로는 스폰
@@ -833,6 +852,11 @@ onUnmounted(() => {
 })
 
 const charDepth = ref(0)
+// 스페이스바 점프 — 잠깐 켜졌다 꺼지는 연출 트리거(CharacterMoving.vue에 넘겨서 살짝 튀는 애니메이션 재생)
+const isJumping = ref(false)
+// 캐릭터가 지금 서 있는 층 — moveStep에서 칸을 옮길 때마다 갱신됨. 화면상으로 그 층 높이만큼
+// 떠 보이게 CharacterMoving.vue에 넘겨줌(타일/아이템의 z 오프셋과 같은 식)
+const charZ = ref(0)
 
 function getFilePath(tile) {
     return `/tileset/${tile.itemid}.png`
@@ -1057,6 +1081,7 @@ onMounted(() => {
     localStorage.setItem('position', JSON.stringify(position))
     localPosition.value = position
     charDepth.value = -position.y + 2
+    charZ.value = computeCharZ(position.x, position.y)
     updateMapPosition(position)
 
     // 현재 유저 캐릭터 데이터 로드
@@ -1064,17 +1089,54 @@ onMounted(() => {
 
     // WebSocket 연결 및 룸 참가
     connect(apiBaseUrl)
-    joinRoom(props.path, userId.value, position.x, position.y)
+    joinRoom(props.path, userId.value, position.x, position.y, charZ.value)
 
     // WASD 이동 (모바일 조이스틱과 한 칸 이동 로직 공유)
     const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
     const MOVES = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
+    const KEY_REPEAT_MS = 180  // 조이스틱 JOY_REPEAT_MS와 동일
+
+    // 방향키를 브라우저 자체 keydown 반복(OS/브라우저 auto-repeat)에 맡기지 않고 직접 setInterval로
+    // 반복시킴 — 방향키를 먼저 누른 채로 스페이스바를 나중에 누르면(또는 그 반대) 일부 브라우저는
+    // "마지막으로 누른 키만" auto-repeat를 계속하고 먼저 누르고 있던 키의 repeat가 멈춰버리는
+    // 경우가 있어서, 방향키+스페이스바를 어떤 순서로 누르든 계속 같이 눌려있는 걸로 인식되게 함
+    // (조이스틱의 joyInterval과 완전히 같은 방식).
+    const heldMoveKeys = []
+    let moveRepeatInterval = null
+    function startMoveRepeat() {
+        if (moveRepeatInterval) return
+        moveRepeatInterval = setInterval(() => {
+            if (controlsBlocked.value) return
+            const code = heldMoveKeys[heldMoveKeys.length - 1]
+            if (code) moveStep(code)
+        }, KEY_REPEAT_MS)
+    }
+    function stopMoveRepeatIfEmpty() {
+        if (heldMoveKeys.length > 0) return
+        clearInterval(moveRepeatInterval)
+        moveRepeatInterval = null
+    }
+
+    // 스페이스바 점프 — 누르고 있는 동안(jumpHeld)은 방향키로 이동할 때 층이 달라지는 칸도
+    // 허용됨(canEnterTileJumping). 스페이스바만 눌러도(방향키 없이) 살짝 튀는 연출은 재생됨.
+    let jumpHeld = false
+    let jumpAnimTimer = null
+    function triggerJumpAnim() {
+        // isJumping을 true→true로 다시 대입하면 Vue가 변화 없음으로 보고 클래스를 안 건드려서
+        // CSS 애니메이션이 재시작 안 됨(점프 중 칸을 옮길 때마다 다시 튀어야 하니 재시작이 필요) —
+        // 그래서 한 틱 false로 껐다가 다음 틱에 다시 true로 켜서 강제로 재생함
+        isJumping.value = false
+        nextTick(() => { isJumping.value = true })
+        clearTimeout(jumpAnimTimer)
+        jumpAnimTimer = setTimeout(() => { isJumping.value = false }, 400)
+    }
 
     function moveStep(code) {
         const delta = MOVES[code]
         if (!delta) return
         const newX = position.x + delta[0]
         const newY = position.y + delta[1]
+        let didJump = false
 
         // 실제로 칸(타일)이 바뀌는 이동일 때만 충돌 검사 — 한 칸 안에서의 잔이동(0.25 단위)은
         // 반올림한 타일 좌표가 안 바뀌니 그냥 통과(코인 수집 판정의 lastCheckedTile과 같은 요령).
@@ -1082,7 +1144,13 @@ onMounted(() => {
         const { tx: newTx, ty: newTy } = toCollisionTile(newX, newY)
         if (curTx !== newTx || curTy !== newTy) {
             const zCur = topZAt(curTx, curTy) ?? 0
-            if (!canEnterTile(newTx, newTy, zCur)) return  // 지형 없음/물블록/위층에 막혀서 이동 취소
+            const canEnter = jumpHeld ? canEnterTileJumping(newTx, newTy, zCur) : canEnterTile(newTx, newTy, zCur)
+            if (!canEnter) return  // 지형 없음/물블록/위층에 막혀서(점프 중 아니면 층이 달라도) 이동 취소
+            if (jumpHeld) {
+                didJump = true
+                triggerJumpAnim()  // 점프 중 실제로 한 칸 넘어갈 때마다 포물선으로 튀는 연출 재생
+            }
+            charZ.value = topZAt(newTx, newTy) ?? 0  // 층이 바뀌었을 수도 있으니 새 칸 기준으로 다시 계산
         }
 
         position.x = newX
@@ -1091,7 +1159,8 @@ onMounted(() => {
         charDepth.value = -position.y + 2
         updateMapPosition(position)
         localStorage.setItem('position', JSON.stringify(position))
-        sendPosition(position.x, position.y, code)
+        // 다른 유저 화면에도 내 층(z)과 점프 연출이 보이도록 같이 보냄
+        sendPosition(position.x, position.y, code, charZ.value, didJump)
     }
 
     function onKeydown(e) {
@@ -1099,12 +1168,30 @@ onMounted(() => {
         if (controlsBlocked.value) return
         const tag = document.activeElement?.tagName
         if (tag === 'INPUT' || tag === 'TEXTAREA') return
+        if (e.code === 'Space') {
+            e.preventDefault()  // 페이지 스크롤/포커스된 버튼 눌림 방지
+            if (!e.repeat) {
+                jumpHeld = true
+                triggerJumpAnim()
+                // 방향키 없이 제자리에서 콩 뛰는 것도 다른 유저 화면에 보이게 — 이동이 없어서
+                // moveStep을 안 거치니 여기서 직접 한 번 신호를 보냄(위치는 그대로, 점프만 표시)
+                sendPosition(position.x, position.y, null, charZ.value, true)
+            }
+            return
+        }
+        if (!MOVES[e.code] || e.repeat) return  // 반복은 moveRepeatInterval이 전담 — 브라우저 자체 auto-repeat는 무시
         moveStep(e.code)
+        if (!heldMoveKeys.includes(e.code)) heldMoveKeys.push(e.code)
+        startMoveRepeat()
     }
     function onKeyup(e) {
         if (e.isSynthetic) return
+        if (e.code === 'Space') { jumpHeld = false; return }
         if (!MOVE_KEYS.has(e.code)) return
-        sendPosition(position.x, position.y, null)
+        const idx = heldMoveKeys.indexOf(e.code)
+        if (idx !== -1) heldMoveKeys.splice(idx, 1)
+        stopMoveRepeatIfEmpty()
+        sendPosition(position.x, position.y, null, charZ.value)
     }
 
     // CharacterMoving.vue는 실제 keydown/keyup(window)을 직접 리스닝해서 걷기 애니메이션을 재생함.
@@ -1215,7 +1302,7 @@ onMounted(() => {
         clearInterval(joyInterval)
         joyInterval = null
         joystickKnobOffset.value = { x: 0, y: 0 }
-        sendPosition(position.x, position.y, null)
+        sendPosition(position.x, position.y, null, charZ.value)
         if (code) dispatchSyntheticKey('keyup', code)
     }
 
@@ -1279,6 +1366,8 @@ onMounted(() => {
         joyEl?.removeEventListener('touchend', onJoystickTouchEnd)
         joyEl?.removeEventListener('touchcancel', onJoystickTouchEnd)
         clearInterval(joyInterval)
+        clearInterval(moveRepeatInterval)
+        clearTimeout(jumpAnimTimer)
     })
 })
 </script>
@@ -1457,6 +1546,10 @@ onMounted(() => {
     padding: 1px 6px;
     border-radius: 6px;
     white-space: nowrap;
+    /* 몸통(.oc-body)만 아이템 뒤로 깔리게 해도, 닉네임 자신이 z-index 경쟁에 안 끼면 기본값(auto)
+       이라 여전히 가려질 수 있음 — 말풍선(z-index:10001)과 같은 높이로 맞춰서 항상 앞에 오게 함 */
+    position: relative;
+    z-index: 10001;
 }
 
 /* 채팅 패널 - 작은 상태 */

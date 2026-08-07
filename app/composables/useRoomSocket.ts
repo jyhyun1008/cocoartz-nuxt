@@ -30,10 +30,15 @@ export function useRoomSocket() {
   const presenceByRoom = useState<Record<string, { userId: number; user: any }[]>>(
     'ws-presence', () => ({}),
   )
-  const otherUsersInRoom = useState<{ userId: number; user: any; x: number; y: number; dir: string | null }[]>(
+  const otherUsersInRoom = useState<{ userId: number; user: any; x: number; y: number; z: number; dir: string | null }[]>(
     'ws-other-users', () => [],
   )
   const realtimeChats = useState<any[]>('ws-realtime-chats', () => [])
+  // userId -> 마지막으로 점프 신호를 받은 시각. 값 자체보다 "바뀌었다"는 게 중요해서(같은 유저가
+  // 연달아 점프해도 매번 다른 타임스탬프가 와야 감지됨) Date.now()를 그대로 씀 — OtherCharacter.vue가
+  // 이 값이 바뀔 때마다 점프 연출을 다시 재생함(위치 갱신처럼 계속 켜져있는 상태가 아니라
+  // "한 번 튀는" 펄스라 별도로 뺌).
+  const jumpPulses = useState<Record<number, number>>('ws-jump-pulses', () => ({}))
 
   function handleMessage(event: MessageEvent) {
     let data: any
@@ -43,14 +48,14 @@ export function useRoomSocket() {
       presenceByRoom.value = data.presence
 
     } else if (data.type === 'room_state') {
-      otherUsersInRoom.value = data.users.map((u: any) => ({ ...u, dir: null }))
+      otherUsersInRoom.value = data.users.map((u: any) => ({ ...u, z: u.z ?? 0, dir: null }))
 
     } else if (data.type === 'user_joined') {
       const exists = otherUsersInRoom.value.some(u => u.userId === data.userId)
       if (!exists) {
         otherUsersInRoom.value = [
           ...otherUsersInRoom.value,
-          { userId: data.userId, user: data.user, x: data.x, y: data.y, dir: null },
+          { userId: data.userId, user: data.user, x: data.x, y: data.y, z: data.z ?? 0, dir: null },
         ]
       }
 
@@ -59,8 +64,11 @@ export function useRoomSocket() {
 
     } else if (data.type === 'position') {
       otherUsersInRoom.value = otherUsersInRoom.value.map(u =>
-        u.userId === data.userId ? { ...u, x: data.x, y: data.y, dir: data.dir ?? null } : u,
+        u.userId === data.userId ? { ...u, x: data.x, y: data.y, z: data.z ?? u.z, dir: data.dir ?? null } : u,
       )
+      if (data.jumping) {
+        jumpPulses.value = { ...jumpPulses.value, [data.userId]: Date.now() }
+      }
 
     } else if (data.type === 'chat') {
       realtimeChats.value = [...realtimeChats.value, data.chat]
@@ -101,28 +109,29 @@ export function useRoomSocket() {
     }
   }
 
-  function joinRoom(roomPath: string, userId: number, x = 0, y = 0) {
+  function joinRoom(roomPath: string, userId: number, x = 0, y = 0, z = 0) {
     otherUsersInRoom.value = []
     realtimeChats.value = []
-    rawSend({ type: 'join', roomPath, userId, x, y })
+    rawSend({ type: 'join', roomPath, userId, x, y, z })
   }
 
   // Throttle: only send if moved by at least 0.1 units or 150ms elapsed.
   // dir === null은 "이동 정지" 신호라 스로틀에서 제외해야 함 — 마지막 이동과 좌표가
   // 같고 150ms 이내에 키를 떼는 흔한 경우(짧게 눌렀다 뗄 때) 스로틀에 걸려 씹히면
   // 다른 유저 화면에서 정지 모션으로 안 바뀌고 걷기 애니메이션이 멈추지 않는 버그가 생김.
+  // jumping도 같은 이유로 스로틀 제외 — 점프 신호가 씹히면 다른 유저 화면에 안 보임.
   let _lastSentPos = { x: 0, y: 0 }
   let _lastSentTime = 0
-  function sendPosition(x: number, y: number, dir: string | null = null) {
+  function sendPosition(x: number, y: number, dir: string | null = null, z = 0, jumping = false) {
     const now = Date.now()
-    if (dir !== null) {
+    if (dir !== null && !jumping) {
       const dx = Math.abs(x - _lastSentPos.x)
       const dy = Math.abs(y - _lastSentPos.y)
       if (dx < 0.1 && dy < 0.1 && now - _lastSentTime < 150) return
     }
     _lastSentPos = { x, y }
     _lastSentTime = now
-    rawSend({ type: 'position', x, y, dir })
+    rawSend({ type: 'position', x, y, z, dir, jumping })
   }
 
   function sendChat(serverid: number, roomid: number, content: string) {
@@ -141,6 +150,7 @@ export function useRoomSocket() {
     presenceByRoom: readonly(presenceByRoom),
     otherUsersInRoom: readonly(otherUsersInRoom),
     realtimeChats: readonly(realtimeChats),
+    jumpPulses: readonly(jumpPulses),
     connect,
     joinRoom,
     sendPosition,

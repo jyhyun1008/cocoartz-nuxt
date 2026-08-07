@@ -10,6 +10,7 @@ interface PeerInfo {
   roomPath: string
   x: number
   y: number
+  z: number
 }
 
 // roomPath -> peerId -> PeerInfo
@@ -83,7 +84,7 @@ export default defineWebSocketHandler({
     try { data = JSON.parse(message.text()) } catch { return }
 
     if (data.type === 'join') {
-      const { roomPath, userId, x = 0, y = 0 } = data
+      const { roomPath, userId, x = 0, y = 0, z = 0 } = data
 
       // Remove stale connections for the same userId (e.g. page reload before old WS closed)
       for (const [staleId, staleInfo] of peerMap) {
@@ -109,7 +110,7 @@ export default defineWebSocketHandler({
         return
       }
 
-      const info: PeerInfo = { peer, userId, user: user ?? null, roomPath, x, y }
+      const info: PeerInfo = { peer, userId, user: user ?? null, roomPath, x, y, z }
 
       if (!rooms.has(roomPath)) rooms.set(roomPath, new Map())
       rooms.get(roomPath)!.set(peer.id, info)
@@ -118,12 +119,12 @@ export default defineWebSocketHandler({
       // Send room state (other users) to the new joiner
       const others = [...rooms.get(roomPath)!.values()]
         .filter(p => p.peer.id !== peer.id)
-        .map(p => ({ userId: p.userId, user: p.user, x: p.x, y: p.y }))
+        .map(p => ({ userId: p.userId, user: p.user, x: p.x, y: p.y, z: p.z }))
       sendTo(peer, { type: 'room_state', users: others })
 
       // Notify room members a new user joined
       broadcastToRoom(roomPath, {
-        type: 'user_joined', userId, user: user ?? null, x, y,
+        type: 'user_joined', userId, user: user ?? null, x, y, z,
       }, peer.id)
 
       // Broadcast updated presence to everyone
@@ -134,8 +135,9 @@ export default defineWebSocketHandler({
       if (!info) return
       info.x = data.x
       info.y = data.y
+      if (typeof data.z === 'number') info.z = data.z
       broadcastToRoom(info.roomPath, {
-        type: 'position', userId: info.userId, x: data.x, y: data.y, dir: data.dir ?? null,
+        type: 'position', userId: info.userId, x: data.x, y: data.y, z: info.z, dir: data.dir ?? null, jumping: !!data.jumping,
       }, peer.id)
 
     } else if (data.type === 'ping') {

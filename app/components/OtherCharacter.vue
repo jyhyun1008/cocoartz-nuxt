@@ -1,9 +1,9 @@
 <template>
-    <div class="oc-wrapper" :style="wrapperStyle">
+    <div class="oc-wrapper" :class="{ 'jump-anim': isJumping }" :style="wrapperStyle">
         <Transition name="bubble-fade">
             <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
-        <div class="oc-body">
+        <div class="oc-body" :style="bodyStyle">
             <div class="oc-slice-top">
                 <img
                     v-for="layer in layers"
@@ -43,10 +43,15 @@ const props = defineProps({
     topRatio: { type: Number, default: 0.5 },
     localX: { type: Number, default: 0 },
     localY: { type: Number, default: 0 },
+    // 지금 서 있는 층(0=바닥, 1=1층, 2=2층) — 웹소켓 position 메시지로 받아옴
+    localZ: { type: Number, default: 0 },
     zIndex: { type: Number, default: undefined },
     direction: { type: String, default: null },
     name: { type: String, default: '?' },
     userId: { type: Number, default: null },
+    // 이 값이 바뀔 때마다(타임스탬프 펄스) 점프 연출을 한 번 재생함 — CharacterMoving.vue의
+    // jumping(boolean)과 달리 계속 켜져있는 상태가 아니라 "한 번 튀는" 신호라 이 방식으로 받음
+    jumpPulse: { type: Number, default: null },
 })
 
 const { bubbles } = useSpeechBubbles()
@@ -67,6 +72,25 @@ const tileOffset = computed(() => {
     return Math.round(16 + 64 - dynH / 2)
 })
 
+// 층(z) 한 칸의 화면상 높이차 — CharacterMoving.vue/RoomMap.vue의 getTileContainerStyle과 같은 식
+const sideH = computed(() => {
+    const dynH = props.topRatio * TILE_IMG_H
+    const S = (1 - props.topRatio) * TILE_IMG_H
+    return dynH * 3 / 4 + S / 2
+})
+
+// 점프 연출 — jumpPulse(타임스탬프)가 바뀔 때마다 재생. CharacterMoving.vue와 같은 강제 재시작
+// 트릭(false로 껐다가 nextTick에 true) 사용.
+const isJumping = ref(false)
+let jumpAnimTimer = null
+watch(() => props.jumpPulse, (val) => {
+    if (val == null) return
+    isJumping.value = false
+    nextTick(() => { isJumping.value = true })
+    clearTimeout(jumpAnimTimer)
+    jumpAnimTimer = setTimeout(() => { isJumping.value = false }, 400)
+})
+
 // left/top엔 걷기(localX/localY)뿐 아니라 줌(topRatio → dynH/tileOffset)도 같이 들어있어서,
 // 걷는 모습을 부드럽게 보이려고 넣은 transition이 줌할 때도 그대로 걸려서 캐릭터가 줌을 못
 // 따라가고 붕 뜬 것처럼 뒤늦게 따라오는 문제가 있었음 — topRatio가 바뀌는 순간(=줌 중)만
@@ -83,13 +107,18 @@ watch(() => props.topRatio, () => {
     })
 })
 
+// ⚠️ z-index를 여기(wrapper)에 안 주고 .oc-body에만 줌 — wrapper 자체에 z-index를 주면
+// position+z-index 조합이 새 스태킹 컨텍스트를 만들어서, 그 안의 닉네임/말풍선까지 전부
+// 그 z-index 범위 안에 갇혀버림(아이템 뒤로 깔리는 아바타 몸통 때문에 닉네임까지 같이
+// 가려지는 문제였음). wrapper는 z-index 없이(position만) 두고, 몸통(.oc-body)에만 z-index를
+// 줘서 몸통만 아이템 뒤로 가고 닉네임/말풍선은 자기 자신의 z-index(10001, 말풍선과 동급)로
+// 별도 경쟁하게 함.
 const wrapperStyle = computed(() => {
     const dynH = props.topRatio * TILE_IMG_H
     return {
         position: 'absolute',
-        zIndex: props.zIndex ?? 'auto',
         left: `calc(50% + ${props.localX * (TILE_W / 4) - TILE_W / 2}px)`,
-        top: `calc(50% + ${-props.localY * dynH / 2 - tileOffset.value - 48}px)`,
+        top: `calc(50% + ${-props.localY * dynH / 2 - tileOffset.value - 48 - props.localZ * sideH.value}px)`,
         width: `${TILE_W}px`,
         transition: suppressTransition.value ? 'none' : 'left 0.15s, top 0.15s',
         display: 'flex',
@@ -99,6 +128,11 @@ const wrapperStyle = computed(() => {
         pointerEvents: 'none',
     }
 })
+
+const bodyStyle = computed(() => ({
+    position: 'relative',
+    zIndex: props.zIndex ?? 'auto',
+}))
 
 const botSliceStyle = computed(() => {
     const ratio = props.topRatio
@@ -135,7 +169,10 @@ watch(() => props.direction, (dir) => {
     }, 150)
 })
 
-onUnmounted(() => { if (animInterval) clearInterval(animInterval) })
+onUnmounted(() => {
+    if (animInterval) clearInterval(animInterval)
+    clearTimeout(jumpAnimTimer)
+})
 </script>
 
 <style>
@@ -147,6 +184,12 @@ onUnmounted(() => { if (animInterval) clearInterval(animInterval) })
     width: 128px;
     display: flex;
     flex-direction: column;
+}
+
+/* @keyframes jump-hop은 CharacterMoving.vue에 정의돼 있음 — 이 파일도 전역 스타일로 번들되니
+   그대로 재사용(같은 페이지에 항상 같이 로드되는 컴포넌트라 안전함) */
+.jump-anim .oc-body {
+    animation: jump-hop 0.4s linear;
 }
 
 .oc-slice-top {
