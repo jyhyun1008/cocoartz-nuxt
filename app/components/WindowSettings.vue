@@ -48,6 +48,9 @@
                 <label class="admin-label">재화 이름 <span class="admin-label-hint">맵 아이템에서 얻는 코인 등에 쓰임</span></label>
                 <input v-model="serverForm.currencyName" placeholder="코코아" class="post-input" />
 
+                <label class="admin-label">가입 보너스 <span class="admin-label-hint">신규 가입 시 자동 지급(0이면 지급 안 함)</span></label>
+                <input v-model.number="serverForm.signupBonus" type="number" min="0" placeholder="100" class="post-input" />
+
                 <label class="admin-label">서버 소개 <span class="admin-label-hint">선택</span></label>
                 <textarea v-model="serverForm.info" placeholder="서버 소개..." class="post-textarea" style="min-height:60px"></textarea>
 
@@ -498,7 +501,7 @@ const { data: serverData, refresh: refreshServer } = await useAsyncData(
 )
 
 // 서버 정보 편집
-const serverForm = reactive({ title: '', themecolor: '#D21F3C', currencyName: '코코아', info: '', avatar: '', registrationMode: 'open' })
+const serverForm = reactive({ title: '', themecolor: '#D21F3C', currencyName: '코코아', signupBonus: 100, info: '', avatar: '', registrationMode: 'open' })
 const serverSaving = ref(false)
 const serverSaveMsg = ref('')
 const serverError = ref('')
@@ -510,6 +513,7 @@ watch(serverData, (data) => {
     serverForm.title = data.title ?? ''
     serverForm.themecolor = data.themecolor ?? '#D21F3C'
     serverForm.currencyName = data.currencyName ?? '코코아'
+    serverForm.signupBonus = data.signupBonus ?? 100
     serverForm.info = data.info ?? ''
     serverForm.avatar = data.avatar ?? ''
     serverForm.registrationMode = data.registrationMode ?? 'open'

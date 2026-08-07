@@ -11,11 +11,14 @@ async function checkAdmin(userid: number) {
 const REGISTRATION_MODES = ['open', 'approval', 'closed']
 
 export default eventHandler(async (event) => {
-    const { userid, slug, title, themecolor, info, avatar, registrationMode, currencyName } = await readBody(event)
+    const { userid, slug, title, themecolor, info, avatar, registrationMode, currencyName, signupBonus } = await readBody(event)
     await checkAdmin(userid)
     if (!slug) throw createError({ statusCode: 400, message: 'slug가 필요합니다' })
     if (registrationMode !== undefined && !REGISTRATION_MODES.includes(registrationMode)) {
         throw createError({ statusCode: 400, message: '올바르지 않은 가입 방식입니다' })
+    }
+    if (signupBonus !== undefined && (!Number.isInteger(signupBonus) || signupBonus < 0)) {
+        throw createError({ statusCode: 400, message: '가입 보너스는 0 이상의 정수여야 합니다' })
     }
 
     const [existing] = await db.select().from(servers).where(eq(servers.slug, slug))
@@ -31,6 +34,7 @@ export default eventHandler(async (event) => {
             avatar: avatar?.trim() || null,
             ...(registrationMode !== undefined ? { registrationMode } : {}),
             currencyName: currencyName?.trim() || '코코아',
+            ...(signupBonus !== undefined ? { signupBonus } : {}),
         }).returning()
         return created
     }
@@ -43,6 +47,7 @@ export default eventHandler(async (event) => {
             ...(avatar !== undefined ? { avatar: avatar.trim() || null } : {}),
             ...(registrationMode !== undefined ? { registrationMode } : {}),
             ...(currencyName !== undefined ? { currencyName: currencyName.trim() || '코코아' } : {}),
+            ...(signupBonus !== undefined ? { signupBonus } : {}),
         })
         .where(eq(servers.slug, slug))
         .returning()

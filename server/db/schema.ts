@@ -51,6 +51,8 @@ export const servers = pgTable('servers', {
     registrationMode: text().default('open').notNull(),
     // 맵 아이템 코인 수집 등에서 쓰는 재화 이름(서버별로 다르게 부를 수 있게) — 기본 "코코아"
     currencyName: text().default('코코아'),
+    // 가입 완료 시 자동으로 지급하는 재화(server/api/auth/register.ts) — 0이면 지급 안 함
+    signupBonus: integer().default(100).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 

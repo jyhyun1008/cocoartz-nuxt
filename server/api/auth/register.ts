@@ -1,5 +1,5 @@
 import { db } from '../../utils/db'
-import { users, servers } from '../../db/schema'
+import { users, servers, currencyBalances } from '../../db/schema'
 import { eq, or, count } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { sendMail } from '../../utils/mailer'
@@ -28,11 +28,13 @@ export default eventHandler(async (event) => {
     const [{ value: userCount }] = await db.select({ value: count() }).from(users)
     const isFirstUser = Number(userCount) === 0
 
+    // 가입 보너스 지급 여부에도 필요해서 첫 유저든 아니든 항상 서버 row를 조회함
+    const config = useRuntimeConfig()
+    const slug = config.public.serverSlug as string
+    const [server] = await db.select().from(servers).where(eq(servers.slug, slug))
+
     let approved = true
     if (!isFirstUser) {
-        const config = useRuntimeConfig()
-        const slug = config.public.serverSlug as string
-        const [server] = await db.select().from(servers).where(eq(servers.slug, slug))
         const mode = server?.registrationMode ?? 'open'
 
         if (mode === 'closed') {
@@ -51,6 +53,13 @@ export default eventHandler(async (event) => {
         isAdmin: isFirstUser,
         approved,
     }).returning({ id: users.id, username: users.username })
+
+    // 가입 보너스 — 로그인 가능 여부(승인 대기 포함)와 무관하게 계정 생성 시점에 바로 지급
+    if (server?.id && server.signupBonus > 0) {
+        await db.insert(currencyBalances).values({
+            userid: newUser.id, serverid: server.id, balance: server.signupBonus,
+        }).onConflictDoNothing()
+    }
 
     if (!approved) {
         // 관리자들에게 새 가입 신청을 알림 — 이메일 설정이 안 됐거나 실패해도 가입 신청 자체엔 영향 없음
