@@ -93,6 +93,10 @@ export const posts = pgTable('posts', {
     remoteActorHandle: text(),
     remoteActorIconUrl: text(),
     remoteActorInbox: text(),
+    // 이 글이 다른 원격 글을 인용(quote)한 경우 그 원본 글의 AP 오브젝트 URL, 아니면 본문에
+    // 있는 첫 번째 일반 링크(둘 다 없으면 null) — server/utils/ap/linkExtract.ts에서 추출
+    quoteUrl: text(),
+    linkUrl: text(),
     // 이 글이 로컬 게시판 글타래가 아니라, 팔로우 피드에 뜬 원격(remoteFeedPosts) 글에 대한
     // 내 답글일 때 그 원격 글의 objectId. 이 값이 있으면 게시판 목록/개인 타임라인에서는
     // 숨기고(replyto 기반 글타래가 아니므로 isNull(replyto) 필터로는 안 걸러짐), 원격 글
@@ -266,6 +270,9 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     boostedByIconUrl: text(),
     objectId: text().notNull(),
     content: text().notNull(),
+    // 다른 원격 글을 인용(quote)한 경우 그 원본 글의 AP 오브젝트 URL, 아니면 본문 속 첫 링크
+    quoteUrl: text(),
+    linkUrl: text(),
     // 원격 글의 CW(content warning)/서두 텍스트. 없으면 null → 목록에서 본문 미리보기로 대체 표시
     summary: text(),
     // to/cc에 AS_PUBLIC이 있었는지 (전체공개/조용히 공개 여부). 개인 타임라인(getFollowingFeed)은
@@ -298,6 +305,8 @@ export const remoteTimelinePosts = pgTable('remote_timeline_posts', {
     boostedByIconUrl: text(),
     objectId: text().notNull(),
     content: text().notNull(),
+    quoteUrl: text(),
+    linkUrl: text(),
     summary: text(),
     published: timestamp({ withTimezone: true }).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -315,3 +324,18 @@ export const remoteTimelinePostLikes = pgTable('remote_timeline_post_likes', {
 }, (table) => [
     uniqueIndex('remote_timeline_post_likes_post_user_idx').on(table.remoteTimelinePostId, table.userid),
 ])
+
+// 원격 글에 포함된 일반 링크(유튜브/사운드클라우드 포함)의 미리보기 캐시 — URL 기준으로 한 번만
+// 가져오면 같은 링크를 공유하는 다른 글에서도 재사용됨(server/utils/linkPreview.ts)
+export const linkPreviews = pgTable('link_previews', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    url: text().notNull().unique(),
+    kind: text().default('generic').notNull(), // 'generic' | 'youtube' | 'soundcloud'
+    title: text(),
+    description: text(),
+    imageUrl: text(),
+    siteName: text(),
+    // youtube: watch URL의 video id로 만든 embed URL / soundcloud: oEmbed로 받은 iframe의 src
+    embedUrl: text(),
+    fetchedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+})

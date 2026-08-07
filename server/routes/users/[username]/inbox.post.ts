@@ -7,6 +7,7 @@ import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/
 import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderActorName } from '../../../utils/ap/sanitize'
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 import { refreshRemoteActorCache } from '../../../utils/remoteActorCache'
+import { extractQuoteUrl, extractFirstLink } from '../../../utils/ap/linkExtract'
 
 const MAX_FOLLOWERS_PER_USER = 5000
 const MAX_FOLLOWS_PER_DOMAIN_PER_HOUR = 30
@@ -223,6 +224,8 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
     const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
     const isPublic = isPublicAudience(object, activity)
     const published = new Date((object.published as string) || Date.now())
+    const quoteUrl = extractQuoteUrl(object)
+    const linkUrl = extractFirstLink(content, quoteUrl)
 
     await db.insert(remoteFeedPosts).values({
         userid: user.id,
@@ -233,6 +236,8 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         objectId,
         content,
         summary,
+        quoteUrl,
+        linkUrl,
         isPublic,
         published,
     })
@@ -250,6 +255,8 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
             objectId,
             content,
             summary,
+            quoteUrl,
+            linkUrl,
             published,
         }).onConflictDoNothing({ target: remoteTimelinePosts.objectId })
     }
@@ -269,6 +276,8 @@ async function saveIncomingReplyPost(
     const actorDomain = new URL(actorUrl_).hostname
     const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag)
     const contentWithImages = content + extractImageAttachmentsHtml(object.attachment)
+    const quoteUrl = extractQuoteUrl(object)
+    const linkUrl = extractFirstLink(contentWithImages, quoteUrl)
 
     await db.insert(posts).values({
         serverid: opts.serverid ?? null,
@@ -276,6 +285,8 @@ async function saveIncomingReplyPost(
         userid: null,
         title: content.slice(0, 50) || '(원격 답글)',
         content: contentWithImages,
+        quoteUrl,
+        linkUrl,
         replyto: opts.replyto ?? null,
         remoteParentObjectId: opts.remoteParentObjectId ?? null,
         objectId,
@@ -450,6 +461,8 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
     const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
     const isPublic = isPublicAudience(object)
     const published = new Date((object.published as string) || Date.now())
+    const quoteUrl = extractQuoteUrl(object)
+    const linkUrl = extractFirstLink(content, quoteUrl)
 
     await db.insert(remoteFeedPosts).values({
         userid: user.id,
@@ -464,6 +477,8 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
         objectId,
         content,
         summary,
+        quoteUrl,
+        linkUrl,
         isPublic,
         published,
     })
@@ -483,6 +498,8 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
             objectId,
             content,
             summary,
+            quoteUrl,
+            linkUrl,
             published,
         }).onConflictDoNothing({ target: remoteTimelinePosts.objectId })
     }

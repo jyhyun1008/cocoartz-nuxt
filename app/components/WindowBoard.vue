@@ -57,6 +57,8 @@
                                     <span v-html="entry.post.summary"></span>
                                 </template>
                                 <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(entry.post.content)"></span>
+                                <span v-if="entry.post.quoteUrl" class="quote-link-badge">(인용)</span>
+                                <span v-else-if="entry.post.linkUrl" class="quote-link-badge">(링크)</span>
                             </div>
                             <div class="post-card-meta">
                                 <span class="post-author remote-handle">
@@ -295,6 +297,56 @@
                     <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
                 <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
+
+                <!-- 인용글 임베드 -->
+                <a
+                    v-if="quotedPost"
+                    :href="quotedPost.objectId"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="quote-embed-card"
+                >
+                    <div class="quote-embed-header">
+                        <NuxtImg v-if="quotedPost.sourceIconUrl" class="avatar avatar-sm" :src="quotedPost.sourceIconUrl" />
+                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
+                        <span v-if="quotedPost.sourceName" v-html="quotedPost.sourceName"></span>
+                        <span v-else>{{ quotedPost.sourceHandle }}</span>
+                        <span class="remote-handle">{{ quotedPost.sourceHandle }}</span>
+                    </div>
+                    <div v-if="quotedPost.summary" class="quote-embed-body"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="quotedPost.summary"></span></div>
+                    <div v-else class="quote-embed-body" v-html="quotedPost.content"></div>
+                </a>
+                <a
+                    v-else-if="currentRemotePost.quoteUrl"
+                    :href="currentRemotePost.quoteUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="quote-embed-card quote-embed-fallback"
+                >
+                    인용된 글 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
+                </a>
+
+                <!-- 링크 미리보기 / 유튜브·사운드클라우드 임베드 -->
+                <div v-else-if="linkPreview && (linkPreview.embedUrl || linkPreview.title || linkPreview.imageUrl)" class="link-preview-card">
+                    <iframe
+                        v-if="linkPreview.embedUrl && (linkPreview.kind === 'youtube' || linkPreview.kind === 'soundcloud')"
+                        :src="linkPreview.embedUrl"
+                        class="embed-iframe"
+                        :class="linkPreview.kind"
+                        frameborder="0"
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen
+                        sandbox="allow-scripts allow-same-origin allow-presentation"
+                    ></iframe>
+                    <a v-else :href="linkPreview.url" target="_blank" rel="noopener noreferrer" class="link-preview-body">
+                        <NuxtImg v-if="linkPreview.imageUrl" :src="linkPreview.imageUrl" class="link-preview-image" />
+                        <div class="link-preview-text">
+                            <div v-if="linkPreview.title" class="link-preview-title">{{ linkPreview.title }}</div>
+                            <div v-if="linkPreview.description" class="link-preview-desc">{{ linkPreview.description }}</div>
+                            <div class="link-preview-site">{{ linkPreview.siteName || remoteServerHost(linkPreview.url) }}</div>
+                        </div>
+                    </a>
+                </div>
 
                 <div v-if="userId" class="post-meta">
                     <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
@@ -595,6 +647,8 @@ const currentView = ref('list')
 const currentPost = ref(null)
 const currentRemotePost = ref(null)
 const showRemoteContent = ref(false)
+const quotedPost = ref(null)
+const linkPreview = ref(null)
 const remoteReplies = ref([])
 const remoteReplyContent = ref('')
 const newTitle = ref('')
@@ -678,7 +732,25 @@ async function openRemotePost(post) {
     showRemoteContent.value = false
     remoteReplyContent.value = ''
     currentView.value = 'remote-detail'
+    quotedPost.value = null
+    linkPreview.value = null
     await refreshRemoteReplies()
+    loadEmbed(post)
+}
+
+// 인용글/링크 미리보기 — 목록에서는 배지만 보여주고, 상세 화면 열 때만 실제로 가져옴
+async function loadEmbed(post) {
+    if (post.quoteUrl) {
+        quotedPost.value = await $fetch(`${apiBaseUrl}/api/getQuotedPost`, {
+            method: 'POST',
+            body: { quoteUrl: post.quoteUrl },
+        }).catch(() => null)
+    } else if (post.linkUrl) {
+        linkPreview.value = await $fetch(`${apiBaseUrl}/api/getLinkPreview`, {
+            method: 'POST',
+            body: { url: post.linkUrl },
+        }).catch(() => null)
+    }
 }
 
 async function refreshRemoteReplies() {
@@ -1349,6 +1421,112 @@ onMounted(() => {
     text-decoration: none;
 }
 .remote-original-link:hover { color: rgba(var(--fg-rgb),0.7); text-decoration: underline; }
+
+/* 목록 카드의 (인용)/(링크) 배지 */
+.quote-link-badge {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: rgba(var(--fg-rgb),0.35);
+    flex-shrink: 0;
+}
+
+/* 인용글 임베드 카드 — remote-cw-gate와 같은 톤(테두리+둥근 카드)이되 경고색 대신 중립색 */
+.quote-embed-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(var(--fg-rgb),0.03);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    text-decoration: none;
+    color: inherit;
+}
+.quote-embed-card:hover { background: rgba(var(--fg-rgb),0.06); }
+.quote-embed-fallback {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    color: rgba(var(--fg-rgb),0.5);
+    font-size: 0.9rem;
+}
+.quote-embed-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: rgba(var(--fg-rgb),0.5);
+}
+.quote-embed-body {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: rgba(var(--fg-rgb),0.8);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+    -webkit-box-orient: vertical;
+}
+
+/* 링크 미리보기 카드 / 유튜브·사운드클라우드 임베드 */
+.link-preview-card {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+}
+.link-preview-body {
+    display: flex;
+    text-decoration: none;
+    color: inherit;
+    background: rgba(var(--fg-rgb),0.03);
+}
+.link-preview-body:hover { background: rgba(var(--fg-rgb),0.06); }
+.link-preview-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.link-preview-text {
+    padding: 10px 14px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+}
+.link-preview-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.link-preview-desc {
+    font-size: 0.82rem;
+    color: rgba(var(--fg-rgb),0.55);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.link-preview-site {
+    font-size: 0.76rem;
+    color: rgba(var(--fg-rgb),0.35);
+}
+.embed-iframe {
+    display: block;
+    width: 100%;
+    border: none;
+}
+.embed-iframe.youtube { aspect-ratio: 16 / 9; }
+.embed-iframe.soundcloud { height: 166px; }
 
 .post-content {
     line-height: 1.8;

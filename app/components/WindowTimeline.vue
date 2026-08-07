@@ -54,6 +54,8 @@
                                         <span v-html="p.summary"></span>
                                     </template>
                                     <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(p.content)"></span>
+                                    <span v-if="p.quoteUrl" class="quote-link-badge">(인용)</span>
+                                    <span v-else-if="p.linkUrl" class="quote-link-badge">(링크)</span>
                                 </div>
                                 <div class="post-card-meta">
                                     <span class="post-author remote-handle">
@@ -129,6 +131,56 @@
                 </div>
                 <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
 
+                <!-- 인용글 임베드 -->
+                <a
+                    v-if="quotedPost"
+                    :href="quotedPost.objectId"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="quote-embed-card"
+                >
+                    <div class="quote-embed-header">
+                        <NuxtImg v-if="quotedPost.sourceIconUrl" class="avatar avatar-sm" :src="quotedPost.sourceIconUrl" />
+                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
+                        <span v-if="quotedPost.sourceName" v-html="quotedPost.sourceName"></span>
+                        <span v-else>{{ quotedPost.sourceHandle }}</span>
+                        <span class="remote-handle">{{ quotedPost.sourceHandle }}</span>
+                    </div>
+                    <div v-if="quotedPost.summary" class="quote-embed-body"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="quotedPost.summary"></span></div>
+                    <div v-else class="quote-embed-body" v-html="quotedPost.content"></div>
+                </a>
+                <a
+                    v-else-if="currentRemotePost.quoteUrl"
+                    :href="currentRemotePost.quoteUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="quote-embed-card quote-embed-fallback"
+                >
+                    인용된 글 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
+                </a>
+
+                <!-- 링크 미리보기 / 유튜브·사운드클라우드 임베드 -->
+                <div v-else-if="linkPreview && (linkPreview.embedUrl || linkPreview.title || linkPreview.imageUrl)" class="link-preview-card">
+                    <iframe
+                        v-if="linkPreview.embedUrl && (linkPreview.kind === 'youtube' || linkPreview.kind === 'soundcloud')"
+                        :src="linkPreview.embedUrl"
+                        class="embed-iframe"
+                        :class="linkPreview.kind"
+                        frameborder="0"
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen
+                        sandbox="allow-scripts allow-same-origin allow-presentation"
+                    ></iframe>
+                    <a v-else :href="linkPreview.url" target="_blank" rel="noopener noreferrer" class="link-preview-body">
+                        <NuxtImg v-if="linkPreview.imageUrl" :src="linkPreview.imageUrl" class="link-preview-image" />
+                        <div class="link-preview-text">
+                            <div v-if="linkPreview.title" class="link-preview-title">{{ linkPreview.title }}</div>
+                            <div v-if="linkPreview.description" class="link-preview-desc">{{ linkPreview.description }}</div>
+                            <div class="link-preview-site">{{ linkPreview.siteName || remoteServerHost(linkPreview.url) }}</div>
+                        </div>
+                    </a>
+                </div>
+
                 <div v-if="userId" class="post-meta">
                     <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
                         ♥ {{ currentRemotePost.liked ? '좋아요 취소' : '좋아요' }}
@@ -185,7 +237,7 @@
                                 </div>
                             </div>
                             <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
-                            <div v-else class="comment-body">{{ comment.content }}</div>
+                            <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                         </template>
                     </div>
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
@@ -207,6 +259,13 @@ const apiBaseUrl = config.public.apiBaseUrl
 defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
+
+// 우리 서버 커스텀 이모지(:shortcode:) — 원격글 상세의 로컬 댓글 표시 시점에 치환
+// (WindowBoard.vue에는 이미 있는데 여기는 빠져 있었음)
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+function withCustomEmoji(html) {
+    return renderCustomEmojiText(html, customEmojiMap.value)
+}
 
 // 뮤트 — WindowBoard.vue와 동일한 패턴(소프트: 게이트+"그래도 보기", 하드: 서버가 애초에 안 내려줌)
 const activeMuteKey = ref(null)
@@ -235,6 +294,7 @@ async function confirmMute(target, level) {
 }
 
 onMounted(() => {
+    ensureCustomEmojisLoaded()
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.mute-action-wrap')) activeMuteKey.value = null
     })
@@ -369,13 +429,33 @@ const currentRemotePost = ref(null)
 const showRemoteContent = ref(false)
 const remoteReplyContent = ref('')
 const remoteReplies = ref([])
+const quotedPost = ref(null)
+const linkPreview = ref(null)
 
 async function openRemotePost(post) {
     currentRemotePost.value = post
     showRemoteContent.value = false
     remoteReplyContent.value = ''
     currentView.value = 'remote-detail'
+    quotedPost.value = null
+    linkPreview.value = null
     await refreshRemoteReplies()
+    loadEmbed(post)
+}
+
+// 인용글/링크 미리보기 — 목록에서는 배지만 보여주고, 상세 화면 열 때만 실제로 가져옴
+async function loadEmbed(post) {
+    if (post.quoteUrl) {
+        quotedPost.value = await $fetch(`${apiBaseUrl}/api/getQuotedPost`, {
+            method: 'POST',
+            body: { quoteUrl: post.quoteUrl },
+        }).catch(() => null)
+    } else if (post.linkUrl) {
+        linkPreview.value = await $fetch(`${apiBaseUrl}/api/getLinkPreview`, {
+            method: 'POST',
+            body: { url: post.linkUrl },
+        }).catch(() => null)
+    }
 }
 
 async function refreshRemoteReplies() {

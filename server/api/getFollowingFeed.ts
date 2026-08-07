@@ -60,6 +60,8 @@ export default eventHandler(async (event) => {
         objectId: r.objectId, // 댓글 목록 조회(getRemoteFeedPostReplies)용
         content: r.content,
         summary: r.summary,
+        quoteUrl: r.quoteUrl,
+        linkUrl: r.linkUrl,
         createdAt: r.published,
         sortDate: r.published,
         isRemote: true,
