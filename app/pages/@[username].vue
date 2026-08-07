@@ -406,7 +406,8 @@ function switchFollowListTab(type) {
                                         <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                     </div>
                                     <div class="follow-list-info">
-                                        <div class="follow-list-name">{{ item.name || item.handle }}</div>
+                                        <div v-if="item.name" class="follow-list-name" v-html="item.name"></div>
+                                        <div v-else class="follow-list-name">{{ item.handle }}</div>
                                         <div class="follow-list-handle">{{ item.handle }}</div>
                                     </div>
                                     <span v-if="followListType === 'following' && item.accepted === false" class="follow-list-pending">대기중</span>
@@ -1015,6 +1016,15 @@ function switchFollowListTab(type) {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+.follow-list-name :deep(img.custom-emoji) {
+    display: inline-block;
+    width: 1.2em;
+    height: 1.2em;
+    max-width: 1.2em;
+    border-radius: 0;
+    margin: 0 0.05em;
+    vertical-align: middle;
 }
 
 .follow-list-handle {
