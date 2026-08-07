@@ -224,11 +224,19 @@ function baseShiftFor(i) {
 //  무시해서 auto로 떨어지는 버그가 있었음. 정수 구간을 넉넉히 나눠서 그 문제를 원천적으로 피함)
 const Z_GROUP_SIZE = computed(() => props.shadowEchoCount + 1)
 
-// flipBack일 때만 레이어 i에 추가로 얹는 이미지 내부 보정(px, 스케일 적용 전) — flipBack이
-// 꺼져 있으면 flipBackOffsets가 있어도 무시함(원래 방향일 땐 이 보정이 적용될 이유가 없음)
+// flipBack일 때만 레이어 i에 추가로 얹는 이미지 내부 보정 — flipBack이 꺼져 있으면 무시함
+// (원래 방향일 땐 이 보정이 적용될 이유가 없음).
+// flipBackOffsets를 아이템별로 안 줘도, 아이템1/아이템2 둘 다 튜너로 맞춰보니 공통적으로
+// "레이어 중앙(layers.length/2)에서 멀어질수록 layerHeight/layers.length 배씩 벌어지는" 패턴이
+// 잘 맞아서 이걸 기본값으로 삼음 — layerHeight가 이미 현재 줌의 squashRatio를 반영하고 있어서
+// 그대로 쓰면 됨(따로 squashRatio를 또 곱하면 이중 스케일링됨).
+// 아이템별 튜닝값(catalog의 flipBackOffsets, topRatio=0.5 기준 px)이 있으면 그걸 우선하되,
+// 그건 하나의 기준점에서 잰 고정값이라 squashRatio를 곱해서 현재 줌에 맞게 비례시켜줘야 함.
 function flipBackOffsetFor(i) {
     if (!props.flipBack) return 0
-    return (props.flipBackOffsets[i] ?? 0) * squashRatio.value
+    const explicit = props.flipBackOffsets[i]
+    if (explicit !== undefined) return explicit * squashRatio.value
+    return (props.layers.length / 2 - i) * (layerHeight.value / props.layers.length)
 }
 // flipBack이면 끝에 rotate(180deg)를 붙임 — translateY(...) 다음에 와야 층간 간격(먼저 계산된
 // screen-space 이동)이 회전 방향에 영향을 안 받음(rotate가 먼저 로컬로 적용되고, translateY는
