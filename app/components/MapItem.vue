@@ -43,6 +43,11 @@
         >
             <div v-if="isLinkClickable && props.title && isHovered" class="map-item-tooltip">{{ props.title }}</div>
         </div>
+        <!-- 코인 말풍선(줍기 연출) — 클릭 가능 여부(link 유무)와 무관하게 아이템 위에 떠 있음.
+             클릭/호버 대상이 아니라 순수 장식이라 pointer-events:none, 지나가면 자동으로 수집됨 -->
+        <div v-if="props.coin" class="map-item-coin">
+            <i class="hgi hgi-stroke hgi-coins-01"></i>
+        </div>
     </div>
 </template>
 
@@ -151,6 +156,9 @@ const props = defineProps({
     // 맵 편집기에서 현재 편집 패널에 열려있는 아이템인지 — 여러 층에 걸쳐 있어도 어떤 게 선택된
     // 건지 눈으로 바로 알 수 있게 살짝 빛나는 테두리를 줌
     selected: { type: Boolean, default: false },
+    // 재화 시스템 — 이 아이템 위에 코인 말풍선을 띄울지(RoomMap.vue가 로컬 랜덤 타이머로 켬,
+    // 나한테만 보이는 연출). 지나가면 자동 수집되니 클릭 대상은 아님
+    coin: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['select'])
@@ -380,5 +388,34 @@ function echoStyle(i, e) {
     text-align: center;
     pointer-events: none;
     z-index: 10001;
+}
+
+.map-item-coin {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #f4b400;
+    color: #7a4a00;
+    font-size: 1.1rem;
+    pointer-events: none;
+    z-index: 10002;
+    animation: map-item-coin-bounce 1.1s ease-in-out infinite, map-item-coin-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes map-item-coin-bounce {
+    0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+    50% { transform: translate(-50%, -50%) translateY(-5px); }
+}
+
+@keyframes map-item-coin-glow {
+    0%, 100% { box-shadow: 0 0 4px 1px rgba(255,215,0,0.5); }
+    50% { box-shadow: 0 0 16px 6px rgba(255,215,0,0.9); }
 }
 </style>

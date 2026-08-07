@@ -43,6 +43,8 @@ export const servers = pgTable('servers', {
     map: text(),
     // 'open'(자유 가입) | 'approval'(승인제) | 'closed'(가입 차단)
     registrationMode: text().default('open').notNull(),
+    // 맵 아이템 코인 수집 등에서 쓰는 재화 이름(서버별로 다르게 부를 수 있게) — 기본 "코코아"
+    currencyName: text().default('코코아'),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 
@@ -356,3 +358,17 @@ export const emailSettings = pgTable('email_settings', {
     enabled: boolean().default(false).notNull(), // 꺼져있거나 필수값이 비어있으면 발송 자체를 스킵
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
+
+// 서버(커뮤니티)별 재화 잔액 — 맵 아이템 코인 수집(server/api/collectCoin.ts)으로 쌓임.
+// userid+serverid 조합 하나당 행 하나(같은 서버 안에서만 통용, 다른 서버 배포끼리는 안 섞임).
+export const currencyBalances = pgTable('currency_balances', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    serverid: integer().notNull(),
+    balance: integer().default(0).notNull(),
+    // 코인 수집 연타/스크립트 방지용 최소 쿨다운 판정에 씀(server/api/collectCoin.ts)
+    lastCollectedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('currency_balances_userid_serverid_idx').on(table.userid, table.serverid),
+])

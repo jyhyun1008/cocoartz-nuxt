@@ -13,6 +13,7 @@
                 <div id="text-wrapper">
                     <div class="knownas">{{ i?.knownas ?? i?.username ?? '...' }}</div>
                     <div class="username">@{{ i?.username ?? '' }}</div>
+                    <div class="balance"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ balanceData?.balance ?? 0 }} {{ server?.currencyName ?? '코코아' }}</div>
                 </div>
             </NuxtLink>
             <NuxtLink to="/preferences" id="preferences-wrapper" title="내 설정">
@@ -49,6 +50,7 @@ const apiBaseUrl = config.public.apiBaseUrl
 const router = useRouter()
 const { userId, isLoggedIn } = useCurrentUser()
 const { isOpen } = useMobileNav()
+const { server } = await useServer()
 
 const { data: iData } = await useAsyncData(
     'i-data',
@@ -62,6 +64,19 @@ const { data: iData } = await useAsyncData(
 )
 
 const i = iData
+
+// 재화 잔액 — RoomMap.vue와 같은 키('balance-data-{serverid}')로 useAsyncData를 불러서
+// 데이터를 공유함(RoomMap.vue에서 코인을 모으면 여기 표시도 같이 갱신됨)
+const { data: balanceData } = await useAsyncData(
+    `balance-data-${server?.id}`,
+    () => (isLoggedIn.value && server?.id)
+        ? $fetch(`${apiBaseUrl}/api/getMyBalance`, {
+            method: 'POST',
+            body: { userid: userId.value, serverid: server.id },
+        }).catch(() => ({ balance: 0 }))
+        : { balance: 0 },
+    { watch: [userId] }
+)
 
 async function logout() {
     await $fetch(`${apiBaseUrl}/api/auth/logout`, { method: 'POST' })
@@ -140,6 +155,17 @@ async function logout() {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.balance {
+    font-size: 0.72rem;
+    color: #d99a00;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 3px;
 }
 
 #settings-wrapper,

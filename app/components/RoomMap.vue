@@ -47,6 +47,7 @@
                         :title="item.title"
                         :link="item.link"
                         interactive
+                        :coin="!!coinBubbles[itemKey(item, idx)]"
                     />
                     <!-- 로컬 캐릭터 -->
                     <CharacterMoving
@@ -268,6 +269,11 @@
         >
             <div id="joystick-knob" :style="joystickKnobStyle"></div>
         </div>
+
+        <!-- 코인 획득 피드백 -->
+        <div v-if="coinToastAmount !== null" class="coin-toast">
+            +{{ coinToastAmount }} {{ server?.currencyName ?? '코코아' }}
+        </div>
     </div>
 </template>
 
@@ -279,6 +285,10 @@ const apiBaseUrl = config.public.apiBaseUrl
 
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character))
+
+// 재화(코인 수집) — 재화 이름(server.currencyName)을 토스트 라벨에 씀
+const { server } = await useServer()
+const { coins: coinBubbles, showCoin, hideCoin } = useCoinBubbles()
 
 // 우리 서버 커스텀 이모지(:shortcode:) — 채팅 메시지/리액션 표시 시점에 치환
 const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
@@ -343,6 +353,18 @@ async function loadMyMutes() {
 }
 loadMyMutes()
 watch(userId, loadMyMutes)
+
+// 재화 잔액 — key를 'balance-data-{serverid}' 형태로 고정해서 ServerProfilebar.vue가 같은 키로
+// useAsyncData를 부르면 Nuxt가 데이터를 공유해줌(useServer()의 'server-data' 키랑 같은 요령) —
+// 그래서 여기서 코인을 모아 balanceData.value를 갱신하면 프로필바 잔액 표시도 같이 바뀜
+const { data: balanceData } = await useAsyncData(
+    `balance-data-${props.id}`,
+    () => $fetch(`${apiBaseUrl}/api/getMyBalance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userid: userId.value, serverid: props.id }),
+    }).catch(() => ({ balance: 0 })),
+)
 
 function isJSON(str) {
     try { JSON.parse(str); return true } catch { return false }
@@ -686,6 +708,79 @@ const TILE_IMG_H = 128  // 타일 이미지는 정사각형(128×128) 가정
 // 맵 편집기(WindowMapEditor)에서 저장한 위치/itemid를 그대로 읽어와 렌더만 함
 const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 const mapItems = computed(() => mapInfo.value?.[1] ?? [])
+
+// 아이템 하나를 가리키는 안정적인 키 — MapItem :key로 쓰는 것과 같은 좌표 조합(코인 상태를
+// 이 키로 관리하니 같은 아이템은 항상 같은 키를 가리켜야 함)
+function itemKey(item, idx) {
+    return `${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`
+}
+
+// ─── 재화: 코인 랜덤 스폰 + 수집 판정 ──────────────────────────
+// 나(이 브라우저)한테만 보이는 연출이라 서버로 동기화하지 않음 — 그래서 아래 타이머로 그냥
+// 로컬에서 랜덤하게 켬. 한 번에 하나만 떠 있게 해서 화면이 어지럽지 않게 함.
+// 5분에 한 번씩 등장(1분간 유지 — useCoinBubbles.ts의 COIN_DURATION_MS)
+const COIN_SPAWN_INTERVAL_MS = 5 * 60 * 1000
+let coinSpawnTimer = null
+
+function maybeSpawnCoin() {
+    if (Object.keys(coinBubbles.value).length > 0) return
+    if (!mapItems.value.length) return
+    const idx = Math.floor(Math.random() * mapItems.value.length)
+    showCoin(itemKey(mapItems.value[idx], idx))
+}
+
+const coinToastAmount = ref(null)
+let coinToastTimer = null
+function showCoinToast(amount) {
+    coinToastAmount.value = amount
+    clearTimeout(coinToastTimer)
+    coinToastTimer = setTimeout(() => { coinToastAmount.value = null }, 1500)
+}
+
+async function collectCoin() {
+    try {
+        const res = await $fetch(`${apiBaseUrl}/api/collectCoin`, {
+            method: 'POST',
+            body: { userid: userId.value, serverid: props.id },
+        })
+        if (!res?.ok) return  // 서버 쿨다운 등으로 거절됨 — 배지는 이미 사라졌으니 조용히 무시
+        balanceData.value = { balance: res.balance }
+        showCoinToast(res.amount)
+    } catch { /* 네트워크 오류 등 — 조용히 무시 */ }
+}
+
+// 캐릭터 위치(localPosition, 화면 대각선 이동 좌표)를 타일 격자 좌표로 되돌려서(스폰 지점 변환의
+// 역방향 — 위 getSpawnPoint 주석 참고) 지금 서 있는 칸에 코인이 떠 있는 아이템이 있는지 확인.
+// 같은 칸에 가만히 있는 동안(예: 이동 키를 눌렀지만 칸 경계는 안 넘은 잔이동)은 수집되면 안 되고,
+// 실제로 "칸을 옮겨야"(다른 칸에 있다가 그 칸으로 들어와야) 먹히게 함 — lastCheckedTile로 직전
+// 판정 때의 칸과 비교해서 실제로 바뀐 경우에만 검사
+const lastCheckedTile = ref({ x: null, y: null })
+function checkCoinCollection() {
+    const lx = localPosition.value.x
+    const ly = localPosition.value.y
+    const tx = Math.round(lx / 4 - ly / 2)
+    const ty = Math.round(-ly / 2 - lx / 4)
+    const moved = tx !== lastCheckedTile.value.x || ty !== lastCheckedTile.value.y
+    lastCheckedTile.value = { x: tx, y: ty }
+    if (!moved) return
+    if (!Object.keys(coinBubbles.value).length) return
+    mapItems.value.forEach((item, idx) => {
+        const key = itemKey(item, idx)
+        if (!coinBubbles.value[key]) return
+        if (item.position.x !== tx || item.position.y !== ty) return
+        hideCoin(key)  // 낙관적으로 즉시 지움 — 다시 왔다갔다해도 중복 수집 시도 안 함
+        collectCoin()
+    })
+}
+watch(() => localPosition.value, checkCoinCollection)
+
+onMounted(() => {
+    coinSpawnTimer = setInterval(maybeSpawnCoin, COIN_SPAWN_INTERVAL_MS)
+})
+onUnmounted(() => {
+    if (coinSpawnTimer) clearInterval(coinSpawnTimer)
+    clearTimeout(coinToastTimer)
+})
 
 const charDepth = ref(0)
 
@@ -1136,6 +1231,33 @@ onMounted(() => {
     overflow: hidden;
     background-color: var(--mapbg);
     touch-action: pan-x pan-y;
+}
+
+/* 코인 획득 피드백 — 화면 위쪽 가운데 고정, WindowWiki.vue 등의 .share-toast와 같은
+   fade-in-out 연출(로컬 상태 + setTimeout으로 스스로 사라짐) */
+.coin-toast {
+    position: absolute;
+    left: 50%;
+    top: 18%;
+    transform: translateX(-50%);
+    background: linear-gradient(145deg, #ffe17d, #f4b400);
+    color: #7a4a00;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 99999;
+    animation: coin-toast-fade 1.5s ease forwards;
+}
+
+@keyframes coin-toast-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(6px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 /* 모바일 전용 이동 조이스틱: 기본 숨김, 768px 이하에서만 노출 */

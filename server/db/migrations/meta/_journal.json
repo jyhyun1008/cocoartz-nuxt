@@ -141,6 +141,13 @@
       "when": 1786131468006,
       "tag": "0019_woozy_zombie",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786138578475,
+      "tag": "0020_certain_namorita",
+      "breakpoints": true
     }
   ]
 }

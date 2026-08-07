@@ -11,7 +11,7 @@ async function checkAdmin(userid: number) {
 const REGISTRATION_MODES = ['open', 'approval', 'closed']
 
 export default eventHandler(async (event) => {
-    const { userid, slug, title, themecolor, info, avatar, registrationMode } = await readBody(event)
+    const { userid, slug, title, themecolor, info, avatar, registrationMode, currencyName } = await readBody(event)
     await checkAdmin(userid)
     if (!slug) throw createError({ statusCode: 400, message: 'slug가 필요합니다' })
     if (registrationMode !== undefined && !REGISTRATION_MODES.includes(registrationMode)) {
@@ -30,6 +30,7 @@ export default eventHandler(async (event) => {
             info: info?.trim() || null,
             avatar: avatar?.trim() || null,
             ...(registrationMode !== undefined ? { registrationMode } : {}),
+            currencyName: currencyName?.trim() || '코코아',
         }).returning()
         return created
     }
@@ -41,6 +42,7 @@ export default eventHandler(async (event) => {
             ...(info !== undefined ? { info: info.trim() || null } : {}),
             ...(avatar !== undefined ? { avatar: avatar.trim() || null } : {}),
             ...(registrationMode !== undefined ? { registrationMode } : {}),
+            ...(currencyName !== undefined ? { currencyName: currencyName.trim() || '코코아' } : {}),
         })
         .where(eq(servers.slug, slug))
         .returning()
