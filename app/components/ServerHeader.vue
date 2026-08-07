@@ -5,8 +5,7 @@
         </button>
         <div id="title-wrapper">
             <NuxtLink :to="fullPath" id="title-link">
-                <NuxtImg v-if="props.avatar" id="serveravatar" :src="props.avatar" />
-                <div v-else id="server-icon">{{ props.title[0] }}</div>
+                <NuxtImg id="serveravatar" :src="props.avatar || '/cocoartz.png'" />
                 <span>{{ props.title }}</span>
             </NuxtLink>
         </div>
@@ -80,19 +79,6 @@ onMounted(() => {
     height: 1.6rem;
     border-radius: 6px;
     object-fit: cover;
-}
-
-#server-icon {
-    width: 1.6rem;
-    height: 1.6rem;
-    border-radius: 6px;
-    background: rgba(var(--accent-fg-rgb),0.25);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.85rem;
-    flex-shrink: 0;
 }
 
 #title-wrapper {

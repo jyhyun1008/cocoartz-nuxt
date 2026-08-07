@@ -9,8 +9,7 @@
             <template v-if="server">
                 <div id="info-banner">
                     <div id="info-avatar">
-                        <NuxtImg v-if="server.avatar" :src="server.avatar" class="info-avatar-img" />
-                        <div v-else class="info-avatar-initial">{{ (server.title ?? '?')[0] }}</div>
+                        <NuxtImg :src="server.avatar || '/cocoartz.png'" class="info-avatar-img" />
                     </div>
                     <div id="info-title-block">
                         <div id="info-title">{{ server.title }}</div>
@@ -121,17 +120,6 @@ const roomCount = computed(() => {
 }
 
 .info-avatar-img { width: 100%; height: 100%; object-fit: cover; }
-
-.info-avatar-initial {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--accent, #D21F3C);
-}
 
 #info-title-block { min-width: 0; }
 
