@@ -187,6 +187,11 @@ emoji-picker {
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(6, 1fr);
+    /* 기본값(auto + 그리드의 align-content:stretch)이면 항목이 한 줄뿐일 때 그 한 줄이
+       컨테이너 높이(360px) 전체로 늘어나면서 이모지가 대빵 커져버림 — 줄 높이를 열 너비에
+       맞춰 고정하고, 남는 세로 공간은 늘리지 말고 위에서부터만 채우게 함 */
+    grid-auto-rows: min-content;
+    align-content: start;
     gap: 4px;
     padding: 10px;
     background: var(--surface-2);

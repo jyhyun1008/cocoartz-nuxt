@@ -1,7 +1,7 @@
 <template>
     <div class="oc-wrapper" :style="wrapperStyle">
         <Transition name="bubble-fade">
-            <div v-if="bubbleText" class="speech-bubble">{{ bubbleText }}</div>
+            <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
         <div class="oc-body">
             <div class="oc-slice-top">
@@ -51,6 +51,16 @@ const props = defineProps({
 
 const { bubbles } = useSpeechBubbles()
 const bubbleText = computed(() => props.userId != null ? bubbles.value[props.userId]?.text : null)
+
+// 말풍선도 :shortcode: 커스텀 이모지 렌더링 — 텍스트를 먼저 이스케이프한 뒤 치환(유니코드
+// 이모지는 twemoji.client.ts가 별도로 처리하므로 그대로 둬도 됨)
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+function renderBubbleText(text) {
+    return renderCustomEmojiText(escapeHtml(text), customEmojiMap.value)
+}
+onMounted(() => {
+    ensureCustomEmojisLoaded()
+})
 
 const tileOffset = computed(() => {
     const dynH = props.topRatio * TILE_IMG_H
