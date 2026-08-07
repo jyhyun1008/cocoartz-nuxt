@@ -10,44 +10,16 @@
         @contextmenu.prevent
     >
 
-        <!-- z=0 타일 레이어 -->
-        <div id="wme-map" :style="mapStyle">
-            <div class="maptiles1" :style="tilesScaleStyle">
-                <div
-                    v-for="tile in tilesBack"
-                    :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
-                    class="tile-container"
-                    :style="getTileContainerStyle(tile)"
-                >
-                    <div class="tile-slice" :style="tileTopSliceStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileTopImgStyle" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideTopStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideTopImgStyle" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideMiddleContainerStyle()">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideMiddleImgStyle()" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideBottomStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
-                    </div>
-                </div>
-                <MapItem
-                    v-for="(item, idx) in itemsBack"
-                    :key="`wme-item-${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`"
-                    :layers="getItemLayers(item.itemid)"
-                    :position="item.position"
-                    :top-ratio="topRatio"
-                />
-            </div>
-        </div>
-
-        <!-- z≥1 타일 레이어 -->
+        <!-- 통합 레이어: 타일(z 무관) + 아이템 → 전부 같은 스태킹 컨텍스트에서 z-index 하나로 깊이 결정.
+             예전엔 z=0/z≥1을 #wme-map/#wme-map-front 두 개로 쪼개서 렌더했는데, 이 둘이 서로 다른(뒤/앞
+             고정) 스태킹 컨텍스트라 z≥1 쪽이 내부 z-index값과 무관하게 항상 z=0 쪽 위에 그려졌음 —
+             그래서 z=0 아이템이 바로 옆 z≥1 블록보다 실제로는 더 앞이어야 하는데도 항상 블록한테
+             가려지는 버그가 있었음(RoomMap.vue는 먼저 이렇게 통합해서 고쳐뒀었음). -->
         <div id="wme-map-front">
             <div class="maptiles-pan" :style="mapStyle">
                 <div class="maptiles1" :style="tilesScaleStyle">
                     <div
-                        v-for="tile in tilesFront"
+                        v-for="tile in sortedTiles"
                         :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
                         class="tile-container"
                         :style="getTileContainerStyle(tile)"
@@ -66,11 +38,14 @@
                         </div>
                     </div>
                     <MapItem
-                        v-for="(item, idx) in itemsFront"
+                        v-for="(item, idx) in editItems"
                         :key="`wme-item-${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`"
                         :layers="getItemLayers(item.itemid)"
                         :position="item.position"
                         :top-ratio="topRatio"
+                        :flip-x="!!item.flip"
+                        :flip-back="!!item.flipBack"
+                        :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
                     />
                 </div>
             </div>
@@ -118,12 +93,17 @@
                 <div
                     v-for="def in ITEM_CATALOG"
                     :key="def.id"
-                    class="palette-tile-btn"
+                    class="palette-tile-btn palette-item-btn"
                     :class="{ active: placementMode === 'item' && !isErasing && selectedItem === def.id }"
                     :title="def.name"
                     @click="placementMode = 'item'; isErasing = false; selectedItem = def.id"
                 >
-                    <img :src="def.layers[0]" />
+                    <img
+                        v-for="(src, i) in def.layers"
+                        :key="src"
+                        :src="src"
+                        :style="itemThumbLayerStyle(def.layers.length, i)"
+                    />
                 </div>
                 <div
                     class="palette-tile-btn erase-btn"
@@ -131,6 +111,16 @@
                     @click="placementMode = 'item'; isErasing = true"
                 >✕</div>
             </div>
+            <button
+                class="palette-flip-btn"
+                :class="{ active: selectedFlip }"
+                @click="selectedFlip = !selectedFlip"
+            >⇄ 좌우반전</button>
+            <button
+                class="palette-flip-btn"
+                :class="{ active: selectedFlipBack }"
+                @click="selectedFlipBack = !selectedFlipBack"
+            >↻ 뒤로 돌리기 (실험적)</button>
             <div class="palette-label">높이</div>
             <div class="palette-z-row">
                 <button
@@ -163,7 +153,19 @@ const emit = defineEmits(['saved', 'cancel'])
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
-const { ITEM_CATALOG, getItemLayers } = useItemCatalog()
+const { ITEM_CATALOG, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
+
+// 아이템 팔레트 썸네일: layers[0] 한 장만 보여주면 실제로 배치했을 때 모양(6장 겹친 스택)이랑
+// 달라 보여서 헷갈리니까, 작은 버튼 안에서도 대충 같은 방향으로 살짝씩 겹쳐 쌓아 미리보기를 만듦.
+// MapItem.vue처럼 줌에 따른 정밀한 squash/gap 계산은 필요 없음(아이콘이 작아서 티도 안 남) —
+// 고정 픽셀 오프셋으로 충분함.
+function itemThumbLayerStyle(total, i) {
+    const stepsFromGround = total - 1 - i
+    return {
+        zIndex: total - i,
+        bottom: `0px`,
+    }
+}
 
 const TILE_W = 128
 const TILE_IMG_H = 128
@@ -222,6 +224,11 @@ const placementMode = ref('tile')
 const selectedTile = ref(1)
 const selectedItem = ref(ITEM_CATALOG[0]?.id ?? 1)
 const selectedZ = ref(0)
+// 다음에 놓을 아이템의 좌우반전 여부 — 이미 놓인 아이템 하나하나를 다시 클릭해서 뒤집는 기능은
+// 아니고(타일처럼 "지우고 다시 놓기" 방식), 팔레트에서 미리 켜두면 그 상태로 놓임
+const selectedFlip = ref(false)
+// 다음에 놓을 아이템의 "뒤로 돌리기" 여부 — 좌우반전이랑 같은 방식(미리 켜고 놓기)
+const selectedFlipBack = ref(false)
 const isErasing = ref(false)
 const hoverCell = ref(null)
 const isSaving = ref(false)
@@ -244,9 +251,9 @@ function handleCellClick(x, y) {
         if (isErasing.value) {
             if (idx !== -1) editItems.value.splice(idx, 1)
         } else if (idx !== -1) {
-            editItems.value[idx] = { position: { x, y, z }, itemid: selectedItem.value }
+            editItems.value[idx] = { position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value }
         } else {
-            editItems.value.push({ position: { x, y, z }, itemid: selectedItem.value })
+            editItems.value.push({ position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value })
         }
         return
     }
@@ -321,13 +328,6 @@ const sortedTiles = computed(() =>
     })
 )
 
-const tilesBack = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) === 0))
-const tilesFront = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) >= 1))
-
-// 아이템도 타일이랑 같은 z 기준으로 두 그룹(z=0 / z≥1)에 나눠서, 같은 레이어 그룹 안에서 같이 그려짐
-const itemsBack = computed(() => editItems.value.filter(it => (it.position.z ?? 0) === 0))
-const itemsFront = computed(() => editItems.value.filter(it => (it.position.z ?? 0) >= 1))
-
 function getFilePath(tile) { return `/tileset/${tile.itemid}.png` }
 
 function getTileContainerStyle(tile) {
@@ -339,10 +339,10 @@ function getTileContainerStyle(tile) {
     const screenY = (x + y) * (dynH / 2) - z * sideH
     const scale = (1 + (x + y) * 0.004).toFixed(3)
     // z-index는 RoomMap.vue의 getTileContainerStyle/MapItem.vue의 defaultZIndex와 반드시 같은
-    // "4n+k" 스케일을 써야 함 — 예전엔 (x+y)*10+z*2+10000 이라는 별도 스케일을 썼는데, 그러면
-    // 타일은 10000대, 아이템(MapItem.vue)은 그대로 4n+k(수십대)라서 아이템이 항상 모든 타일
-    // 뒤에 완전히 가려져(z-index가 훨씬 낮아서) 편집기에서만 아이템이 안 보이는 버그가 있었음
-    const n = x + y
+    // "4n+k" 스케일(n=x+y+2z, k=z)을 써야 함 — n에 2z를 안 더하면 화면상 같은 높이에 있는
+    // 좌표끼리 값이 안 맞아서(예: z=1 타일이 실제보다 훨씬 낮은 n을 받음) z≥1 타일이 바로 옆
+    // z=0 아이템보다 실제로는 더 뒤에 있어야 하는데도 앞으로 나오는 버그가 있었음
+    const n = x + y + 2 * z
     const k = z
     return {
         left: `calc(50% + ${screenX - TILE_W / 2}px)`,
@@ -407,13 +407,6 @@ onMounted(() => {
     --char-width: 100%;
     --char-height: 380px;
     user-select: none;
-}
-
-#wme-map {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    animation: handheld 9s ease-in-out infinite;
 }
 
 #wme-map-front {
@@ -520,6 +513,20 @@ onMounted(() => {
     object-position: center top;
 }
 
+/* 아이템 팔레트 버튼: layers[]를 여러 장 겹쳐 쌓아야 해서 위 규칙(꽉 채우는 이미지 1장)을
+   같은 태그+클래스 선택자로 덮어씀 — 소스 순서상 뒤에 오는 규칙이 이김 */
+.palette-item-btn {
+    position: relative;
+}
+.palette-item-btn img {
+    position: absolute;
+    left: 50%;
+    width: 90%;
+    height: auto;
+    transform: translateX(-50%);
+    object-fit: contain;
+}
+
 .palette-tile-btn.active {
     border-color: var(--accent, #D21F3C);
     background: rgba(210, 31, 60, 0.2);
@@ -539,6 +546,26 @@ onMounted(() => {
     border-color: #ff6b6b;
     background: rgba(255, 107, 107, 0.2);
     color: #ff6b6b;
+}
+
+.palette-flip-btn {
+    width: 100%;
+    padding: 4px 0;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.palette-flip-btn.active {
+    background: var(--accent, #D21F3C);
+    border-color: var(--accent, #D21F3C);
+    color: white;
 }
 
 .palette-z-row {

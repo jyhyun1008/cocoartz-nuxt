@@ -41,6 +41,9 @@
                         :position="item.position"
                         :top-ratio="topRatio"
                         :blur-px="getDepthBlur(item.position.x + item.position.y)"
+                        :flip-x="!!item.flip"
+                        :flip-back="!!item.flipBack"
+                        :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
                     />
                     <!-- 로컬 캐릭터 -->
                     <CharacterMoving
@@ -646,7 +649,7 @@ const TILE_IMG_H = 128  // 타일 이미지는 정사각형(128×128) 가정
 
 // 맵에 배치된 아이템 — mapInfo[0]이 타일 배열이듯, mapInfo[1]이 아이템 배열.
 // 맵 편집기(WindowMapEditor)에서 저장한 위치/itemid를 그대로 읽어와 렌더만 함
-const { getItemLayers } = useItemCatalog()
+const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 const mapItems = computed(() => mapInfo.value?.[1] ?? [])
 
 const charDepth = ref(0)

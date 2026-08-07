@@ -1,6 +1,6 @@
 <template>
     <div class="map-item-wrapper" :style="wrapperStyle">
-        <div class="map-item-stack">
+        <div class="map-item-stack" :style="stackStyle">
             <!-- 그림자 트레일: 레이어 이미지를 그대로(블러 없이) 복제해서 조금씩 더 아래로 내리면서
                  여러 겹 쌓음 — SVG feGaussianBlur로 진짜 블러를 줘봤는데, 줌으로 크기가 계속 바뀌는
                  동안 크로미움이 필터를 놓쳐서 블러 없는 크리스피한 상태로 멈춰버리는 버그가 간헐적으로
@@ -108,6 +108,21 @@ const props = defineProps({
     // 피사계심도(초점 흐림) — RoomMap의 타일이 쓰는 것과 동일한 px 값을 그대로 받아서 스택 전체에
     // 한 번에 적용(레이어마다 따로 안 걸고 wrapper 하나에만 걸어서 성능/일관성 둘 다 챙김)
     blurPx: { type: Number, default: 0 },
+    // 좌우반전. 레이어 하나하나가 아니라 스택 전체(.map-item-stack)를 한 번에 뒤집음 — 각 레이어의
+    // translateY(세로 이동)는 스택 중심 기준 좌우대칭이라 뒤집혀도 위치가 안 틀어짐
+    flipX: { type: Boolean, default: false },
+    // (실험용) 뒤로 돌리기: 진짜 뒷면 그림은 없으니 "완전히 정확한 뒷모습"은 아니지만, 아이소메트릭은
+    // 카메라 피치(고도각)가 방향에 상관없이 고정이라 층간 간격(baseShiftFor/gapPerLayer) 계산 자체는
+    // 어느 방향에서 봐도 똑같이 성립함 — 그래서 쌓는 순서/층간 간격은 그대로 두고, 각 레이어를
+    // 180도 제자리 회전만 시킴(층간 간격을 담당하는 translateY는 회전 "다음"에 적용되는 CSS
+    // transform 순서라 회전 때문에 방향이 안 뒤집힘 — translateY(...) rotate(180deg) 순서 유지 필수).
+    flipBack: { type: Boolean, default: false },
+    // flipBack일 때 레이어별로 추가로 얹는 "이미지 내부 보정" 오프셋(px, 위로 이동이 양수) —
+    // 180도 회전 때문에 그림이 캔버스 안에서 원래 있던 자리랑 달라져서 층간 간격만으론 안 맞을 때
+    // 씀. 인덱스는 layers랑 동일(0=1.png). layerHeight 대비 squashRatio로 같이 스케일되게 곱해서
+    // 줌이 바뀌어도 이미지 안에서 차지하는 비중이 똑같이 유지됨. 아이템별로 다르므로
+    // useItemCatalog.ts의 아이템 정의에 같이 들고 있다가 넘겨줌 — 안 주면 보정 없음(전부 0)
+    flipBackOffsets: { type: Array, default: () => [] },
 })
 
 const TILE_W = 128
@@ -189,6 +204,10 @@ const wrapperStyle = computed(() => ({
     filter: props.blurPx > 0 ? `blur(${props.blurPx}px)` : undefined,
 }))
 
+const stackStyle = computed(() => ({
+    transform: props.flipX ? 'scaleX(-1)' : undefined,
+}))
+
 // 레이어 i의 (그림자 없는) 기본 이동량 — 맨 아래 레이어(마지막 인덱스)는 0, 위로 갈수록 한 단씩 더 밀림
 function baseShiftFor(i) {
     const stepsFromGround = props.layers.length - 1 - i
@@ -204,11 +223,26 @@ function baseShiftFor(i) {
 // (z-index는 반드시 정수여야 함 — 예전에 0.5 단위로 사이값을 만들려다 브라우저가 그 값을 통째로
 //  무시해서 auto로 떨어지는 버그가 있었음. 정수 구간을 넉넉히 나눠서 그 문제를 원천적으로 피함)
 const Z_GROUP_SIZE = computed(() => props.shadowEchoCount + 1)
+
+// flipBack일 때만 레이어 i에 추가로 얹는 이미지 내부 보정(px, 스케일 적용 전) — flipBack이
+// 꺼져 있으면 flipBackOffsets가 있어도 무시함(원래 방향일 땐 이 보정이 적용될 이유가 없음)
+function flipBackOffsetFor(i) {
+    if (!props.flipBack) return 0
+    return (props.flipBackOffsets[i] ?? 0) * squashRatio.value
+}
+// flipBack이면 끝에 rotate(180deg)를 붙임 — translateY(...) 다음에 와야 층간 간격(먼저 계산된
+// screen-space 이동)이 회전 방향에 영향을 안 받음(rotate가 먼저 로컬로 적용되고, translateY는
+// 그 결과를 screen 좌표로 옮기는 식으로 CSS transform이 오른쪽→왼쪽 순서로 합성되기 때문)
+function flipBackSuffix() {
+    return props.flipBack ? ' rotate(180deg)' : ''
+}
+
 function layerStyle(i) {
+    const y = -baseShiftFor(i) + extraTop.value - flipBackOffsetFor(i)
     return {
         zIndex: (props.layers.length - i) * Z_GROUP_SIZE.value,
         height: `${layerHeight.value}px`,
-        transform: `translateY(${(-baseShiftFor(i) + extraTop.value).toFixed(2)}px)`,
+        transform: `translateY(${y.toFixed(2)}px)${flipBackSuffix()}`,
     }
 }
 
@@ -219,10 +253,11 @@ function echoStyle(i, e) {
     const h = layerHeight.value
     const downOffset = h * props.shadowStepRatio * e
     const opacity = props.shadowOpacity
+    const y = -baseShiftFor(i) + extraTop.value + downOffset - flipBackOffsetFor(i)
     return {
         zIndex: (props.layers.length - i) * Z_GROUP_SIZE.value - e,
         height: `${h}px`,
-        transform: `translateY(${(-baseShiftFor(i) + extraTop.value + downOffset).toFixed(2)}px)`,
+        transform: `translateY(${y.toFixed(2)}px)${flipBackSuffix()}`,
         opacity: opacity.toFixed(3),
     }
 }

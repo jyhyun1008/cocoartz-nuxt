@@ -5,13 +5,24 @@ export interface MapItemDef {
     id: number
     name: string
     layers: string[]
+    // "뒤로 돌리기"(MapItem.vue flipBack) 켰을 때 레이어별로 추가로 얹는 이미지 내부 보정 오프셋
+    // (px, 위로 이동이 양수). 180도 회전 때문에 그림이 캔버스 안에서 원래 자리랑 달라져서 층간
+    // 간격만으론 안 맞을 때 씀 — 아이템2용으로 튜너(https://claude.ai/code/artifact/3d5c1fed-...)로
+    // 직접 맞춘 값. 인덱스는 layers랑 동일(0=1.png). 안 주면 보정 없음
+    flipBackOffsets?: number[]
 }
 
 export const ITEM_CATALOG: MapItemDef[] = [
     {
         id: 1,
         name: '무지개 기둥',
-        layers: [1, 2, 3, 4, 5, 6].map(n => `/item/test/${n}.png`),
+        layers: [1, 2, 3, 4, 5, 6].map(n => `/item/1/${n}.png`),
+    },
+    {
+        id: 2,
+        name: '아이템 2',
+        layers: [1, 2, 3, 4, 5, 6].map(n => `/item/2/${n}.png`),
+        flipBackOffsets: [66, 44, 22, 0, -22, -44],
     },
 ]
 
@@ -22,5 +33,8 @@ export function useItemCatalog() {
     function getItemLayers(itemid: number) {
         return getItemDef(itemid)?.layers ?? []
     }
-    return { ITEM_CATALOG, getItemDef, getItemLayers }
+    function getItemFlipBackOffsets(itemid: number) {
+        return getItemDef(itemid)?.flipBackOffsets ?? []
+    }
+    return { ITEM_CATALOG, getItemDef, getItemLayers, getItemFlipBackOffsets }
 }
