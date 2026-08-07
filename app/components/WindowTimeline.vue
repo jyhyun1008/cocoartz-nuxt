@@ -53,9 +53,11 @@
                                         <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
                                         <span v-html="p.summary"></span>
                                     </template>
-                                    <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(p.content)"></span>
-                                    <span v-if="p.quoteUrl" class="quote-link-badge">(인용)</span>
-                                    <span v-else-if="p.linkUrl" class="quote-link-badge">(링크)</span>
+                                    <span
+                                        v-else
+                                        class="preview-text"
+                                        v-html="stripHtmlKeepEmoji(p.content, p.quoteUrl || p.linkUrl, p.quoteUrl ? '[인용]' : '[링크]')"
+                                    ></span>
                                 </div>
                                 <div class="post-card-meta">
                                     <span class="post-author remote-handle">
@@ -129,7 +131,7 @@
                     <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
                     <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
-                <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
+                <div v-else class="post-content md-content" v-html="stripEmbeddedLink(currentRemotePost.content, currentRemotePost.quoteUrl || currentRemotePost.linkUrl)"></div>
 
                 <!-- 인용글 임베드 -->
                 <a
@@ -369,15 +371,31 @@ const followingFeed = computed(() =>
 )
 
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 나머지 태그만 지움 (WindowBoard.vue와 동일 로직)
-function stripHtmlKeepEmoji(html) {
+// embedUrl(인용/링크 대상 URL)이 있으면 본문 속 그 <a href>를 통째로 작은 칩으로 바꿔서
+// 목록 미리보기에 원본 URL이 그대로 노출되지 않게 함 — 본문에 그 링크가 안 보이는 경우(예:
+// 인용 필드가 content 텍스트엔 안 들어있는 구현체)엔 칩을 미리보기 끝에 덧붙임
+function stripHtmlKeepEmoji(html, embedUrl, embedLabel) {
     if (!html) return ''
     const emojiTags = []
-    const withPlaceholders = html.replace(/<img[^>]*class="[^"]*custom-emoji[^"]*"[^>]*>/g, (match) => {
+    let processed = html.replace(/<img[^>]*class="[^"]*custom-emoji[^"]*"[^>]*>/g, (match) => {
         emojiTags.push(match)
         return ` EMOJI${emojiTags.length - 1} `
     })
-    const stripped = withPlaceholders.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-    return stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
+    let chipInlined = false
+    if (embedUrl) {
+        const escaped = embedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        processed = processed.replace(new RegExp(`<a\\s[^>]*href=["']${escaped}["'][^>]*>[\\s\\S]*?</a>`, 'i'), () => {
+            chipInlined = true
+            return ' EMBEDCHIP '
+        })
+    }
+    const stripped = processed.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    let result = stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
+    if (embedUrl) {
+        const chip = `<span class="preview-embed-chip">${embedLabel}</span>`
+        result = chipInlined ? result.replace('EMBEDCHIP', chip) : (result ? `${result} ${chip}` : chip)
+    }
+    return result
 }
 
 // 원격 글 작성자의 서버 뱃지 (WindowBoard.vue와 동일 로직)

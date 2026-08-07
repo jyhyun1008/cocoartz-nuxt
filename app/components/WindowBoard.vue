@@ -56,9 +56,11 @@
                                     <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
                                     <span v-html="entry.post.summary"></span>
                                 </template>
-                                <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(entry.post.content)"></span>
-                                <span v-if="entry.post.quoteUrl" class="quote-link-badge">(인용)</span>
-                                <span v-else-if="entry.post.linkUrl" class="quote-link-badge">(링크)</span>
+                                <span
+                                    v-else
+                                    class="preview-text"
+                                    v-html="stripHtmlKeepEmoji(entry.post.content, entry.post.quoteUrl || entry.post.linkUrl, entry.post.quoteUrl ? '[인용]' : '[링크]')"
+                                ></span>
                             </div>
                             <div class="post-card-meta">
                                 <span class="post-author remote-handle">
@@ -296,7 +298,7 @@
                     <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
                     <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
-                <div v-else class="post-content md-content" v-html="currentRemotePost.content"></div>
+                <div v-else class="post-content md-content" v-html="stripEmbeddedLink(currentRemotePost.content, currentRemotePost.quoteUrl || currentRemotePost.linkUrl)"></div>
 
                 <!-- 인용글 임베드 -->
                 <a
@@ -575,15 +577,31 @@ function stripHtml(html) {
 
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 싶어서, 그 img 태그만 플레이스홀더로
 // 빼놨다가 나머지 태그를 다 지운 뒤 다시 끼워넣음 — v-html로 렌더링해야 실제 이미지로 보임
-function stripHtmlKeepEmoji(html) {
+// embedUrl(인용/링크 대상 URL)이 있으면 본문 속 그 <a href>를 통째로 작은 칩으로 바꿔서
+// 목록 미리보기에 원본 URL이 그대로 노출되지 않게 함 — 본문에 그 링크가 안 보이는 경우(예:
+// 인용 필드가 content 텍스트엔 안 들어있는 구현체)엔 칩을 미리보기 끝에 덧붙임
+function stripHtmlKeepEmoji(html, embedUrl, embedLabel) {
     if (!html) return ''
     const emojiTags = []
-    const withPlaceholders = html.replace(/<img[^>]*class="[^"]*custom-emoji[^"]*"[^>]*>/g, (match) => {
+    let processed = html.replace(/<img[^>]*class="[^"]*custom-emoji[^"]*"[^>]*>/g, (match) => {
         emojiTags.push(match)
         return ` EMOJI${emojiTags.length - 1} `
     })
-    const stripped = withPlaceholders.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-    return stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
+    let chipInlined = false
+    if (embedUrl) {
+        const escaped = embedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        processed = processed.replace(new RegExp(`<a\\s[^>]*href=["']${escaped}["'][^>]*>[\\s\\S]*?</a>`, 'i'), () => {
+            chipInlined = true
+            return ' EMBEDCHIP '
+        })
+    }
+    const stripped = processed.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    let result = stripped.replace(/ EMOJI(\d+) /g, (_, i) => emojiTags[Number(i)])
+    if (embedUrl) {
+        const chip = `<span class="preview-embed-chip">${embedLabel}</span>`
+        result = chipInlined ? result.replace('EMBEDCHIP', chip) : (result ? `${result} ${chip}` : chip)
+    }
+    return result
 }
 
 // 원격 글 작성자의 서버 뱃지 — actorUrl에서 호스트만 뽑아서 서버 홈으로 링크 연결
@@ -1423,11 +1441,18 @@ onMounted(() => {
 .remote-original-link:hover { color: rgba(var(--fg-rgb),0.7); text-decoration: underline; }
 
 /* 목록 카드의 (인용)/(링크) 배지 */
-.quote-link-badge {
+/* 목록 미리보기 안에서 원본 URL 대신 보여주는 작은 칩 — 버튼/텍스트박스 같은 독립된 서식 */
+.preview-embed-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(var(--fg-rgb),0.08);
+    border: 1px solid rgba(var(--fg-rgb),0.15);
     font-size: 0.78rem;
-    font-weight: 400;
-    color: rgba(var(--fg-rgb),0.35);
-    flex-shrink: 0;
+    font-weight: 600;
+    color: rgba(var(--fg-rgb),0.55);
+    vertical-align: middle;
 }
 
 /* 인용글 임베드 카드 — remote-cw-gate와 같은 톤(테두리+둥근 카드)이되 경고색 대신 중립색 */
@@ -1537,7 +1562,8 @@ onMounted(() => {
 }
 
 .post-content a,
-.comment-body a {
+.comment-body a,
+.quote-embed-body a {
     color: var(--accent);
     text-decoration: underline;
     text-decoration-color: rgba(var(--fg-rgb),0.25);
