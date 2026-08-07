@@ -1584,7 +1584,8 @@ onMounted(() => {
 .post-content blockquote p { margin: 0.4em 0; }
 
 .post-content img,
-.comment-body img {
+.comment-body img,
+.quote-embed-body img {
     max-width: 100%;
     height: auto;
     border-radius: 12px;
