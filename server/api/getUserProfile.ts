@@ -1,5 +1,5 @@
 import { db } from '../utils/db'
-import { users, posts, follows, rooms, remoteFollows } from '../db/schema'
+import { users, posts, follows, rooms, remoteFollows, mutes } from '../db/schema'
 import { eq, and, desc, count, inArray, isNull } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
@@ -50,11 +50,16 @@ export default defineEventHandler(async (event) => {
     const followingCount = localFollowingCount + remoteFollowingCount
 
     let isFollowing = false
+    let myMuteLevel = null
     if (viewerUserId) {
         const [row] = await db.select().from(follows)
             .where(and(eq(follows.userid, user.id), eq(follows.followerUserId, viewerUserId)))
         isFollowing = !!row
+
+        const [muteRow] = await db.select({ level: mutes.level }).from(mutes)
+            .where(and(eq(mutes.userid, viewerUserId), eq(mutes.targetUserId, user.id)))
+        myMuteLevel = muteRow?.level ?? null
     }
 
-    return { ...user, posts: userPosts, followerCount, followingCount, isFollowing }
+    return { ...user, posts: userPosts, followerCount, followingCount, isFollowing, myMuteLevel }
 })

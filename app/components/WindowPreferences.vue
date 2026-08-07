@@ -61,6 +61,36 @@
                         <div v-if="!remoteFollowsList.length" class="empty" style="padding:14px 0">아직 팔로우한 원격 계정이 없습니다.</div>
                     </div>
                 </div>
+
+                <!-- 뮤트 목록 -->
+                <div class="admin-section">
+                    <div class="admin-section-header">
+                        <span class="admin-section-title">뮤트 목록</span>
+                    </div>
+                    <p class="admin-label-hint" style="margin:-4px 0 10px">
+                        게시판/타임라인/채팅에서 뮤트한 사람들이에요. 소프트 뮤트는 "뮤트된 게시물입니다" 게이트로 가려지고, 하드 뮤트는 아예 안 보여요.
+                    </p>
+                    <div class="admin-channel-list">
+                        <div v-for="m in mutesList" :key="m.id" class="admin-channel-item">
+                            <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
+                                <NuxtImg v-if="m.kind === 'remote' ? m.iconUrl : m.avatar" :src="m.kind === 'remote' ? m.iconUrl : m.avatar" />
+                                <i v-else class="hgi hgi-stroke hgi-user-group"></i>
+                            </div>
+                            <span v-if="m.kind === 'remote' && m.name" class="admin-ch-name" v-html="m.name"></span>
+                            <span v-else class="admin-ch-name">{{ m.kind === 'remote' ? m.handle : (m.knownas || m.username) }}</span>
+                            <code class="admin-ch-path">{{ m.kind === 'remote' ? m.handle : `@${m.username}` }}</code>
+                            <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': m.level === 'hard' }">
+                                {{ m.level === 'hard' ? '하드 뮤트' : '소프트 뮤트' }}
+                            </span>
+                            <div class="admin-ch-actions">
+                                <button class="admin-icon-btn danger" @click="unmute(m)" title="뮤트 해제">
+                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="!mutesList.length" class="empty" style="padding:14px 0">뮤트한 사람이 없습니다.</div>
+                    </div>
+                </div>
             </template>
             <div v-else class="admin-section">
                 <p class="admin-label-hint">로그인 후 더 많은 설정을 이용할 수 있습니다.</p>
@@ -117,6 +147,25 @@ async function unfollowRemote(id) {
     } catch (e) {
         remoteFollowError.value = e?.data?.message ?? '언팔로우에 실패했습니다'
     }
+}
+
+const { data: mutesData, refresh: refreshMutes } = await useAsyncData(
+    'mutes-list',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getMutes`, { method: 'POST', body: { userid: userId.value } }).then(res => Array.isArray(res) ? res : [])
+        : Promise.resolve([]),
+    { watch: [userId] },
+)
+const mutesList = computed(() => mutesData.value ?? [])
+
+async function unmute(m) {
+    await $fetch(`${apiBaseUrl}/api/unmuteUser`, {
+        method: 'POST',
+        body: m.kind === 'remote'
+            ? { userid: userId.value, targetActorUrl: m.targetActorUrl }
+            : { userid: userId.value, targetUserId: m.targetUserId },
+    }).catch(() => {})
+    await refreshMutes()
 }
 </script>
 

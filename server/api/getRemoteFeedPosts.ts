@@ -1,6 +1,7 @@
 import { db } from '../utils/db'
 import { remoteTimelinePosts, remoteTimelinePostLikes } from '../db/schema'
 import { desc, and, eq, inArray } from 'drizzle-orm'
+import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -16,7 +17,10 @@ export default eventHandler(async (event) => {
         .offset(offset ?? 0)
 
     const hasMore = rows.length > PAGE_SIZE
-    const posts = rows.slice(0, PAGE_SIZE) as Array<typeof rows[number] & { liked: boolean }>
+    let posts = rows.slice(0, PAGE_SIZE) as Array<typeof rows[number] & { liked: boolean }>
+
+    const muteLookup = await getMuteLookup(viewerUserId)
+    posts = applyMuteFilter(posts, muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
 
     if (viewerUserId && posts.length) {
         const ids = posts.map((p) => p.id)

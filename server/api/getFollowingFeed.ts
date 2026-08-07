@@ -1,6 +1,7 @@
 import { db } from '../utils/db'
 import { follows, posts, users, remoteFeedPosts } from '../db/schema'
 import { eq, and, inArray, isNull, desc } from 'drizzle-orm'
+import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -17,6 +18,8 @@ export default eventHandler(async (event) => {
     const followingRows = await db.select({ userid: follows.userid }).from(follows)
         .where(eq(follows.followerUserId, userid))
     const followingIds = [...new Set([...followingRows.map(r => r.userid), userid])]
+
+    const muteLookup = await getMuteLookup(userid)
 
     let localPosts: any[] = []
     let hasMoreLocal = false
@@ -40,6 +43,7 @@ export default eventHandler(async (event) => {
             item.isRemote = false
             item.sortDate = item.createdAt
         }
+        localPosts = applyMuteFilter(localPosts, muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
     }
 
     // 원격 계정 팔로우 → remoteFeedPosts
@@ -50,7 +54,7 @@ export default eventHandler(async (event) => {
         .offset(remoteOffset ?? 0)
 
     const hasMoreRemote = remoteRows.length > PAGE_SIZE
-    const remotePosts = remoteRows.slice(0, PAGE_SIZE).map((r) => ({
+    let remotePosts = remoteRows.slice(0, PAGE_SIZE).map((r) => ({
         id: `remote-${r.id}`, // 로컬 글과 id 공간이 겹칠 수 있어 v-for :key 충돌 방지용 접두사
         feedPostId: r.id, // 좋아요/답글 API 호출용 실제 숫자 id
         objectId: r.objectId, // 댓글 목록 조회(getRemoteFeedPostReplies)용
@@ -65,6 +69,7 @@ export default eventHandler(async (event) => {
         sourceName: r.sourceName,
         sourceIconUrl: r.sourceIconUrl,
     }))
+    remotePosts = applyMuteFilter(remotePosts, muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
 
     return { localPosts, hasMoreLocal, remotePosts, hasMoreRemote }
 })

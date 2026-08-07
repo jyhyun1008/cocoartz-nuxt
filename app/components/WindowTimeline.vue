@@ -15,8 +15,16 @@
             <template v-if="isLoggedIn">
                 <div v-if="followingFeed.length" class="board">
                     <template v-for="p in followingFeed" :key="p.id">
+                        <!-- 뮤트(소프트)된 글 게이트 — 로컬/원격 공통 -->
+                        <div
+                            v-if="p.muted === 'soft' && !revealedMuted[p.id]"
+                            class="post-card remote-cw-gate"
+                        >
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 게시물입니다</div>
+                            <button class="submit-btn" @click.stop="revealedMuted[p.id] = true">그래도 보기</button>
+                        </div>
                         <!-- 로컬 글: 제목만, 클릭하면 게시글 페이지로 (답글은 getFollowingFeed에서 이미 제외됨) -->
-                        <NuxtLink v-if="!p.isRemote" :to="`/post/${p.id}`" class="post-card">
+                        <NuxtLink v-else-if="!p.isRemote" :to="`/post/${p.id}`" class="post-card">
                             <div class="post-card-title">{{ p.title }}</div>
                             <div class="post-card-meta">
                                 <span class="post-author">{{ p.user?.knownas ?? p.user?.username }}</span>
@@ -82,6 +90,15 @@
                         <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
                     </a>
                     <span class="datetime">{{ formatDate(currentRemotePost.createdAt) }}</span>
+                    <div v-if="userId" class="mute-action-wrap">
+                        <button class="post-icon-btn" @click.stop="toggleMuteMenu({ actorUrl: currentRemotePost.sourceActorUrl })" title="뮤트">
+                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
+                        </button>
+                        <div v-if="activeMuteKey === muteKeyFor({ actorUrl: currentRemotePost.sourceActorUrl })" class="mute-menu" @click.stop>
+                            <button @click="confirmMute({ actorUrl: currentRemotePost.sourceActorUrl }, 'soft')">소프트 뮤트</button>
+                            <button @click="confirmMute({ actorUrl: currentRemotePost.sourceActorUrl }, 'hard')">하드 뮤트</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="currentRemotePost.summary && !showRemoteContent" class="remote-cw-gate">
@@ -103,20 +120,46 @@
                 <div class="comments-section">
                     <div class="comments-title">댓글 {{ remoteReplies.length }}</div>
                     <div v-for="comment in remoteReplies" :key="comment.id" class="comment">
-                        <div class="comment-meta">
-                            <template v-if="comment.remoteActorHandle">
-                                <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
-                                    <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                    <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
-                                    <span v-else>{{ comment.remoteActorHandle }}</span>
-                                    <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
-                                </a>
-                            </template>
-                            <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
-                            <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
+                        <div v-if="comment.muted === 'soft' && !revealedMuted[`reply-${comment.id}`]" class="remote-cw-gate">
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 댓글입니다</div>
+                            <button class="submit-btn" @click="revealedMuted[`reply-${comment.id}`] = true">그래도 보기</button>
                         </div>
-                        <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
-                        <div v-else class="comment-body">{{ comment.content }}</div>
+                        <template v-else>
+                            <div class="comment-meta">
+                                <template v-if="comment.remoteActorHandle">
+                                    <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
+                                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                        <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
+                                        <span v-else>{{ comment.remoteActorHandle }}</span>
+                                        <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
+                                    </a>
+                                </template>
+                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
+                                <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
+                                <div
+                                    v-if="userId && (comment.remoteActorHandle || comment.userid !== userId)"
+                                    class="mute-action-wrap"
+                                >
+                                    <button
+                                        class="post-icon-btn"
+                                        @click.stop="toggleMuteMenu(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
+                                        title="뮤트"
+                                    >
+                                        <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
+                                    </button>
+                                    <div
+                                        v-if="activeMuteKey === muteKeyFor(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
+                                        class="mute-menu"
+                                        @click.stop
+                                    >
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">소프트 뮤트</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">하드 뮤트</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
+                            <div v-else class="comment-body">{{ comment.content }}</div>
+                        </template>
                     </div>
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
                 </div>
@@ -137,6 +180,38 @@ const apiBaseUrl = config.public.apiBaseUrl
 defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
+
+// 뮤트 — WindowBoard.vue와 동일한 패턴(소프트: 게이트+"그래도 보기", 하드: 서버가 애초에 안 내려줌)
+const activeMuteKey = ref(null)
+const revealedMuted = ref({})
+function muteKeyFor(target) {
+    return target.userid != null ? `local-${target.userid}` : `remote-${target.actorUrl}`
+}
+function toggleMuteMenu(target) {
+    const key = muteKeyFor(target)
+    activeMuteKey.value = activeMuteKey.value === key ? null : key
+}
+async function confirmMute(target, level) {
+    if (!userId.value) return
+    await $fetch(`${apiBaseUrl}/api/muteUser`, {
+        method: 'POST',
+        body: {
+            userid: userId.value,
+            targetUserId: target.userid ?? undefined,
+            targetActorUrl: target.actorUrl ?? undefined,
+            level,
+        },
+    }).catch(() => {})
+    activeMuteKey.value = null
+    await loadFirstPage()
+    if (currentView.value === 'remote-detail' && currentRemotePost.value) await refreshRemoteReplies()
+}
+
+onMounted(() => {
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.mute-action-wrap')) activeMuteKey.value = null
+    })
+})
 
 // 로컬 팔로우 글/원격 팔로우 글을 각자 독립적으로 페이지네이션(WindowBoard.vue의 게시판 목록과 동일한 패턴) —
 // "더보기" 클릭 시 두 소스 모두 다음 페이지를 불러와서 누적한 뒤 날짜순으로 다시 합쳐서 보여줌
@@ -273,9 +348,14 @@ async function openRemotePost(post) {
     showRemoteContent.value = false
     remoteReplyContent.value = ''
     currentView.value = 'remote-detail'
+    await refreshRemoteReplies()
+}
+
+async function refreshRemoteReplies() {
+    if (!currentRemotePost.value) return
     remoteReplies.value = await $fetch(`${apiBaseUrl}/api/getRemoteFeedPostReplies`, {
         method: 'POST',
-        body: { objectId: post.objectId },
+        body: { objectId: currentRemotePost.value.objectId, viewerUserId: userId.value ?? null },
     }).catch(() => [])
 }
 

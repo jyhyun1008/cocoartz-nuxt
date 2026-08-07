@@ -56,6 +56,31 @@ async function toggleReaction(emoji) {
 
 const isOwnPost = computed(() => !!post.value?.userid && post.value.userid === userId.value)
 
+// 뮤트 — WindowBoard.vue/WindowTimeline.vue와 동일한 패턴
+const activeMuteKey = ref(null)
+const revealedMuted = ref({})
+function muteKeyFor(target) {
+    return target.userid != null ? `local-${target.userid}` : `remote-${target.actorUrl}`
+}
+function toggleMuteMenu(target) {
+    const key = muteKeyFor(target)
+    activeMuteKey.value = activeMuteKey.value === key ? null : key
+}
+async function confirmMute(target, level) {
+    if (!userId.value) return
+    await $fetch(`${apiBaseUrl}/api/muteUser`, {
+        method: 'POST',
+        body: {
+            userid: userId.value,
+            targetUserId: target.userid ?? undefined,
+            targetActorUrl: target.actorUrl ?? undefined,
+            level,
+        },
+    }).catch(() => {})
+    activeMuteKey.value = null
+    await refresh()
+}
+
 const shareCopied = ref(false)
 async function sharePost() {
     if (!post.value) return
@@ -151,6 +176,8 @@ onMounted(() => {
             showPicker.value = false
         if (emojiWrapRef.value && !emojiWrapRef.value.contains(e.target))
             showEmojiPicker.value = false
+        if (!e.target.closest('.mute-action-wrap'))
+            activeMuteKey.value = null
     })
 })
 </script>
@@ -205,6 +232,15 @@ onMounted(() => {
                             <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" title="삭제">
                                 <i class="hgi hgi-stroke hgi-delete-02"></i>
                             </button>
+                            <div v-if="!isOwnPost && userId" class="mute-action-wrap">
+                                <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: post.userid })" title="뮤트">
+                                    <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
+                                </button>
+                                <div v-if="activeMuteKey === muteKeyFor({ userid: post.userid })" class="mute-menu" @click.stop>
+                                    <button @click="confirmMute({ userid: post.userid }, 'soft')">소프트 뮤트</button>
+                                    <button @click="confirmMute({ userid: post.userid }, 'hard')">하드 뮤트</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -275,22 +311,48 @@ onMounted(() => {
                     <div class="pd-comments-title">댓글 {{ post?.comments?.length ?? 0 }}</div>
 
                     <div v-for="comment in post?.comments" :key="comment.id" class="pd-comment">
-                        <div class="pd-comment-meta">
-                            <template v-if="comment.remoteActorHandle">
-                                <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="pd-author remote-author" title="fediverse에서 온 답글">
-                                    <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                    <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
-                                    <span v-else>{{ comment.remoteActorHandle }}</span>
-                                    <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
-                                </a>
-                            </template>
-                            <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="pd-author">
-                                {{ comment.user?.knownas ?? comment.user?.username }}
-                            </NuxtLink>
-                            <span class="pd-date">{{ formatDate(comment.createdAt) }}</span>
+                        <div v-if="comment.muted === 'soft' && !revealedMuted[`comment-${comment.id}`]" class="remote-cw-gate">
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 댓글입니다</div>
+                            <button class="submit-btn" @click="revealedMuted[`comment-${comment.id}`] = true">그래도 보기</button>
                         </div>
-                        <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="comment.content"></div>
-                        <div v-else class="pd-comment-body">{{ comment.content }}</div>
+                        <template v-else>
+                            <div class="pd-comment-meta">
+                                <template v-if="comment.remoteActorHandle">
+                                    <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="pd-author remote-author" title="fediverse에서 온 답글">
+                                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                        <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
+                                        <span v-else>{{ comment.remoteActorHandle }}</span>
+                                        <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
+                                    </a>
+                                </template>
+                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="pd-author">
+                                    {{ comment.user?.knownas ?? comment.user?.username }}
+                                </NuxtLink>
+                                <span class="pd-date">{{ formatDate(comment.createdAt) }}</span>
+                                <div
+                                    v-if="userId && (comment.remoteActorHandle || comment.userid !== userId)"
+                                    class="mute-action-wrap"
+                                >
+                                    <button
+                                        class="post-icon-btn"
+                                        @click.stop="toggleMuteMenu(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
+                                        title="뮤트"
+                                    >
+                                        <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
+                                    </button>
+                                    <div
+                                        v-if="activeMuteKey === muteKeyFor(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
+                                        class="mute-menu"
+                                        @click.stop
+                                    >
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">소프트 뮤트</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">하드 뮤트</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="comment.content"></div>
+                            <div v-else class="pd-comment-body">{{ comment.content }}</div>
+                        </template>
                     </div>
 
                     <div v-if="!post?.comments?.length" class="pd-empty">댓글이 없습니다.</div>
@@ -512,6 +574,56 @@ onMounted(() => {
     15% { opacity: 1; transform: translateX(-50%) translateY(0); }
     80% { opacity: 1; }
     100% { opacity: 0; }
+}
+
+.mute-action-wrap { position: relative; display: flex; }
+
+.mute-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--surface-2);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    border-radius: 8px;
+    box-shadow: var(--modal-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 20;
+    white-space: nowrap;
+}
+
+.mute-menu button {
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    color: rgba(var(--fg-rgb),0.75);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+}
+.mute-menu button:hover { background: rgba(var(--fg-rgb),0.07); }
+
+.remote-cw-gate {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 16px;
+    border-radius: 10px;
+    background: rgba(255,180,84,0.08);
+    border: 1px solid rgba(255,180,84,0.25);
+}
+
+.remote-cw-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #ffb454;
 }
 
 /* 수정 폼 */

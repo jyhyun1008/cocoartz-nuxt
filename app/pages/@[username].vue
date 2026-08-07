@@ -38,6 +38,29 @@ async function toggleFollow() {
     }
 }
 
+// 뮤트 — 소프트/하드 두 개 중 하나만 켜져 있을 수 있음(같은 버튼 다시 누르면 해제)
+const muteLoading = ref(false)
+async function toggleMute(level) {
+    if (!userId.value || muteLoading.value) return
+    muteLoading.value = true
+    try {
+        if (userData.value?.myMuteLevel === level) {
+            await $fetch(`${apiBaseUrl}/api/unmuteUser`, {
+                method: 'POST',
+                body: { userid: userId.value, targetUserId: userData.value.id },
+            })
+        } else {
+            await $fetch(`${apiBaseUrl}/api/muteUser`, {
+                method: 'POST',
+                body: { userid: userId.value, targetUserId: userData.value.id, level },
+            })
+        }
+        await refresh()
+    } finally {
+        muteLoading.value = false
+    }
+}
+
 const topLevelPosts = computed(() =>
     (userData.value?.posts ?? []).filter(p => !p.replyto)
 )
@@ -192,15 +215,32 @@ function switchFollowListTab(type) {
                         </div>
                     </div>
                     <button v-if="isOwn" id="edit-profile-btn" @click="openEdit">프로필 편집</button>
-                    <button
-                        v-else-if="userId"
-                        id="follow-btn"
-                        :class="{ following: userData?.isFollowing }"
-                        :disabled="followLoading"
-                        @click="toggleFollow"
-                    >
-                        {{ userData?.isFollowing ? '팔로잉' : '팔로우' }}
-                    </button>
+                    <template v-else-if="userId">
+                        <button
+                            id="follow-btn"
+                            :class="{ following: userData?.isFollowing }"
+                            :disabled="followLoading"
+                            @click="toggleFollow"
+                        >
+                            {{ userData?.isFollowing ? '팔로잉' : '팔로우' }}
+                        </button>
+                        <div id="mute-btn-group">
+                            <button
+                                class="mute-btn"
+                                :class="{ active: userData?.myMuteLevel === 'soft' }"
+                                :disabled="muteLoading"
+                                title="소프트 뮤트 — 뮤트된 게시물입니다 게이트로 가림"
+                                @click="toggleMute('soft')"
+                            >소프트 뮤트</button>
+                            <button
+                                class="mute-btn"
+                                :class="{ active: userData?.myMuteLevel === 'hard' }"
+                                :disabled="muteLoading"
+                                title="하드 뮤트 — 아예 안 보임"
+                                @click="toggleMute('hard')"
+                            >하드 뮤트</button>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- 프로필 정보 -->
@@ -532,6 +572,31 @@ function switchFollowListTab(type) {
     border-color: rgba(var(--fg-rgb),0.25);
 }
 #follow-btn.following:hover {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+}
+
+#mute-btn-group {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.mute-btn {
+    background: none;
+    border: 1px solid rgba(var(--fg-rgb),0.15);
+    color: rgba(var(--fg-rgb),0.5);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.mute-btn:hover { border-color: rgba(var(--fg-rgb),0.35); color: rgba(var(--fg-rgb),0.85); }
+.mute-btn:disabled { opacity: 0.5; cursor: default; }
+.mute-btn.active {
+    background: rgba(255,107,107,0.12);
     border-color: #ff6b6b;
     color: #ff6b6b;
 }

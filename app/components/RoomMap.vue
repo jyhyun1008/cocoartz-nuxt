@@ -92,58 +92,73 @@
                         <div v-else class="avatar avatar-placeholder">{{ (chat.user?.knownas ?? chat.user?.username ?? '?')[0] }}</div>
                     </NuxtLink>
                     <div class="userchatbox">
-                        <div class="userinfo">
-                            <NuxtLink :to="chat.user?.username ? `/@${chat.user.username}` : '#'" class="knownas user-name-link">
-                                {{ chat.user?.knownas ?? chat.user?.username }}
-                            </NuxtLink>
-                            <span class="datetime">{{ formatDate(chat.createdAt) }}</span>
-                            <span v-if="chat.edited" class="edited-tag">(수정됨)</span>
-                            <div v-if="chat.userid === userId && editingChatId !== chat.id" class="chat-msg-actions">
-                                <button class="post-icon-btn" @click="startEditChat(chat)" title="수정">
-                                    <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
-                                </button>
-                                <button class="post-icon-btn danger" @click="deleteChatMessage(chat)" title="삭제">
-                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
-                                </button>
-                            </div>
+                        <div v-if="chat.muted === 'soft' && !revealedMutedChats[chat.id]" class="remote-cw-gate">
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 메시지입니다</div>
+                            <button class="submit-btn" @click="revealedMutedChats[chat.id] = true">그래도 보기</button>
                         </div>
-                        <div v-if="editingChatId === chat.id" class="chat-edit-form">
-                            <textarea
-                                v-model="editingContent"
-                                class="chat-textarea"
-                                rows="1"
-                                @keydown.enter.exact.prevent="submitEditChat(chat)"
-                                @keydown.esc="cancelEditChat"
-                            ></textarea>
-                            <div class="chat-edit-actions">
-                                <button class="back-btn-header" @click="cancelEditChat">취소</button>
-                                <button class="submit-btn" @click="submitEditChat(chat)" :disabled="!editingContent.trim()">저장</button>
+                        <template v-else>
+                            <div class="userinfo">
+                                <NuxtLink :to="chat.user?.username ? `/@${chat.user.username}` : '#'" class="knownas user-name-link">
+                                    {{ chat.user?.knownas ?? chat.user?.username }}
+                                </NuxtLink>
+                                <span class="datetime">{{ formatDate(chat.createdAt) }}</span>
+                                <span v-if="chat.edited" class="edited-tag">(수정됨)</span>
+                                <div v-if="chat.userid === userId && editingChatId !== chat.id" class="chat-msg-actions">
+                                    <button class="post-icon-btn" @click="startEditChat(chat)" title="수정">
+                                        <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
+                                    </button>
+                                    <button class="post-icon-btn danger" @click="deleteChatMessage(chat)" title="삭제">
+                                        <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                    </button>
+                                </div>
+                                <div v-if="chat.userid !== userId && userId" class="mute-action-wrap">
+                                    <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: chat.userid })" title="뮤트">
+                                        <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
+                                    </button>
+                                    <div v-if="activeMuteKey === muteKeyFor({ userid: chat.userid })" class="mute-menu" @click.stop>
+                                        <button @click="confirmMuteChat({ userid: chat.userid }, 'soft')">소프트 뮤트</button>
+                                        <button @click="confirmMuteChat({ userid: chat.userid }, 'hard')">하드 뮤트</button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div v-else class="msg" v-html="renderMd(chat.content)"></div>
-                        <div class="reactions-row chat-reactions-row">
-                            <button
-                                v-for="r in getChatReactions(chat)"
-                                :key="r.emoji"
-                                class="reaction-pill"
-                                :class="{ reacted: r.reacted }"
-                                @click="toggleChatReaction(chat, r.emoji)"
-                            >
-                                {{ r.emoji }} {{ r.count }}
-                            </button>
-                            <div class="emoji-picker-wrap">
+                            <div v-if="editingChatId === chat.id" class="chat-edit-form">
+                                <textarea
+                                    v-model="editingContent"
+                                    class="chat-textarea"
+                                    rows="1"
+                                    @keydown.enter.exact.prevent="submitEditChat(chat)"
+                                    @keydown.esc="cancelEditChat"
+                                ></textarea>
+                                <div class="chat-edit-actions">
+                                    <button class="back-btn-header" @click="cancelEditChat">취소</button>
+                                    <button class="submit-btn" @click="submitEditChat(chat)" :disabled="!editingContent.trim()">저장</button>
+                                </div>
+                            </div>
+                            <div v-else class="msg" v-html="renderMd(chat.content)"></div>
+                            <div class="reactions-row chat-reactions-row">
                                 <button
-                                    :ref="el => setChatReactionBtnRef(chat.id, el)"
-                                    class="reaction-add-btn chat-reaction-add-btn"
-                                    @click.stop="openChatReactionPicker(chat)"
-                                >+</button>
-                                <EmojiPicker
-                                    v-if="activeReactionChatId === chat.id"
-                                    :anchor="chatReactionAnchorEl"
-                                    @select="(e) => { toggleChatReaction(chat, e); activeReactionChatId = null }"
-                                />
+                                    v-for="r in getChatReactions(chat)"
+                                    :key="r.emoji"
+                                    class="reaction-pill"
+                                    :class="{ reacted: r.reacted }"
+                                    @click="toggleChatReaction(chat, r.emoji)"
+                                >
+                                    {{ r.emoji }} {{ r.count }}
+                                </button>
+                                <div class="emoji-picker-wrap">
+                                    <button
+                                        :ref="el => setChatReactionBtnRef(chat.id, el)"
+                                        class="reaction-add-btn chat-reaction-add-btn"
+                                        @click.stop="openChatReactionPicker(chat)"
+                                    >+</button>
+                                    <EmojiPicker
+                                        v-if="activeReactionChatId === chat.id"
+                                        :anchor="chatReactionAnchorEl"
+                                        @select="(e) => { toggleChatReaction(chat, e); activeReactionChatId = null }"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -296,7 +311,7 @@ const serverAndRoomId = computed(() => ({
 
 const { userId } = useCurrentUser()
 
-const { data: chatData } = await useAsyncData(
+const { data: chatData, refresh: refreshChatData } = await useAsyncData(
     chatKey,
     () => $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
         method: 'POST',
@@ -305,6 +320,20 @@ const { data: chatData } = await useAsyncData(
     }).then(res => (Array.isArray(res) && res.length > 0 ? res : null)),
     { watch: [() => props.path] }
 )
+
+// 뮤트 — 초기 채팅 목록(chatData)은 서버(getChatsByRoomId)가 이미 걸러서 내려주지만, 웹소켓으로
+// 실시간으로 들어오는 새 메시지는 브로드캐스트 단계에서 뮤트를 모르므로 여기서 로컬(내 뮤트 목록)
+// 기준으로 한 번 더 걸러야 함. 채팅은 로컬 유저만 있으므로 로컬 뮤트만 확인하면 됨.
+const myLocalMutes = ref(new Map())
+async function loadMyMutes() {
+    if (!userId.value) { myLocalMutes.value = new Map(); return }
+    const rows = await $fetch(`${apiBaseUrl}/api/getMutes`, { method: 'POST', body: { userid: userId.value } }).catch(() => [])
+    myLocalMutes.value = new Map(
+        (Array.isArray(rows) ? rows : []).filter(r => r.kind === 'local').map(r => [r.targetUserId, r.level]),
+    )
+}
+loadMyMutes()
+watch(userId, loadMyMutes)
 
 function isJSON(str) {
     try { JSON.parse(str); return true } catch { return false }
@@ -333,7 +362,10 @@ const chats = computed(() => {
         } else if (item.wsType === 'chat_delete') {
             map.delete(item.id)
         } else if (!map.has(item.id)) {
-            map.set(item.id, item)
+            // 실시간으로 새로 들어온 메시지는 브로드캐스트 단계에서 뮤트 필터링이 안 되므로 여기서 확인
+            const level = myLocalMutes.value.get(item.userid)
+            if (level === 'hard') continue
+            map.set(item.id, level === 'soft' ? { ...item, muted: 'soft' } : item)
         }
     }
     return [...map.values()]
@@ -434,6 +466,8 @@ onMounted(() => {
             showChatEmojiPicker.value = false
         if (!e.target.closest('.chat-reaction-add-btn'))
             activeReactionChatId.value = null
+        if (!e.target.closest('.mute-action-wrap'))
+            activeMuteKey.value = null
     })
 })
 
@@ -782,6 +816,28 @@ function submitEditChat(chat) {
 }
 function deleteChatMessage(chat) {
     wsDeleteChat(chat.id)
+}
+
+// 채팅 메시지 작성자 뮤트 — 다른 콘텐츠(게시판/타임라인)와 동일한 패턴. 채팅은 로컬 유저만
+// 있으므로 로컬 뮤트만 다룸. 뮤트 직후 초기 로드분(chatData)도 다시 걸러지도록 새로고침하고,
+// 실시간으로 들어올 메시지를 위해 내 뮤트 목록(myLocalMutes)도 갱신
+const activeMuteKey = ref(null)
+const revealedMutedChats = ref({})
+function muteKeyFor(target) {
+    return `local-${target.userid}`
+}
+function toggleMuteMenu(target) {
+    const key = muteKeyFor(target)
+    activeMuteKey.value = activeMuteKey.value === key ? null : key
+}
+async function confirmMuteChat(target, level) {
+    if (!userId.value) return
+    await $fetch(`${apiBaseUrl}/api/muteUser`, {
+        method: 'POST',
+        body: { userid: userId.value, targetUserId: target.userid, level },
+    }).catch(() => {})
+    activeMuteKey.value = null
+    await Promise.all([loadMyMutes(), refreshChatData()])
 }
 
 // 발끝 screen_y = center + (16 + charBotH) * z
@@ -1240,11 +1296,11 @@ onMounted(() => {
     overflow-wrap: break-word;
     word-break: break-word;
 }
-.msg :deep(p) {
+.msg p {
     margin: 0;
 }
-.msg :deep(p + p) {
-    margin-top: 0.35em;
+.msg p + p {
+    margin-top: 0;
 }
 
 .userchatbox .userinfo {

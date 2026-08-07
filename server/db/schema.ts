@@ -212,6 +212,24 @@ export const remoteFollows = pgTable('remote_follows', {
     uniqueIndex('remote_follows_userid_target_idx').on(table.userid, table.targetActorUrl),
 ])
 
+// 유저 개인이 뮤트한 상대 — 로컬 유저(targetUserId)든 원격 액터(targetActorUrl, 팔로우 여부 무관)든
+// 가능. soft: 목록엔 뜨되 "뮤트된 게시물입니다" 게이트로 가려짐. hard: 조회 결과에서 아예 제외.
+// 뮤트를 건 사람 화면에만 영향 — 차단과 달리 상대의 활동/다른 사람이 보는 화면엔 영향 없음
+export const mutes = pgTable('mutes', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    targetUserId: integer(),
+    targetActorUrl: text(),
+    targetActorName: text(),
+    targetActorHandle: text(),
+    targetActorIconUrl: text(),
+    level: text().notNull(), // 'soft' | 'hard'
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('mutes_userid_target_user_idx').on(table.userid, table.targetUserId),
+    uniqueIndex('mutes_userid_target_actor_idx').on(table.userid, table.targetActorUrl),
+])
+
 // 유저 개인 팔로잉 피드에 들어오는 원격 글
 export const remoteFeedPosts = pgTable('remote_feed_posts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),

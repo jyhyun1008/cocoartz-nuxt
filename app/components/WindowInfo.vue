@@ -170,9 +170,9 @@ const roomCount = computed(() => {
     overflow-wrap: break-word;
     word-break: break-word;
 }
-.info-content :deep(p) { margin: 0.5em 0; }
-.info-content :deep(p:first-child) { margin-top: 0; }
-.info-content :deep(p:last-child) { margin-bottom: 0; }
+.info-content p { margin: 0.5em 0; }
+.info-content p:first-child { margin-top: 0; }
+.info-content p:last-child { margin-bottom: 0; }
 
 @media (max-width: 768px) {
     #infowindow-wrapper {

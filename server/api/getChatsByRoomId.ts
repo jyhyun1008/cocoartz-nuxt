@@ -1,12 +1,16 @@
 import { db } from '../utils/db'
 import { chats, users, chatReactions } from '../db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
+import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
 
 export default eventHandler(async (event) => {
     const { serverid, roomid, userid } = await readBody(event)
-    const results = await db.select().from(chats).where(
+    let results = await db.select().from(chats).where(
         and(eq(chats.serverid, serverid), eq(chats.roomid, roomid))
     )
+    const muteLookup = await getMuteLookup(userid)
+    results = applyMuteFilter(results, muteLookup, (c) => ({ userid: c.userid }))
+
     for (const result of results) {
         const userinfo = await db.select().from(users).where(eq(users.id, result.userid))
         ;(result as any).user = userinfo[0]
