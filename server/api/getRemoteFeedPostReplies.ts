@@ -37,7 +37,9 @@ export default eventHandler(async (event) => {
     }
 
     for (const item of all) {
-        const u = item.userid ? await db.select().from(users).where(eq(users.id, item.userid)) : []
+        const u = item.userid
+            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, item.userid))
+            : []
         ;(item as any).user = u[0] ?? null
     }
 

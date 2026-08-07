@@ -8,6 +8,10 @@ const EMPTY: InstanceInfo = { name: null, themeColor: null, iconUrl: null }
 // 마스토돈도 대체로 지원함. 실패한 경우도 같이 캐싱해서 매번 다시 두들기지 않게 함
 const cache = new Map<string, { data: InstanceInfo; expiresAt: number }>()
 const CACHE_TTL = 60 * 60 * 1000
+// 상대 서버가 일시적으로 느리거나(타임아웃) 잠깐 다운돼서 실패한 경우까지 성공 케이스와
+// 똑같이 1시간씩 "실패"로 캐싱해버리면, 그 서버 로고가 최대 1시간 동안 계속 안 뜨는 것처럼
+// 보임 — 실패는 훨씬 짧게 캐싱해서 다음 요청 때 금방 다시 시도되게 함
+const FAILURE_CACHE_TTL = 5 * 60 * 1000
 
 setInterval(() => {
     const now = Date.now()
@@ -53,7 +57,7 @@ export async function fetchInstanceInfo(host: string): Promise<InstanceInfo> {
         cache.set(host, { data, expiresAt: Date.now() + CACHE_TTL })
         return data
     } catch {
-        cache.set(host, { data: EMPTY, expiresAt: Date.now() + CACHE_TTL })
+        cache.set(host, { data: EMPTY, expiresAt: Date.now() + FAILURE_CACHE_TTL })
         return EMPTY
     }
 }

@@ -9,12 +9,16 @@ export default eventHandler(async (event) => {
     const [post] = await db.select().from(posts).where(eq(posts.id, postid))
     if (!post) return null
 
-    const [user] = post.userid ? await db.select().from(users).where(eq(users.id, post.userid)) : []
+    const [user] = post.userid
+        ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, post.userid))
+        : []
     const [room] = await db.select({ path: rooms.path, knownas: rooms.knownas }).from(rooms).where(eq(rooms.id, post.roomid))
 
     let comments = await db.select().from(posts).where(eq(posts.replyto, String(postid)))
     for (const comment of comments) {
-        const [commentUser] = comment.userid ? await db.select().from(users).where(eq(users.id, comment.userid)) : []
+        const [commentUser] = comment.userid
+            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, comment.userid))
+            : []
         ;(comment as any).user = commentUser
     }
 

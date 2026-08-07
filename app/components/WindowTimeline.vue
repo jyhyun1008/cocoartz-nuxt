@@ -24,15 +24,24 @@
                             <button class="submit-btn" @click.stop="revealedMuted[p.id] = true">그래도 보기</button>
                         </div>
                         <!-- 로컬 글: 제목만, 클릭하면 게시글 페이지로 (답글은 getFollowingFeed에서 이미 제외됨) -->
-                        <NuxtLink v-else-if="!p.isRemote" :to="`/post/${p.id}`" class="post-card">
+                        <div v-else-if="!p.isRemote" class="post-card" @click="navigateTo(`/post/${p.id}`)">
                             <div class="post-card-title">{{ p.title }}</div>
                             <div class="post-card-meta">
-                                <span class="post-author">{{ p.user?.knownas ?? p.user?.username }}</span>
+                                <NuxtLink :to="p.user?.username ? `/@${p.user.username}` : '#'" class="post-author user-name-link" @click.stop>
+                                    <NuxtImg v-if="p.user?.avatar" class="avatar avatar-sm" :src="p.user.avatar" />
+                                    <div v-else class="avatar avatar-placeholder avatar-sm">{{ (p.user?.knownas ?? p.user?.username ?? '?')[0] }}</div>
+                                    {{ p.user?.knownas ?? p.user?.username }}
+                                </NuxtLink>
                                 <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                             </div>
-                        </NuxtLink>
+                        </div>
                         <!-- 원격 글: 미리보기 카드, 클릭하면 상세보기 -->
-                        <div v-else class="post-card external-post-card" @click="openRemotePost(p)">
+                        <div
+                            v-else
+                            class="post-card external-post-card"
+                            :style="{ borderLeftColor: badgeBg(remoteServerHost(p.sourceActorUrl)) }"
+                            @click="openRemotePost(p)"
+                        >
                             <div class="external-post-body">
                                 <div v-if="p.boostedByName || p.boostedByHandle" class="boost-banner">
                                     <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
@@ -47,8 +56,12 @@
                                     <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(p.content)"></span>
                                 </div>
                                 <div class="post-card-meta">
-                                    <span v-if="p.sourceName" class="post-author remote-handle" v-html="p.sourceName"></span>
-                                    <span v-else class="post-author remote-handle">{{ p.sourceHandle }}</span>
+                                    <span class="post-author remote-handle">
+                                        <NuxtImg v-if="p.sourceIconUrl" class="avatar avatar-sm" :src="p.sourceIconUrl" />
+                                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
+                                        <span v-if="p.sourceName" v-html="p.sourceName"></span>
+                                        <span v-else>{{ p.sourceHandle }}</span>
+                                    </span>
                                     <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                                 </div>
                             </div>
@@ -92,7 +105,8 @@
                 </div>
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
-                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                        <NuxtImg v-if="currentRemotePost.sourceIconUrl" class="avatar avatar-sm" :src="currentRemotePost.sourceIconUrl" />
+                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                         <span v-if="currentRemotePost.sourceName" v-html="currentRemotePost.sourceName"></span>
                         <span v-else>{{ currentRemotePost.sourceHandle }}</span>
                         <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
@@ -136,13 +150,18 @@
                             <div class="comment-meta">
                                 <template v-if="comment.remoteActorHandle">
                                     <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
-                                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                        <NuxtImg v-if="comment.remoteActorIconUrl" class="avatar avatar-sm" :src="comment.remoteActorIconUrl" />
+                                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
                                         <span v-else>{{ comment.remoteActorHandle }}</span>
                                         <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                     </a>
                                 </template>
-                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
+                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">
+                                    <NuxtImg v-if="comment.user?.avatar" class="avatar avatar-sm" :src="comment.user.avatar" />
+                                    <div v-else class="avatar avatar-placeholder avatar-sm">{{ (comment.user?.knownas ?? comment.user?.username ?? '?')[0] }}</div>
+                                    {{ comment.user?.knownas ?? comment.user?.username }}
+                                </NuxtLink>
                                 <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
                                 <div
                                     v-if="userId && (comment.remoteActorHandle || comment.userid !== userId)"

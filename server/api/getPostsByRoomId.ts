@@ -15,7 +15,9 @@ export default eventHandler(async (event) => {
     let results = rows.slice(0, PAGE_SIZE)
 
     for (const result of results) {
-        const userinfo = result.userid ? await db.select().from(users).where(eq(users.id, result.userid)) : []
+        const userinfo = result.userid
+            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, result.userid))
+            : []
         ;(result as any).user = userinfo[0]
     }
 

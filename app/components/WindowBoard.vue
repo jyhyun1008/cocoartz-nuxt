@@ -30,12 +30,21 @@
                     <div v-else-if="entry.kind === 'local'" class="post-card" @click="openPost(entry.post.id)">
                         <div class="post-card-title">{{ entry.post.title }}</div>
                         <div class="post-card-meta">
-                            <NuxtLink :to="entry.post.user?.username ? `/@${entry.post.user.username}` : '#'" class="post-author user-name-link" @click.stop>{{ entry.post.user?.knownas ?? entry.post.user?.username }}</NuxtLink>
+                            <NuxtLink :to="entry.post.user?.username ? `/@${entry.post.user.username}` : '#'" class="post-author user-name-link" @click.stop>
+                                <NuxtImg v-if="entry.post.user?.avatar" class="avatar avatar-sm" :src="entry.post.user.avatar" />
+                                <div v-else class="avatar avatar-placeholder avatar-sm">{{ (entry.post.user?.knownas ?? entry.post.user?.username ?? '?')[0] }}</div>
+                                {{ entry.post.user?.knownas ?? entry.post.user?.username }}
+                            </NuxtLink>
                             <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
                         </div>
                     </div>
                     <!-- 연합 팔로잉 피드(외부) 글 -->
-                    <div v-else class="post-card external-post-card" @click="openRemotePost(entry.post)">
+                    <div
+                        v-else
+                        class="post-card external-post-card"
+                        :style="{ borderLeftColor: badgeBg(remoteServerHost(entry.post.sourceActorUrl)) }"
+                        @click="openRemotePost(entry.post)"
+                    >
                         <div class="external-post-body">
                             <div v-if="entry.post.boostedByName || entry.post.boostedByHandle" class="boost-banner">
                                 <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
@@ -50,8 +59,12 @@
                                 <span v-else class="preview-text" v-html="stripHtmlKeepEmoji(entry.post.content)"></span>
                             </div>
                             <div class="post-card-meta">
-                                <span v-if="entry.post.sourceName" class="post-author remote-handle" v-html="entry.post.sourceName"></span>
-                                <span v-else class="post-author remote-handle">{{ entry.post.sourceHandle }}</span>
+                                <span class="post-author remote-handle">
+                                    <NuxtImg v-if="entry.post.sourceIconUrl" class="avatar avatar-sm" :src="entry.post.sourceIconUrl" />
+                                    <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
+                                    <span v-if="entry.post.sourceName" v-html="entry.post.sourceName"></span>
+                                    <span v-else>{{ entry.post.sourceHandle }}</span>
+                                </span>
                                 <span class="datetime">{{ formatDate(entry.post.published) }}</span>
                             </div>
                         </div>
@@ -132,7 +145,11 @@
                 </div>
                 <div class="post-title-large">{{ currentPost.title }}</div>
                 <div class="post-meta">
-                    <NuxtLink :to="currentPost.user?.username ? `/@${currentPost.user.username}` : '#'" class="post-author user-name-link">{{ currentPost.user?.knownas ?? currentPost.user?.username }}</NuxtLink>
+                    <NuxtLink :to="currentPost.user?.username ? `/@${currentPost.user.username}` : '#'" class="post-author user-name-link">
+                        <NuxtImg v-if="currentPost.user?.avatar" class="avatar avatar-sm" :src="currentPost.user.avatar" />
+                        <div v-else class="avatar avatar-placeholder avatar-sm">{{ (currentPost.user?.knownas ?? currentPost.user?.username ?? '?')[0] }}</div>
+                        {{ currentPost.user?.knownas ?? currentPost.user?.username }}
+                    </NuxtLink>
                     <span class="datetime">{{ formatDate(currentPost.createdAt) }}</span>
                     <button class="like-btn" :class="{ liked: currentPost.isLiked }" @click="toggleLike">
                         ♥ {{ currentPost.likeCount }}
@@ -198,13 +215,18 @@
                             <div class="comment-meta">
                                 <template v-if="comment.remoteActorHandle">
                                     <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
-                                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                        <NuxtImg v-if="comment.remoteActorIconUrl" class="avatar avatar-sm" :src="comment.remoteActorIconUrl" />
+                                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
                                         <span v-else>{{ comment.remoteActorHandle }}</span>
                                         <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                     </a>
                                 </template>
-                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
+                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">
+                                    <NuxtImg v-if="comment.user?.avatar" class="avatar avatar-sm" :src="comment.user.avatar" />
+                                    <div v-else class="avatar avatar-placeholder avatar-sm">{{ (comment.user?.knownas ?? comment.user?.username ?? '?')[0] }}</div>
+                                    {{ comment.user?.knownas ?? comment.user?.username }}
+                                </NuxtLink>
                                 <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
                                 <div
                                     v-if="userId && (comment.remoteActorHandle || comment.userid !== userId)"
@@ -250,7 +272,8 @@
                 </div>
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
-                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                        <NuxtImg v-if="currentRemotePost.sourceIconUrl" class="avatar avatar-sm" :src="currentRemotePost.sourceIconUrl" />
+                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                         <span v-if="currentRemotePost.sourceName" v-html="currentRemotePost.sourceName"></span>
                         <span v-else>{{ currentRemotePost.sourceHandle }}</span>
                         <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
@@ -294,13 +317,18 @@
                             <div class="comment-meta">
                                 <template v-if="comment.remoteActorHandle">
                                     <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
-                                        <i class="hgi hgi-stroke hgi-globe-02"></i>
+                                        <NuxtImg v-if="comment.remoteActorIconUrl" class="avatar avatar-sm" :src="comment.remoteActorIconUrl" />
+                                        <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
                                         <span v-else>{{ comment.remoteActorHandle }}</span>
                                         <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
                                     </a>
                                 </template>
-                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">{{ comment.user?.knownas ?? comment.user?.username }}</NuxtLink>
+                                <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">
+                                    <NuxtImg v-if="comment.user?.avatar" class="avatar avatar-sm" :src="comment.user.avatar" />
+                                    <div v-else class="avatar avatar-placeholder avatar-sm">{{ (comment.user?.knownas ?? comment.user?.username ?? '?')[0] }}</div>
+                                    {{ comment.user?.knownas ?? comment.user?.username }}
+                                </NuxtLink>
                                 <span class="datetime">{{ formatDate(comment.createdAt) }}</span>
                                 <div
                                     v-if="userId && (comment.remoteActorHandle || comment.userid !== userId)"
@@ -806,6 +834,10 @@ onMounted(() => {
 
 .post-card:hover { background: rgba(var(--fg-rgb),0.06); border-color: rgba(var(--fg-rgb),0.12); }
 
+/* .avatar(40px, RoomMap.vue 전역 스타일)와 동일한 우선순위(단일 클래스)라 로드 순서에 따라
+   덮어써질 수 있어서, 확실히 이기도록 .avatar와 묶어 명시도를 높임 */
+.avatar.avatar-sm { width: 18px; height: 18px; font-size: 0.5rem; border-width: 1px; }
+
 .post-card-title {
     display: flex;
     align-items: center;
@@ -829,7 +861,7 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    border-left: 2px solid rgba(124,196,255,0.4);
+    border-left: 2px solid rgba(124,196,255,0.4); /* 서버 색 로딩 전 기본값 — 로딩되면 인라인 style로 덮어씀 */
 }
 .external-post-card .hgi-globe-02 { color: #7cc4ff; flex-shrink: 0; }
 
@@ -883,6 +915,9 @@ onMounted(() => {
 }
 
 .post-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-weight: 700;
     font-size: 0.85rem;
     color: rgba(var(--fg-rgb),0.5);
