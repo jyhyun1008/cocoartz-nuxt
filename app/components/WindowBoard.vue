@@ -129,7 +129,7 @@
                         class="post-textarea wiki-textarea"
                     ></textarea>
                 </template>
-                <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._')))"></div>
+                <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
                 <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">
                     {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
                 </button>
@@ -185,7 +185,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="post-content md-content" v-html="withCustomEmoji(String(marked.parse(currentPost.content ?? '')))"></div>
+                <div class="post-content md-content" v-html="withCustomEmoji(String(marked.parse(currentPost.content ?? '', { breaks: true })))"></div>
 
                 <!-- 이모지 리액션 -->
                 <div class="reactions-row">

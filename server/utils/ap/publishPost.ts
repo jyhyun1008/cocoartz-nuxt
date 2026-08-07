@@ -48,7 +48,9 @@ export async function publishPostIfFederated(post: Post, domain: string) {
 
     const activity = buildCreateActivity(domain, author.username, {
         objectId,
-        content: String(marked.parse(text)),
+        // breaks:true — 로컬 게시판/위키 렌더링과 똑같이 줄바꿈 한 번을 <br>로 반영해서
+        // 연합으로 나가는 글도 우리 사이트에서 보이는 것과 동일하게 보이도록 맞춤
+        content: String(marked.parse(text, { breaks: true })),
         published: post.createdAt,
         inReplyTo: parent?.objectId ?? null,
         // 최상위 글에 직접 붙인 제목만 CW로 취급 — 댓글의 title은 content에서 자동으로 잘라낸 것이라 진짜 제목이 아님

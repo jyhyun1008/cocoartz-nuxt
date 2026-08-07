@@ -267,12 +267,12 @@ function preprocessWikiLinks(content) {
 
 const renderedContent = computed(() => {
     if (!currentPage.value?.content) return ''
-    return renderCustomEmojiText(String(marked.parse(preprocessWikiLinks(currentPage.value.content))), customEmojiMap.value)
+    return renderCustomEmojiText(String(marked.parse(preprocessWikiLinks(currentPage.value.content), { breaks: true })), customEmojiMap.value)
 })
 
 // 작성/편집 중 미리보기 탭 — 실제 렌더링(renderedContent)과 같은 파이프라인(위키 내부링크 처리 포함)을 씀
 const editPreviewContent = computed(() =>
-    renderCustomEmojiText(String(marked.parse(preprocessWikiLinks(editContent.value.trim() || '_미리볼 내용이 없습니다._'))), customEmojiMap.value),
+    renderCustomEmojiText(String(marked.parse(preprocessWikiLinks(editContent.value.trim() || '_미리볼 내용이 없습니다._'), { breaks: true })), customEmojiMap.value),
 )
 
 async function openPage(id) {

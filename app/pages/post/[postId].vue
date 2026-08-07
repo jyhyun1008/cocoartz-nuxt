@@ -253,7 +253,7 @@ onMounted(() => {
                 </div>
 
                 <!-- 내용 -->
-                <div v-if="!isEditing" class="pd-content md-content" v-html="withCustomEmoji(String(marked.parse(post?.content ?? '')))"></div>
+                <div v-if="!isEditing" class="pd-content md-content" v-html="withCustomEmoji(String(marked.parse(post?.content ?? '', { breaks: true })))"></div>
 
                 <!-- 수정 폼 -->
                 <div v-else class="create-form">
@@ -289,7 +289,7 @@ onMounted(() => {
                             class="post-textarea wiki-textarea"
                         ></textarea>
                     </template>
-                    <div v-else class="pd-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(editContentVal.trim() || '_미리볼 내용이 없습니다._')))"></div>
+                    <div v-else class="pd-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(editContentVal.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
                     <div class="wiki-form-actions">
                         <button class="back-btn-header" @click="isEditing = false">취소</button>
                         <button class="submit-btn" @click="saveEdit" :disabled="!editTitleVal.trim() || !editContentVal.trim()">수정 완료</button>
