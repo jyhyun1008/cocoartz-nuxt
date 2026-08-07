@@ -2,9 +2,8 @@ import { db } from '../utils/db'
 import { users, remoteFollows } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
-import { resolveWebfinger, fetchActor, buildFollowActivity, actorUrl } from '../utils/ap/activitypub'
+import { resolveWebfinger, fetchActor, buildFollowActivity, actorUrl, buildActorDisplayInfo } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
-import { renderActorName } from '../utils/ap/sanitize'
 
 export default eventHandler(async (event) => {
     const { userid, handle } = await readBody(event)
@@ -37,9 +36,9 @@ export default eventHandler(async (event) => {
         || actorData.inbox as string
     if (!inboxUrl) throw createError({ statusCode: 400, message: '이 계정은 inbox가 없습니다' })
 
-    const [, targetDomain] = cleanHandle.split('@')
-    const preferredUsername = actorData.preferredUsername as string || ''
-    const targetHandle = preferredUsername ? `@${preferredUsername}@${targetDomain}` : `@${cleanHandle}`
+    const info = buildActorDisplayInfo(actorData, targetActorUrl)
+    // preferredUsername이 없는 드문 경우엔 서버에서 만든 핸들 대신 유저가 직접 입력한 핸들을 그대로 씀
+    const targetHandle = info.handle || `@${cleanHandle}`
 
     const actor = await ensureActor(userid)
     if (!actor) throw createError({ statusCode: 500, message: '액터 생성 실패' })
@@ -52,8 +51,9 @@ export default eventHandler(async (event) => {
         targetActorUrl,
         targetInbox: inboxUrl,
         targetHandle,
-        targetName: renderActorName((actorData.name as string) || preferredUsername, actorData.tag),
-        targetIconUrl: (actorData.icon as Record<string, string> | undefined)?.url || '',
+        targetName: info.name,
+        targetIconUrl: info.iconUrl,
+        remoteActorCachedAt: new Date(),
         accepted: false,
         followActivityId: follow.id,
     }).returning()

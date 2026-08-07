@@ -1,4 +1,5 @@
 import { isPublicUrl } from './urlUtils'
+import { renderActorName } from './sanitize'
 
 export const AP_CONTENT_TYPE = 'application/activity+json'
 export const AS_CONTEXT = 'https://www.w3.org/ns/activitystreams'
@@ -184,6 +185,19 @@ export async function fetchActor(url: string): Promise<Record<string, unknown> |
         return await res.json() as Record<string, unknown>
     } catch {
         return null
+    }
+}
+
+// fetchActor로 받아온 원본 액터 JSON에서, 우리가 여기저기 캐싱해두는 표시용 정보(표시
+// 이름/핸들/아이콘)만 뽑아내는 공통 로직 — follow/likes/boosts/댓글 등 여러 곳에서 각자
+// 조금씩 다르게 중복 작성돼있던 걸 하나로 합침(리모트 계정 정보 갱신 로직들이 전부 이걸 씀)
+export function buildActorDisplayInfo(actorData: Record<string, unknown>, actorUrl_: string): { name: string; handle: string; iconUrl: string } {
+    const preferredUsername = actorData.preferredUsername as string || ''
+    const domain = new URL(actorUrl_).hostname
+    return {
+        name: renderActorName((actorData.name as string) || preferredUsername, actorData.tag),
+        handle: preferredUsername ? `@${preferredUsername}@${domain}` : '',
+        iconUrl: (actorData.icon as Record<string, string> | undefined)?.url || '',
     }
 }
 

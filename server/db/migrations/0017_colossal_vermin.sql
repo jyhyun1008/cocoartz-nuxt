@@ -1,0 +1,2 @@
+ALTER TABLE "follows" ADD COLUMN "remoteActorCachedAt" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "remote_follows" ADD COLUMN "remoteActorCachedAt" timestamp with time zone DEFAULT now() NOT NULL;

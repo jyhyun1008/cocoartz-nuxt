@@ -141,6 +141,9 @@ export const follows = pgTable('follows', {
     remoteActorName: text(),
     remoteActorHandle: text(),
     remoteActorIconUrl: text(),
+    // 위 캐시를 마지막으로 갱신(fetchActor)한 시각 — 오래됐으면 조회 시점에 다시 가져와서
+    // 닉네임/프사가 바뀐 걸 반영함(원격 계정이 Update 액티비티를 안 보내는 경우 대비)
+    remoteActorCachedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('follows_userid_actor_idx').on(table.userid, table.followerActorUrl),
@@ -220,6 +223,8 @@ export const remoteFollows = pgTable('remote_follows', {
     targetHandle: text(),
     targetName: text(),
     targetIconUrl: text(),
+    // follows.remoteActorCachedAt와 같은 목적 — 마지막으로 이 캐시를 갱신한 시각
+    remoteActorCachedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     accepted: boolean().default(false).notNull(),
     followActivityId: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

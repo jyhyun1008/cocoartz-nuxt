@@ -1,11 +1,12 @@
 import { db } from '../../../utils/db'
 import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts, remoteTimelinePosts, remoteTimelinePostLikes } from '../../../db/schema'
 import { eq, and, count, inArray, type SQL } from 'drizzle-orm'
-import { buildAcceptActivity, fetchActor, fetchObject, parseLocalPostId, actorUrl, isPublicAudience } from '../../../utils/ap/activitypub'
+import { buildAcceptActivity, fetchActor, fetchObject, parseLocalPostId, actorUrl, isPublicAudience, buildActorDisplayInfo } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
 import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderActorName } from '../../../utils/ap/sanitize'
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
+import { refreshRemoteActorCache } from '../../../utils/remoteActorCache'
 
 const MAX_FOLLOWERS_PER_USER = 5000
 const MAX_FOLLOWS_PER_DOMAIN_PER_HOUR = 30
@@ -119,11 +120,7 @@ async function handleFollow(body: Record<string, unknown>, user: LocalUser, acto
         || actorData.inbox as string
     if (!inboxUrl) return
 
-    const preferredUsername = actorData.preferredUsername as string || ''
-    const actorDomain = new URL(followerActorUrl).hostname
-    const remoteActorName = renderActorName((actorData.name as string) || preferredUsername, actorData.tag)
-    const remoteActorHandle = preferredUsername ? `@${preferredUsername}@${actorDomain}` : ''
-    const remoteActorIconUrl = (actorData.icon as Record<string, string> | undefined)?.url || ''
+    const { name: remoteActorName, handle: remoteActorHandle, iconUrl: remoteActorIconUrl } = buildActorDisplayInfo(actorData, followerActorUrl)
 
     // 수동 승인을 켜둔 유저면 대기 상태로만 쌓아두고, 정작 Accept는 본인이 승인할 때 보냄
     // (상대 서버/클라이언트는 Accept를 받기 전까진 "요청됨" 상태로 표시함)
@@ -138,10 +135,11 @@ async function handleFollow(body: Record<string, unknown>, user: LocalUser, acto
         remoteActorName,
         remoteActorHandle,
         remoteActorIconUrl,
+        remoteActorCachedAt: new Date(),
     }).onConflictDoUpdate({
         target: [follows.userid, follows.followerActorUrl],
         // accepted는 여기서 안 건드림 — 이미 대기 중인데 같은 Follow가 재전송돼도 자동 승인되면 안 됨
-        set: { followerInbox: inboxUrl, remoteActorName, remoteActorHandle, remoteActorIconUrl },
+        set: { followerInbox: inboxUrl, remoteActorName, remoteActorHandle, remoteActorIconUrl, remoteActorCachedAt: new Date() },
     })
 
     if (!accepted) {
@@ -536,31 +534,5 @@ async function handleUpdate(body: Record<string, unknown>) {
     const actorUrl_ = (object.id || body.actor) as string
     if (!actorUrl_) return
 
-    const actorData = await fetchActor(actorUrl_)
-    if (!actorData) return
-
-    const preferredUsername = actorData.preferredUsername as string || ''
-    const actorDomain = new URL(actorUrl_).hostname
-    const actorName = renderActorName((actorData.name as string) || preferredUsername, actorData.tag)
-    const actorHandle = preferredUsername ? `@${preferredUsername}@${actorDomain}` : ''
-    const actorIconUrl = (actorData.icon as Record<string, string> | undefined)?.url || ''
-
-    await db.update(posts)
-        .set({ remoteActorName: actorName, remoteActorHandle: actorHandle, remoteActorIconUrl: actorIconUrl })
-        .where(eq(posts.remoteActorUrl, actorUrl_))
-    await db.update(likes)
-        .set({ remoteActorName: actorName, remoteActorHandle: actorHandle, remoteActorIconUrl: actorIconUrl })
-        .where(eq(likes.remoteActorUrl, actorUrl_))
-    await db.update(remoteTimelinePosts)
-        .set({ sourceName: actorName, sourceHandle: actorHandle, sourceIconUrl: actorIconUrl })
-        .where(eq(remoteTimelinePosts.sourceActorUrl, actorUrl_))
-    await db.update(boosts)
-        .set({ actorName, actorHandle, actorIconUrl })
-        .where(eq(boosts.actorUrl, actorUrl_))
-    await db.update(follows)
-        .set({ remoteActorName: actorName, remoteActorHandle: actorHandle, remoteActorIconUrl: actorIconUrl })
-        .where(eq(follows.followerActorUrl, actorUrl_))
-    await db.update(remoteFollows)
-        .set({ targetName: actorName, targetHandle: actorHandle, targetIconUrl: actorIconUrl })
-        .where(eq(remoteFollows.targetActorUrl, actorUrl_))
+    await refreshRemoteActorCache(actorUrl_)
 }
