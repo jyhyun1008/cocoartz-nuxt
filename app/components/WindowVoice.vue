@@ -86,8 +86,11 @@ import { marked } from 'marked'
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 
+// 우리 서버 커스텀 이모지(:shortcode:) — 채팅 메시지 표시 시점에 치환
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+
 function renderMd(text) {
-    return String(marked.parse(text ?? '', { breaks: true }))
+    return renderCustomEmojiText(String(marked.parse(text ?? '', { breaks: true })), customEmojiMap.value)
 }
 
 const emit = defineEmits(['close', 'setBlur'])
@@ -236,6 +239,7 @@ watch(realtimeChats, (list, prevList) => {
 })
 
 onMounted(() => {
+    ensureCustomEmojisLoaded()
     emit('setBlur', voiceSize.value === 'large')
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.mute-action-wrap')) activeMuteKey.value = null

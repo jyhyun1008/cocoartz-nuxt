@@ -65,6 +65,44 @@
                 <p v-if="serverSaveMsg" class="admin-save-msg">{{ serverSaveMsg }}</p>
             </div>
 
+            <!-- 커스텀 이모지 관리 -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">커스텀 이모지 관리</span>
+                </div>
+                <p class="admin-label-hint" style="margin:-4px 0 10px">
+                    게시판/채팅/위키 본문과 리액션에서 :샷코드: 로 쓸 수 있고, 연합 게시판에 올라간 글은 다른 서버에서도 이미지로 보여요.
+                </p>
+
+                <div class="admin-channel-list">
+                    <div v-for="e in customEmojiList" :key="e.shortcode" class="admin-channel-item">
+                        <div class="admin-icon-preview" style="width:28px;height:28px">
+                            <NuxtImg :src="e.imageUrl" class="admin-icon-preview-img" />
+                        </div>
+                        <span class="admin-ch-name">:{{ e.shortcode }}:</span>
+                        <div class="admin-ch-actions">
+                            <button class="admin-icon-btn danger" @click="deleteCustomEmoji(e.id)" title="삭제">
+                                <i class="hgi hgi-stroke hgi-delete-02"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="!customEmojiList.length" class="empty" style="padding:14px 0">등록된 커스텀 이모지가 없습니다.</div>
+                </div>
+
+                <template v-if="objectStorageEnabled">
+                    <label class="admin-label">새 이모지 추가</label>
+                    <div class="admin-icon-row">
+                        <input v-model="newEmojiShortcode" placeholder="샷코드 (영문 소문자/숫자/밑줄, 콜론 없이)" class="post-input" style="flex:1" />
+                        <input type="file" ref="emojiFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleCustomEmojiFile" />
+                        <button class="admin-add-btn" style="margin-left:0" @click="emojiFileInput?.click()" :disabled="customEmojiUploading || !newEmojiShortcode.trim()">
+                            {{ customEmojiUploading ? '업로드 중...' : '이미지 선택 후 업로드' }}
+                        </button>
+                    </div>
+                </template>
+                <p v-else class="admin-label-hint">오브젝트 스토리지가 설정되지 않아 이모지를 업로드할 수 없어요.</p>
+                <p v-if="customEmojiError" class="admin-error">{{ customEmojiError }}</p>
+            </div>
+
             <!-- 승인 대기 중인 가입 신청 -->
             <div v-if="serverForm.registrationMode === 'approval' || pendingUsers.length" class="admin-section">
                 <div class="admin-section-header">
@@ -390,6 +428,53 @@ async function submitServerInfo() {
     }
     serverSaving.value = false
 }
+
+// 커스텀 이모지 관리
+const { list: customEmojiList, ensureLoaded: ensureCustomEmojisLoaded, invalidate: invalidateCustomEmojis } = useCustomEmojis()
+const newEmojiShortcode = ref('')
+const emojiFileInput = ref(null)
+const customEmojiUploading = ref(false)
+const customEmojiError = ref('')
+
+async function handleCustomEmojiFile(e) {
+    const file = e.target.files?.[0]
+    if (!file || !newEmojiShortcode.value.trim()) return
+    customEmojiUploading.value = true
+    customEmojiError.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('userid', String(userId.value))
+        formData.append('shortcode', newEmojiShortcode.value.trim())
+        formData.append('file', file)
+        await $fetch(`${apiBaseUrl}/api/admin/createCustomEmoji`, {
+            method: 'POST',
+            body: formData,
+        })
+        newEmojiShortcode.value = ''
+        await invalidateCustomEmojis()
+    } catch (err) {
+        customEmojiError.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    customEmojiUploading.value = false
+    e.target.value = ''
+}
+
+async function deleteCustomEmoji(id) {
+    customEmojiError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/deleteCustomEmoji`, {
+            method: 'POST',
+            body: { userid: userId.value, id },
+        })
+        await invalidateCustomEmojis()
+    } catch (err) {
+        customEmojiError.value = err?.data?.message ?? '삭제에 실패했습니다'
+    }
+}
+
+onMounted(() => {
+    ensureCustomEmojisLoaded()
+})
 
 async function handleServerIconFile(e) {
     const file = e.target.files?.[0]

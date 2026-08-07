@@ -72,6 +72,7 @@ export function buildCreateActivity(domain: string, username: string, note: {
     inReplyTo?: string | null
     summary?: string | null
     attachment?: unknown[]
+    tag?: unknown[]
     to?: string[]
     cc?: string[]
 }) {
@@ -93,6 +94,9 @@ export function buildCreateActivity(domain: string, username: string, note: {
             summary: note.summary ?? null,
             sensitive: !!note.summary,
             attachment: note.attachment ?? [],
+            // 본문에 등장하는 :shortcode: 커스텀 이모지 — 우리 인바운드 파서(renderCustomEmoji)가
+            // 기대하는 것과 동일한 형태(content엔 리터럴 텍스트, tag에 이미지 정보)로 내보냄
+            tag: note.tag ?? [],
             published: note.published.toISOString(),
             inReplyTo: note.inReplyTo ?? null,
             to: note.to ?? [AS_PUBLIC],

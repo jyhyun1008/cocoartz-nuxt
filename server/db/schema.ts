@@ -185,6 +185,18 @@ export const chatReactions = pgTable('chat_reactions', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 
+// 우리 서버 자체의 커스텀 이모지(관리자 업로드) — 게시판/채팅/위키 본문과 리액션에서
+// :shortcode: 로 쓸 수 있고, 연합 게시판에 올라간 글은 이 정보를 AP tag 배열에 실어서
+// 다른 서버에서도 이미지로 보이게 함(server/utils/ap/publishPost.ts)
+export const customEmojis = pgTable('custom_emojis', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    shortcode: text().notNull().unique(), // 콜론 없이 저장(예: "party_blob"), 매칭/렌더링 시에만 앞뒤로 콜론을 붙임
+    imageUrl: text().notNull(),
+    imageType: text().notNull(), // 업로드 시 MIME 타입 — 연합 태그의 icon.mediaType에 그대로 사용
+    createdBy: integer(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+})
+
 export const wikiPages = pgTable('wiki_pages', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     serverid: integer().notNull(),

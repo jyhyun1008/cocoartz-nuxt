@@ -6,6 +6,12 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
 
+// 우리 서버 커스텀 이모지(:shortcode:) — 글/댓글/리액션 표시 시점에 치환
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+function withCustomEmoji(html) {
+    return renderCustomEmojiText(html, customEmojiMap.value)
+}
+
 const postId = computed(() => Number(route.params.postId))
 
 const { data: post, refresh } = await useAsyncData(
@@ -169,6 +175,7 @@ async function submitComment() {
 }
 
 onMounted(() => {
+    ensureCustomEmojisLoaded()
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return
@@ -246,7 +253,7 @@ onMounted(() => {
                 </div>
 
                 <!-- 내용 -->
-                <div v-if="!isEditing" class="pd-content md-content" v-html="String(marked.parse(post?.content ?? ''))"></div>
+                <div v-if="!isEditing" class="pd-content md-content" v-html="withCustomEmoji(String(marked.parse(post?.content ?? '')))"></div>
 
                 <!-- 수정 폼 -->
                 <div v-else class="create-form">
@@ -282,7 +289,7 @@ onMounted(() => {
                             class="post-textarea wiki-textarea"
                         ></textarea>
                     </template>
-                    <div v-else class="pd-content md-content preview-pane" v-html="String(marked.parse(editContentVal.trim() || '_미리볼 내용이 없습니다._'))"></div>
+                    <div v-else class="pd-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(editContentVal.trim() || '_미리볼 내용이 없습니다._')))"></div>
                     <div class="wiki-form-actions">
                         <button class="back-btn-header" @click="isEditing = false">취소</button>
                         <button class="submit-btn" @click="saveEdit" :disabled="!editTitleVal.trim() || !editContentVal.trim()">수정 완료</button>
@@ -298,7 +305,7 @@ onMounted(() => {
                         :class="{ reacted: r.reacted }"
                         @click="toggleReaction(r.emoji)"
                     >
-                        {{ r.emoji }} {{ r.count }}
+                        <span v-html="withCustomEmoji(escapeHtml(r.emoji))"></span> {{ r.count }}
                     </button>
                     <div class="emoji-picker-wrap" ref="pickerWrapRef">
                         <button ref="reactionBtnRef" class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
@@ -351,7 +358,7 @@ onMounted(() => {
                                 </div>
                             </div>
                             <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="comment.content"></div>
-                            <div v-else class="pd-comment-body">{{ comment.content }}</div>
+                            <div v-else class="pd-comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                         </template>
                     </div>
 

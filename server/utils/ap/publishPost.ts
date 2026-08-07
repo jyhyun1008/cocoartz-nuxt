@@ -1,10 +1,11 @@
 import { db } from '../db'
-import { users, follows, posts, rooms } from '../../db/schema'
+import { users, follows, posts, rooms, customEmojis } from '../../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { ensureActor } from './ensureActor'
 import { actorUrl, postObjectUrl, buildCreateActivity } from './activitypub'
 import { deliverToFollowers, deliverToInbox } from './deliver'
 import { extractMarkdownImages } from './attachments'
+import { buildOutgoingEmojiTags } from './sanitize'
 import { marked } from 'marked'
 
 type Post = typeof posts.$inferSelect
@@ -40,6 +41,11 @@ export async function publishPostIfFederated(post: Post, domain: string) {
     // 본문의 마크다운 이미지(![]())는 본문에서 떼어내고 AP attachment로 따로 보냄
     const { text, attachments } = extractMarkdownImages(post.content)
 
+    // 본문에 등장하는 우리 서버 커스텀 이모지(:shortcode:)를 AP tag로 실어 보냄 —
+    // 다른 서버에서도 이미지로 보이게 하기 위함(content의 :shortcode: 텍스트 자체는 그대로 둠)
+    const allEmojis = await db.select().from(customEmojis)
+    const tag = buildOutgoingEmojiTags(domain, text, allEmojis)
+
     const activity = buildCreateActivity(domain, author.username, {
         objectId,
         content: String(marked.parse(text)),
@@ -48,6 +54,7 @@ export async function publishPostIfFederated(post: Post, domain: string) {
         // 최상위 글에 직접 붙인 제목만 CW로 취급 — 댓글의 title은 content에서 자동으로 잘라낸 것이라 진짜 제목이 아님
         summary: post.replyto ? null : post.title,
         attachment: attachments,
+        tag,
     })
 
     const followerRows = await db.select().from(follows)

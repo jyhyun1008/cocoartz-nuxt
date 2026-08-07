@@ -53,6 +53,25 @@ export function renderCustomEmoji(html: string, tag: unknown): string {
     return result
 }
 
+// 우리 서버 커스텀 이모지를 연합으로 내보낼 때(publishPost.ts) 본문에 실제로 등장하는
+// :shortcode: 만 골라 AP tag 배열 항목으로 변환. 본문 텍스트 자체는 건드리지 않고(리터럴
+// :shortcode: 유지) 이미지 정보만 별도로 실어 보내는 마스토돈/미스키 관례를 그대로 따름
+export function buildOutgoingEmojiTags(
+    domain: string,
+    text: string,
+    emojis: Array<{ shortcode: string; imageUrl: string; imageType: string }>,
+): unknown[] {
+    return emojis
+        .filter((e) => text.includes(`:${e.shortcode}:`))
+        .map((e) => ({
+            id: `https://${domain}/emojis/${e.shortcode}`,
+            type: 'Emoji',
+            name: `:${e.shortcode}:`,
+            updated: new Date().toISOString(),
+            icon: { type: 'Image', mediaType: e.imageType, url: e.imageUrl },
+        }))
+}
+
 // AP Note의 attachment(첨부) 배열에서 이미지만 뽑아 <img> 태그로 반환.
 // 파일(비디오/문서 등)은 스킵 — 갤러리 컴포넌트 없이 마크다운 ![]() 수준의 단순 인라인 이미지로만 표시
 export function extractImageAttachmentsHtml(attachment: unknown): string {

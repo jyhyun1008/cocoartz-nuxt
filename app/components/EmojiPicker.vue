@@ -1,15 +1,31 @@
 <template>
     <Teleport to="body">
         <div class="emoji-picker-popover" :style="popoverStyle">
+            <div v-if="customEmojiList.length" class="ep-tabs">
+                <button class="ep-tab-btn" :class="{ active: activeTab === 'unicode' }" @click="activeTab = 'unicode'">유니코드</button>
+                <button class="ep-tab-btn" :class="{ active: activeTab === 'custom' }" @click="activeTab = 'custom'">커스텀</button>
+            </div>
             <emoji-picker
                 v-if="ready"
+                v-show="activeTab === 'unicode'"
                 ref="pickerEl"
                 class="ep-native"
                 locale="ko"
                 data-source="/emoji-data/ko.json"
                 emoji-version="17.0"
             ></emoji-picker>
-            <div v-else class="emoji-picker-loading">불러오는 중...</div>
+            <div v-else-if="activeTab === 'unicode'" class="emoji-picker-loading">불러오는 중...</div>
+            <div v-if="activeTab === 'custom'" class="ep-custom-grid">
+                <button
+                    v-for="e in customEmojiList"
+                    :key="e.shortcode"
+                    class="ep-custom-item"
+                    :title="`:${e.shortcode}:`"
+                    @click="handleCustomEmojiClick(e)"
+                >
+                    <img :src="e.imageUrl" :alt="`:${e.shortcode}:`" loading="lazy" />
+                </button>
+            </div>
         </div>
     </Teleport>
 </template>
@@ -19,6 +35,15 @@
 // 바꿔주지만, emoji-picker-element는 Shadow DOM 안에서 자체적으로 그리기 때문에 그 방식이 안 닿음.
 // 그래서 피커 자체도 OS 기본 이모지 폰트 대신 Twemoji COLR 폰트로 그리도록 --emoji-font-family로 지정.
 import '@sableclient/twemoji-font'
+
+// 우리 서버 커스텀 이모지 — 목록이 있을 때만 "커스텀" 탭을 보여줌. 클릭하면 유니코드 이모지와
+// 동일한 select 이벤트를 :shortcode: 문자열로 emit해서, 텍스트 삽입/리액션 쪽 소비 코드를
+// 전혀 손대지 않아도 그대로 동작하게 함
+const { list: customEmojiList, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+const activeTab = ref('unicode')
+function handleCustomEmojiClick(e) {
+    emit('select', `:${e.shortcode}:`)
+}
 
 // 프리셋 몇 개가 아니라 유니코드 이모지 전체 중 아무거나 고를 수 있는 피커.
 // emoji-picker-element는 DOM 커스텀 엘리먼트라 서버에선 등록이 안 되므로 mounted 이후에만 렌더링함.
@@ -72,6 +97,7 @@ function handleReposition() {
 }
 
 onMounted(async () => {
+    ensureCustomEmojisLoaded()
     computePosition()
     window.addEventListener('resize', handleReposition)
     window.addEventListener('scroll', handleReposition, true)
@@ -128,4 +154,58 @@ emoji-picker {
     color: rgba(var(--fg-rgb), 0.4);
     font-size: 0.85rem;
 }
+
+.ep-tabs {
+    display: flex;
+    gap: 4px;
+    width: 360px;
+    max-width: 88vw;
+    margin-bottom: 6px;
+}
+
+.ep-tab-btn {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: rgba(var(--fg-rgb), 0.5);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--modal-shadow);
+}
+.ep-tab-btn.active {
+    background: var(--accent);
+    color: rgba(var(--accent-fg-rgb), 1);
+}
+
+.ep-custom-grid {
+    width: 360px;
+    max-width: 88vw;
+    height: 360px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 10px;
+    background: var(--surface-2);
+    border-radius: 12px;
+    box-shadow: var(--modal-shadow);
+    box-sizing: border-box;
+}
+
+.ep-custom-item {
+    aspect-ratio: 1;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+}
+.ep-custom-item:hover { background: rgba(var(--fg-rgb), 0.08); }
+.ep-custom-item img { width: 100%; height: 100%; object-fit: contain; }
 </style>

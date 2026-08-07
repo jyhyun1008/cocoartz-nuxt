@@ -143,7 +143,7 @@
                                     :class="{ reacted: r.reacted }"
                                     @click="toggleChatReaction(chat, r.emoji)"
                                 >
-                                    {{ r.emoji }} {{ r.count }}
+                                    <span v-html="renderCustomEmojiText(escapeHtml(r.emoji), customEmojiMap)"></span> {{ r.count }}
                                 </button>
                                 <div class="emoji-picker-wrap">
                                     <button
@@ -274,8 +274,11 @@ const apiBaseUrl = config.public.apiBaseUrl
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character))
 
+// 우리 서버 커스텀 이모지(:shortcode:) — 채팅 메시지/리액션 표시 시점에 치환
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+
 function renderMd(text) {
-    return String(marked.parse(text ?? '', { breaks: true }))
+    return renderCustomEmojiText(String(marked.parse(text ?? '', { breaks: true })), customEmojiMap.value)
 }
 
 const props = defineProps({
@@ -459,6 +462,7 @@ function openChatReactionPicker(chat) {
 }
 
 onMounted(() => {
+    ensureCustomEmojisLoaded()
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return

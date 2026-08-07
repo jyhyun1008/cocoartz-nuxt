@@ -129,7 +129,7 @@
                         class="post-textarea wiki-textarea"
                     ></textarea>
                 </template>
-                <div v-else class="post-content md-content preview-pane" v-html="String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._'))"></div>
+                <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._')))"></div>
                 <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">
                     {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
                 </button>
@@ -185,7 +185,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="post-content md-content" v-html="String(marked.parse(currentPost.content ?? ''))"></div>
+                <div class="post-content md-content" v-html="withCustomEmoji(String(marked.parse(currentPost.content ?? '')))"></div>
 
                 <!-- 이모지 리액션 -->
                 <div class="reactions-row">
@@ -196,7 +196,7 @@
                         :class="{ reacted: r.reacted }"
                         @click="toggleReaction(r.emoji)"
                     >
-                        {{ r.emoji }} {{ r.count }}
+                        <span v-html="withCustomEmoji(escapeHtml(r.emoji))"></span> {{ r.count }}
                     </button>
                     <div class="emoji-picker-wrap" ref="pickerWrapRef">
                         <button ref="reactionBtnRef" class="reaction-add-btn" @click.stop="showPicker = !showPicker">+</button>
@@ -250,7 +250,7 @@
                                 </div>
                             </div>
                             <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
-                            <div v-else class="comment-body">{{ comment.content }}</div>
+                            <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                         </template>
                     </div>
                     <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
@@ -352,7 +352,7 @@
                                 </div>
                             </div>
                             <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
-                            <div v-else class="comment-body">{{ comment.content }}</div>
+                            <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                         </template>
                     </div>
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
@@ -405,6 +405,12 @@ const props = defineProps({
 })
 
 const { userId } = useCurrentUser()
+
+// 우리 서버 커스텀 이모지(:shortcode:) — 글/댓글/리액션 표시 시점에 치환
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+function withCustomEmoji(html) {
+    return renderCustomEmojiText(html, customEmojiMap.value)
+}
 
 // 뮤트 — 소프트(내용 대신 "뮤트된 게시물입니다" 게이트, "그래도 보기"로 펼침) / 하드(서버가
 // 애초에 응답에 안 실어주므로 프론트에서 따로 처리할 게 없음). 뮤트 건 사람 화면에만 영향.
@@ -787,6 +793,7 @@ async function toggleLike() {
 }
 
 onMounted(() => {
+    ensureCustomEmojisLoaded()
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return

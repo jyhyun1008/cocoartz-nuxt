@@ -176,6 +176,9 @@ const props = defineProps({
 
 const { userId, isLoggedIn } = useCurrentUser()
 
+// 우리 서버 커스텀 이모지(:shortcode:) — 위키 본문/미리보기 표시 시점에 치환
+const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+
 const wikiKey = computed(() => `wiki-data-${route.params.page ?? 'default'}`)
 const { data: pagesData, refresh: refreshPages } = await useAsyncData(
     wikiKey,
@@ -236,6 +239,7 @@ const emojiWrapRef = ref(null)
 const emojiBtnRef = ref(null)
 
 onMounted(() => {
+    ensureCustomEmojisLoaded()
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return
@@ -263,12 +267,12 @@ function preprocessWikiLinks(content) {
 
 const renderedContent = computed(() => {
     if (!currentPage.value?.content) return ''
-    return String(marked.parse(preprocessWikiLinks(currentPage.value.content)))
+    return renderCustomEmojiText(String(marked.parse(preprocessWikiLinks(currentPage.value.content))), customEmojiMap.value)
 })
 
 // 작성/편집 중 미리보기 탭 — 실제 렌더링(renderedContent)과 같은 파이프라인(위키 내부링크 처리 포함)을 씀
 const editPreviewContent = computed(() =>
-    String(marked.parse(preprocessWikiLinks(editContent.value.trim() || '_미리볼 내용이 없습니다._'))),
+    renderCustomEmojiText(String(marked.parse(preprocessWikiLinks(editContent.value.trim() || '_미리볼 내용이 없습니다._'))), customEmojiMap.value),
 )
 
 async function openPage(id) {
