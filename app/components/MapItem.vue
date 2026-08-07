@@ -126,9 +126,17 @@ const screenY = computed(() => (props.position.x + props.position.y) * (dynH.val
 // 타일의 "앞쪽 꼭짓점"(top face 하단 중앙, 캐릭터 발밑과 같은 기준점) = screenY + dynH/2
 const anchorY = computed(() => screenY.value + dynH.value / 2)
 
-const defaultZIndex = computed(() =>
-    (props.position.x + props.position.y) * 10 + (props.position.z ?? 0) * 2 + 10001
-)
+// z-index = 4n + k (n = 화면상 깊이 슬롯, k = 그 슬롯 안에서의 높이 순번 0~3).
+// n = x+y+2z — 타일 쪽(RoomMap.vue getTileContainerStyle)과 완전히 같은 식이라, 화면상
+// 같은 높이(같은 n)에 있는 타일/아이템끼리는 실제로 z-index가 겹치거나 나란히 비교됨.
+// 아이템은 자기가 놓인 층(z)의 바닥 타일(k=z)보다 한 칸 위(k=z+1)에 그려져야 그 바닥 위에
+// "서 있는" 것처럼 보임 — 0층 위 아이템은 k=1, 1층 위 아이템은 k=2, 2층 위 아이템은 k=3.
+const defaultZIndex = computed(() => {
+    const z = props.position.z ?? 0
+    const n = props.position.x + props.position.y + 2 * z
+    const k = z + 1
+    return 4 * n + k
+})
 
 // 줌인 최대 ↔ 줌아웃 최대, 두 점을 잇는 직선 하나로 쭉 보간(꺾은선 아님).
 // baseTopRatio 지점 값은 이 직선 위에서 "검증용"으로만 확인함(강제로 고정 안 함) — 3점을

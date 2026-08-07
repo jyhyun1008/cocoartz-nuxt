@@ -1,38 +1,21 @@
 <template>
     <div id="map-wrapper">
-        <!-- z=0 타일 레이어 -->
-        <div id="map" :style="mapStyle" :class="{ blur: mapBlurred }">
-            <NuxtImg v-if="mapType === 'string'" class="maptempimg" :src="mapInfo" />
-            <div v-else-if="mapInfo && mapInfo[0]" class="maptiles1" :style="tilesScaleStyle">
-                <div
-                    v-for="tile in tilesBack"
-                    :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
-                    class="tile-container"
-                    :style="getTileContainerStyle(tile)"
-                >
-                    <div class="tile-slice" :style="tileTopSliceStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileTopImgStyle" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideTopStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideTopImgStyle" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideMiddleContainerStyle(tile)">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideMiddleImgStyle(tile)" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideBottomStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
-                    </div>
-                </div>
-            </div>
+        <!-- 문자열 타입(레거시) 맵: 이미지 한 장짜리 배경 -->
+        <div v-if="mapType === 'string'" id="map" :style="mapStyle" :class="{ blur: mapBlurred }">
+            <NuxtImg class="maptempimg" :src="mapInfo" />
         </div>
 
-        <!-- z≥1 레이어: 타일 + 캐릭터 + 다른 유저 → 각자 z-index로 깊이 결정 -->
-        <div id="map-front" :class="{ blur: mapBlurred }">
+        <!-- 통합 레이어: 타일(z 무관) + 아이템 + 캐릭터 + 다른 유저 → 전부 같은 스태킹 컨텍스트에서
+             z-index 하나로 깊이 결정. 예전엔 z=0 타일만 따로 떼서 항상 캐릭터 뒤(#map)에 고정해뒀는데,
+             그러면 카메라에 더 가까운 z=0 타일이 그 위에 놓인 아이템(높이가 있는 스프라이트 스태킹)의
+             아랫부분을 가려주지 못해서 부자연스러웠음(맵 편집기는 원래부터 이렇게 통합돼 있어서 자연스러웠음).
+             -->
+        <div v-else-if="mapInfo && mapInfo[0]" id="map-front" :class="{ blur: mapBlurred }">
             <div class="maptiles-pan" :style="mapStyle">
                 <div class="maptiles1" :style="tilesScaleStyle">
-                    <!-- z≥1 타일 (정렬 불필요, z-index가 깊이 담당) -->
+                    <!-- 타일 (정렬 불필요, z-index가 깊이 담당) -->
                     <div
-                        v-for="tile in tilesFront"
+                        v-for="tile in sortedTiles"
                         :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
                         class="tile-container"
                         :style="getTileContainerStyle(tile)"
@@ -78,7 +61,7 @@
                         :top-ratio="topRatio"
                         :local-x="other.x"
                         :local-y="other.y"
-                        :z-index="Math.floor((other.y + 1) * -10) + 9999"
+                        :z-index="getOtherZIndex(other)"
                         :direction="other.dir"
                         :name="other.user?.knownas ?? other.user?.username ?? '?'"
                         :user-id="other.userId"
@@ -480,24 +463,50 @@ function updateMapPosition(pos) {
     mapTop.value = Math.round(pos.y * topRatio.value * 64) + calcMapTopOffset()
 }
 
-// z=0 타일: 캐릭터 뒤에 렌더링
-// z=0 레이어: 바닥 타일
-const tilesBack = computed(() =>
-    sortedTiles.value.filter(t => (t.position.z ?? 0) === 0)
-)
+// (x,y) 칸(반올림)에 있는 "가리는 것"(아이템 전부 + z≥1 타일)들의 z-index 중 최솟값.
+// 0층 바닥타일은 절대 캐릭터를 못 가리는 예외라서 여기 집계에서 뺌.
+// 타일/아이템 z-index는 getTileContainerStyle / MapItem.vue의 defaultZIndex랑 완전히 같은
+// 4n+k 공식으로 재계산함(같은 척도라야 "바로 아래" 비교가 의미 있음).
+function getBlockersMinZ(x, y) {
+    const cx = Math.round(x)
+    const cy = Math.round(y)
+    let min = null
+    const consider = (z) => { if (min === null || z < min) min = z }
+    for (const t of mapInfo.value?.[0] ?? []) {
+        const tz = t.position.z ?? 0
+        if (t.position.x === cx && t.position.y === cy && tz >= 1) {
+            consider(4 * (t.position.x + t.position.y + 2 * tz) + tz)
+        }
+    }
+    for (const it of mapInfo.value?.[1] ?? []) {
+        const iz = it.position.z ?? 0
+        if (it.position.x === cx && it.position.y === cy) {
+            consider(4 * (it.position.x + it.position.y + 2 * iz) + (iz + 1))
+        }
+    }
+    return min
+}
 
-// z≥1 타일: 정렬 불필요, 각자 z-index로 깊이 처리
-const tilesFront = computed(() =>
-    sortedTiles.value.filter(t => (t.position.z ?? 0) >= 1)
-)
+// 캐릭터 z-index: 타일/아이템이랑 같은 4n+k 척도(n=x+y, k=1 — 0층 바닥(k=0)보다는 항상 위).
+// 단, 지금 서 있는 칸(반올림)에 아이템이나 z≥1 블록이 있으면 실제 깊이 계산 없이 무조건
+// 그것들 바로 뒤(최솟값-1)로 깔아버림 — "같은 칸에 있으면 캐릭터가 무조건 뒤" 규칙.
+// (같은 칸이 아니라 스치듯 지나가는 순간에 훅 나타났다 사라지는 건 알고 있는 한계 — 나중에 다듬을 예정)
+// ⚠️ CSS z-index는 정수만 허용 — 캐릭터는 0.25칸 단위로 움직이는데 4*(0.25의 배수)는 항상
+// 정수라 원래는 괜찮지만, 부동소수점 오차로 아주 드물게 어긋날 수 있어 Math.round로 방어.
+function getCharZIndex(x, y) {
+    // const blockerZ = getBlockersMinZ(x, y)
+    // if (blockerZ !== null) return blockerZ - 1
+    return (-4 * Math.round((y)*1) + 4)
+}
 
-// 캐릭터 z-index: abs로 음수 좌표에서도 9900대 방지
-// const charZIndex = computed(() =>
-//     Math.floor((localPosition.value.x + localPosition.value.y - 0.5) * -10) + 9999
-// )
-const charZIndex = computed(() =>
-    (localPosition.value.y) * -10 + 9999
-)
+const charZIndex = computed(() => getCharZIndex(localPosition.value.x, localPosition.value.y))
+
+// 다른 유저 z-index: local-x/y가 로컬 유저 기준 상대 오프셋이라 절대 좌표로 바꿔서 같은 공식 적용
+function getOtherZIndex(other) {
+    const ax = localPosition.value.x + other.x
+    const ay = localPosition.value.y + other.y
+    return getCharZIndex(ax, ay)
+}
 
 const isRoomPage = computed(() => props.page === 'none' || props.page === 'room')
 
@@ -631,12 +640,21 @@ function getTileContainerStyle(tile) {
     const screenY = (x + y) * (dynH / 2) - z * sideH
     const scale = (1 + (x + y) * 0.004).toFixed(3)
     const blur = getDepthBlur(x + y)
+    // z-index = 4n + k (n = 화면상 깊이 슬롯, k = 그 슬롯 안에서의 높이 순번 0~3).
+    // n = x+y+2z → 화면상 같은 높이(같은 n)에 있는 좌표끼리는 같은 슬롯을 놓고 경쟁함
+    // (예: z=1인 타일의 n은 z=0 타일보다 (x+y)가 2 작아도 화면상 같은 자리에 옴).
+    // k=z(0~2)는 그 타일 자신의 층. 아이템의 k(=z+1, MapItem.vue의 defaultZIndex)는 이 타일
+    // 스킴이랑 맞춰서 "자기가 놓인 층의 바로 위 슬롯"에 옴 — 캐릭터 z-index는 아직 이 스킴에
+    // 안 맞춰져 있음(별도로 손볼 예정, 지금은 그대로 둠).
+    const n = x + y
+    const k = z
+    const zIndex = 4 * n + k
     return {
         left: `calc(50% + ${screenX - TILE_W / 2}px)`,
         top: `calc(50% + ${screenY - dynH / 2}px)`,
         transform: `scale(${scale})`,
         filter: Number(blur) > 0 ? `blur(${blur}px)` : undefined,
-        zIndex: (x + y) * 10 + z * 2 + 10000,
+        zIndex,
     }
 }
 
