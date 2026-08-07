@@ -360,11 +360,19 @@ const mapInfo = computed(() => {
 
 // 방에 처음 들어올 때 서는 위치 — 맵 편집기(WindowMapEditor.vue)에서 지정한 스폰 지점
 // (mapInfo[2])을 읽음. 옛날 맵이라 없으면 예전부터 쓰던 기본값(0,0)으로 그대로 폴백
+//
+// ⚠️ 좌표계가 서로 다름: 맵 편집기가 저장하는 스폰 지점은 타일/아이템이랑 같은 격자 좌표(tx,ty —
+// getTileContainerStyle의 x,y)인데, 캐릭터 위치(localPosition, CharacterMoving.vue의
+// local-x/local-y)는 격자 좌표가 아니라 "화면 대각선 이동" 좌표라서 축 자체가 다름:
+//   타일 화면 위치: screenX=(tx-ty)*TILE_W/2, screenY=(tx+ty)*dynH/2
+//   캐릭터 화면 위치: screenX=localX*TILE_W/4, screenY=-localY*dynH/2
+// 그대로 (tx,ty)를 캐릭터 위치에 넣으면 엉뚱한 화면 좌표로 계산돼서(실제로 스폰을 (2,2)로
+// 찍었더니 캐릭터가 맵과 동떨어진 허공에 뜨는 버그가 있었음) 두 식이 같은 화면 좌표를 가리키도록
+// 변환: localX = 2*(tx-ty), localY = -(tx+ty)
 function getSpawnPoint() {
     const spawn = mapInfo.value?.[2]
-    return spawn && typeof spawn.x === 'number' && typeof spawn.y === 'number'
-        ? { x: spawn.x, y: spawn.y }
-        : { x: 0, y: 0 }
+    if (!spawn || typeof spawn.x !== 'number' || typeof spawn.y !== 'number') return { x: 0, y: 0 }
+    return { x: 2 * (spawn.x - spawn.y), y: -(spawn.x + spawn.y) }
 }
 
 // 초기 HTTP 채팅 + WebSocket 실시간 채팅 합산. realtimeChats에는 새 채팅뿐 아니라 기존 메시지에
