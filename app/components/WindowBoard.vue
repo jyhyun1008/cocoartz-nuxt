@@ -590,7 +590,8 @@ function stripHtmlKeepEmoji(html, embedUrl, embedLabel) {
     let chipInlined = false
     if (embedUrl) {
         const escaped = embedUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        processed = processed.replace(new RegExp(`<a\\s[^>]*href=["']${escaped}["'][^>]*>[\\s\\S]*?</a>`, 'i'), () => {
+        // 미스키 등이 인용 링크 앞에 붙이는 "RE:" 표시도 칩으로 같이 치환(링크만 지우면 "RE:"만 남아 어색해짐)
+        processed = processed.replace(new RegExp(`(?:RE:?\\s*)?<a\\s[^>]*href=["']${escaped}["'][^>]*>[\\s\\S]*?</a>`, 'i'), () => {
             chipInlined = true
             return ' EMBEDCHIP '
         })
