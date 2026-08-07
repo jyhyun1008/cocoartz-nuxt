@@ -112,6 +112,9 @@ export const posts = pgTable('posts', {
     // 숨기고(replyto 기반 글타래가 아니므로 isNull(replyto) 필터로는 안 걸러짐), 원격 글
     // 상세보기 쪽 댓글창에서만 보여줌
     remoteParentObjectId: text(),
+    // 원격 댓글/답글의 CW(content warning) — remoteFeedPosts/remoteTimelinePosts와 같은 개념.
+    // 로컬 글/댓글은 CW 작성 UI가 없어서 항상 null
+    summary: text(),
 }, (table) => [
     uniqueIndex('posts_object_id_idx').on(table.objectId),
 ])

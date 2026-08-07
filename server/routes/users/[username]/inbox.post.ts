@@ -278,6 +278,9 @@ async function saveIncomingReplyPost(
     const contentWithImages = content + extractImageAttachmentsHtml(object.attachment)
     const quoteUrl = extractQuoteUrl(object)
     const linkUrl = extractFirstLink(contentWithImages, quoteUrl)
+    // handleCreateFromFollowedAccount와 동일한 CW 추출 — 여기선 빠져있어서 원격 답글(댓글)의
+    // CW가 화면에 전혀 안 뜨던 문제가 있었음
+    const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
 
     await db.insert(posts).values({
         serverid: opts.serverid ?? null,
@@ -285,6 +288,7 @@ async function saveIncomingReplyPost(
         userid: null,
         title: content.slice(0, 50) || '(원격 답글)',
         content: contentWithImages,
+        summary,
         quoteUrl,
         linkUrl,
         replyto: opts.replyto ?? null,

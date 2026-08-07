@@ -253,8 +253,17 @@
                                     </div>
                                 </div>
                             </div>
-                            <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
-                            <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
+                            <div v-if="comment.summary && !revealedCw[`comment-${comment.id}`]" class="remote-cw-gate">
+                                <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="comment.summary"></span></div>
+                                <button class="submit-btn" @click="revealedCw[`comment-${comment.id}`] = true">내용 보기</button>
+                            </div>
+                            <template v-else>
+                                <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
+                                <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
+                                <button v-if="comment.summary" class="cw-hide-btn" @click="revealedCw[`comment-${comment.id}`] = false">
+                                    <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
+                                </button>
+                            </template>
                         </template>
                     </div>
                     <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
@@ -298,7 +307,12 @@
                     <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
                     <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
-                <div v-else class="post-content md-content" v-html="stripEmbeddedLink(currentRemotePost.content, currentRemotePost.quoteUrl || currentRemotePost.linkUrl)"></div>
+                <template v-else>
+                    <div class="post-content md-content" v-html="stripEmbeddedLink(currentRemotePost.content, currentRemotePost.quoteUrl || currentRemotePost.linkUrl)"></div>
+                    <button v-if="currentRemotePost.summary" class="cw-hide-btn" @click="showRemoteContent = false">
+                        <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
+                    </button>
+                </template>
 
                 <!-- 인용글 임베드 -->
                 <a
@@ -405,8 +419,17 @@
                                     </div>
                                 </div>
                             </div>
-                            <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
-                            <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
+                            <div v-if="comment.summary && !revealedCw[`reply-${comment.id}`]" class="remote-cw-gate">
+                                <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="comment.summary"></span></div>
+                                <button class="submit-btn" @click="revealedCw[`reply-${comment.id}`] = true">내용 보기</button>
+                            </div>
+                            <template v-else>
+                                <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
+                                <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
+                                <button v-if="comment.summary" class="cw-hide-btn" @click="revealedCw[`reply-${comment.id}`] = false">
+                                    <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
+                                </button>
+                            </template>
                         </template>
                     </div>
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
@@ -470,6 +493,9 @@ function withCustomEmoji(html) {
 // 애초에 응답에 안 실어주므로 프론트에서 따로 처리할 게 없음). 뮤트 건 사람 화면에만 영향.
 const activeMuteKey = ref(null)
 const revealedMuted = ref({})
+// CW(요약/스포일러) 공개 여부 — 댓글/답글 id별로 관리. 뮤트 게이트(revealedMuted)와 달리
+// 한 번 보고 나서 다시 숨길 수도 있어야 해서 true/false를 왔다갔다하는 토글로 씀
+const revealedCw = ref({})
 function muteKeyFor(target) {
     return target.userid != null ? `local-${target.userid}` : `remote-${target.actorUrl}`
 }
@@ -534,30 +560,81 @@ async function loadFirstPage() {
     hasMoreLocal.value = localRes.hasMore
     remotePosts.value = remoteRes.posts
     hasMoreRemote.value = remoteRes.hasMore
+    // 첫 페이지부터 이미 로컬/원격 밀도 차이로 몰려있을 수 있어서 바로 한 번 따라잡아줌
+    await catchUpSources()
+}
+
+async function fetchLocalMore() {
+    if (!hasMoreLocal.value) return
+    const nextOffset = localOffset.value + PAGE_SIZE
+    const res = await fetchLocalPage(nextOffset)
+    localOffset.value = nextOffset
+    localPosts.value = [...localPosts.value, ...res.posts]
+    hasMoreLocal.value = res.hasMore
+}
+
+async function fetchRemoteMore() {
+    if (!hasMoreRemote.value) return
+    const nextOffset = remoteOffset.value + PAGE_SIZE
+    const res = await fetchRemotePage(nextOffset)
+    remoteOffset.value = nextOffset
+    remotePosts.value = [...remotePosts.value, ...res.posts]
+    hasMoreRemote.value = res.hasMore
+}
+
+// 이 방의 로컬 글은 연합 타임라인 전체(서버의 모든 팔로잉 계정 firehose)보다 훨씬 뜨문뜨문해서,
+// 로컬/원격을 그냥 각각 PAGE_SIZE(20)씩 독립적으로 가져오면 "원격 20개"는 아주 좁은 최근 시간대만
+// 커버하는 반면 "로컬 20개"는 훨씬 넓은 기간을 커버함 — 합쳐서 최신순 정렬하면 로컬 글들이 이번에
+// 새로 불러온 배치의 오래된 쪽 끝(=더보기 버튼 바로 위)에 몰려 보이는 문제가 있었음.
+// 그래서 한 번에 딱 1페이지씩 가져오는 대신, 두 소스가 "커버한 시점"이 서로 비슷해질 때까지
+// 더 뒤처진(=아직 최근 시점에 머물러 있는) 쪽을 반복해서 따라잡음.
+function oldestDate(list, dateKey) {
+    if (!list.length) return null
+    return new Date(list[list.length - 1][dateKey]).getTime()
+}
+
+const MAX_CATCHUP_FETCHES = 6  // 원격이 극단적으로 빽빽한 경우까지 대비한 안전장치
+
+// 두 소스가 "커버한 시점"이 서로 비슷해질 때까지 더 뒤처진(=아직 최근 시점에 머물러 있는) 쪽을
+// 반복해서 따라잡음 — loadFirstPage/loadMore 둘 다에서 씀
+async function catchUpSources() {
+    // 아직 아무것도 없는 쪽(처음 로딩인데 hasMore인 경우는 없지만 방어적으로)은 일단 한 번씩 채움
+    const initTasks = []
+    if (hasMoreLocal.value && !localPosts.value.length) initTasks.push(fetchLocalMore())
+    if (hasMoreRemote.value && !remotePosts.value.length) initTasks.push(fetchRemoteMore())
+    if (initTasks.length) await Promise.all(initTasks)
+
+    for (let i = 0; i < MAX_CATCHUP_FETCHES; i++) {
+        const localOldest = oldestDate(localPosts.value, 'createdAt')
+        const remoteOldest = oldestDate(remotePosts.value, 'published')
+        if (localOldest === null && remoteOldest === null) break
+
+        // 둘 다 있으면 더 최근 시점에 머물러 있는(아직 안 따라잡은) 쪽을 한 페이지 더 당겨옴
+        if (localOldest !== null && remoteOldest !== null) {
+            if (localOldest > remoteOldest && hasMoreLocal.value) await fetchLocalMore()
+            else if (remoteOldest > localOldest && hasMoreRemote.value) await fetchRemoteMore()
+            else break  // 이미 비슷한 깊이거나 더 당길 게 없음
+        } else if (localOldest === null && hasMoreLocal.value) {
+            await fetchLocalMore()
+        } else if (remoteOldest === null && hasMoreRemote.value) {
+            await fetchRemoteMore()
+        } else {
+            break
+        }
+    }
 }
 
 async function loadMore() {
     if (loadingMore.value) return
     loadingMore.value = true
     try {
+        // 더보기를 누른 시점엔 이미 각자 최소 1페이지씩은 있는 상태라 바로 따라잡기 루프로 감 —
+        // 그래도 한쪽이 hasMore인데 아직 데이터가 없는 경우까지 catchUpSources가 방어해줌
         const tasks = []
-        if (hasMoreLocal.value) {
-            const nextOffset = localOffset.value + PAGE_SIZE
-            tasks.push(fetchLocalPage(nextOffset).then((res) => {
-                localOffset.value = nextOffset
-                localPosts.value = [...localPosts.value, ...res.posts]
-                hasMoreLocal.value = res.hasMore
-            }))
-        }
-        if (hasMoreRemote.value) {
-            const nextOffset = remoteOffset.value + PAGE_SIZE
-            tasks.push(fetchRemotePage(nextOffset).then((res) => {
-                remoteOffset.value = nextOffset
-                remotePosts.value = [...remotePosts.value, ...res.posts]
-                hasMoreRemote.value = res.hasMore
-            }))
-        }
+        if (hasMoreLocal.value) tasks.push(fetchLocalMore())
+        if (hasMoreRemote.value) tasks.push(fetchRemoteMore())
         await Promise.all(tasks)
+        await catchUpSources()
     } finally {
         loadingMore.value = false
     }
@@ -1428,6 +1505,22 @@ onMounted(() => {
     font-weight: 600;
     color: #ffb454;
 }
+
+.cw-hide-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: 0.78rem;
+    font-family: inherit;
+    color: #ffb454;
+    cursor: pointer;
+    opacity: 0.8;
+}
+.cw-hide-btn:hover { opacity: 1; text-decoration: underline; }
 
 .remote-original-link {
     display: inline-flex;
