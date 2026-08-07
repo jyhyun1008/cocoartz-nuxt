@@ -103,7 +103,11 @@ export default defineNuxtConfig({
     public: {
       apiBaseUrl: process.env.API_BASEURL ?? '',
       serverSlug: process.env.SERVER_SLUG ?? 'default',
-      objectStorageEnabled: !!(process.env.S3_BUCKET && process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY && process.env.S3_PUBLIC_URL_BASE),
+      // objectStorageEnabled는 여기 두지 않음 — process.env.S3_*(접두사 없는 이름)로 계산되는
+      // 값이라 "docker build" 시점에 한 번 평가되어 이미지에 굳어버리고, 배포 시 NUXT_S3_*
+      // 런타임 env를 아무리 제대로 줘도 반영되지 않는 버그가 있었음. 대신 요청마다 실제
+      // 런타임 값을 읽는 /api/getObjectStorageStatus(server/utils/objectStorage.ts의
+      // isObjectStorageConfigured() 재사용)를 클라이언트에서 호출해서 판단함
     },
   },
 })

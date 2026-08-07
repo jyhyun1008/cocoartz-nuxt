@@ -342,7 +342,7 @@
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const slug = config.public.serverSlug
-const objectStorageEnabled = config.public.objectStorageEnabled
+const { enabled: objectStorageEnabled, ensureLoaded: ensureObjectStorageStatusLoaded } = useObjectStorageStatus()
 
 const emit = defineEmits(['close'])
 
@@ -474,6 +474,7 @@ async function deleteCustomEmoji(id) {
 
 onMounted(() => {
     ensureCustomEmojisLoaded()
+    ensureObjectStorageStatusLoaded()
 })
 
 async function handleServerIconFile(e) {

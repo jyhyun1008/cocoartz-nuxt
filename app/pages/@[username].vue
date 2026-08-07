@@ -73,7 +73,7 @@ const showEdit = ref(false)
 const editForm = reactive({ knownas: '', username: '', bio: '', avatar: '', banner: '' })
 const editError = ref('')
 const editLoading = ref(false)
-const objectStorageEnabled = config.public.objectStorageEnabled
+const { enabled: objectStorageEnabled, ensureLoaded: ensureObjectStorageStatusLoaded } = useObjectStorageStatus()
 const avatarFileInput = ref(null)
 const avatarUploading = ref(false)
 const bannerFileInput = ref(null)
@@ -129,6 +129,7 @@ function openEdit() {
     editForm.banner = userData.value?.banner ?? ''
     editError.value = ''
     showEdit.value = true
+    ensureObjectStorageStatusLoaded()
 }
 
 async function saveEdit() {
