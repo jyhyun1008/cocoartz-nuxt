@@ -1,6 +1,6 @@
 import { db } from '../utils/db'
 import { follows, posts, users, remoteFeedPosts } from '../db/schema'
-import { eq, and, inArray, isNull, desc } from 'drizzle-orm'
+import { eq, and, inArray, isNull, desc, sql } from 'drizzle-orm'
 import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
 
 const PAGE_SIZE = 20
@@ -46,10 +46,14 @@ export default eventHandler(async (event) => {
         localPosts = applyMuteFilter(localPosts, muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
     }
 
-    // 원격 계정 팔로우 → remoteFeedPosts
+    // 원격 계정 팔로우 → remoteFeedPosts. 재게시(boostedByActorUrl 있음)된 글은 원본 글 자체의
+    // published가 아니라 "우리 서버가 그 재게시를 받은 시각"(createdAt) 기준으로 정렬함 —
+    // 안 그러면 옛날 글이 방금 리부스트돼도 타임라인 맨 위로 안 올라오고 원래 작성일 자리에
+    // 파묻혀 있었음. 직접 쓴 글(재게시 아님)은 그대로 published 기준.
+    const remoteSortDate = sql`CASE WHEN ${remoteFeedPosts.boostedByActorUrl} IS NOT NULL THEN ${remoteFeedPosts.createdAt} ELSE ${remoteFeedPosts.published} END`
     const remoteRows = await db.select().from(remoteFeedPosts)
         .where(eq(remoteFeedPosts.userid, userid))
-        .orderBy(desc(remoteFeedPosts.published))
+        .orderBy(desc(remoteSortDate))
         .limit(PAGE_SIZE + 1)
         .offset(remoteOffset ?? 0)
 
@@ -62,8 +66,9 @@ export default eventHandler(async (event) => {
         summary: r.summary,
         quoteUrl: r.quoteUrl,
         linkUrl: r.linkUrl,
-        createdAt: r.published,
-        sortDate: r.published,
+        // 표시용 날짜도 정렬 기준과 맞춤 — 재게시면 재게시 받은 시각, 아니면 원본 작성일
+        createdAt: r.boostedByActorUrl ? r.createdAt : r.published,
+        sortDate: r.boostedByActorUrl ? r.createdAt : r.published,
         isRemote: true,
         liked: r.liked,
         sourceActorUrl: r.sourceActorUrl,
