@@ -14,6 +14,9 @@ export const users = pgTable('users', {
     isAdmin: boolean().default(false).notNull(),
     // 승인제 가입일 때 관리자 승인 전까지 false. 기존 유저/자유 가입 유저는 true.
     approved: boolean().default(true).notNull(),
+    // true면 이 유저를 팔로우하려는 요청(로컬/원격 모두)이 바로 승인되지 않고 대기 상태(follows.accepted=false)로
+    // 쌓여서, 본인이 직접 승인/거절해야 함. 기본값 false(지금까지처럼 전부 자동 승인)
+    requireFollowApproval: boolean().default(false).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     lastLogin: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

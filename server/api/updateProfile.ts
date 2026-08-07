@@ -3,7 +3,7 @@ import { users } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 export default eventHandler(async (event) => {
-    const { userid, knownas, bio, avatar, banner } = await readBody(event)
+    const { userid, knownas, bio, avatar, banner, requireFollowApproval } = await readBody(event)
 
     if (!userid) throw createError({ statusCode: 400, message: '로그인이 필요합니다' })
 
@@ -12,6 +12,7 @@ export default eventHandler(async (event) => {
         ...(bio !== undefined ? { bio: bio.trim() || null } : {}),
         ...(avatar !== undefined ? { avatar: avatar.trim() || null } : {}),
         ...(banner !== undefined ? { banner: banner.trim() || null } : {}),
+        ...(requireFollowApproval !== undefined ? { requireFollowApproval: !!requireFollowApproval } : {}),
     }).where(eq(users.id, Number(userid)))
     .returning({ username: users.username })
 

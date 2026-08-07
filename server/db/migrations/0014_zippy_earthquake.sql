@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "requireFollowApproval" boolean DEFAULT false NOT NULL;

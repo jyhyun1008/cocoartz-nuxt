@@ -11,7 +11,7 @@ const MAX_FOLLOWERS_PER_USER = 5000
 const MAX_FOLLOWS_PER_DOMAIN_PER_HOUR = 30
 const MAX_INBOX_REQUESTS_PER_MINUTE = 60
 
-type LocalUser = { id: number; username: string }
+type LocalUser = { id: number; username: string; requireFollowApproval: boolean }
 type LocalActor = { privateKey: string }
 
 export default defineEventHandler(async (event) => {
@@ -125,19 +125,29 @@ async function handleFollow(body: Record<string, unknown>, user: LocalUser, acto
     const remoteActorHandle = preferredUsername ? `@${preferredUsername}@${actorDomain}` : ''
     const remoteActorIconUrl = (actorData.icon as Record<string, string> | undefined)?.url || ''
 
+    // 수동 승인을 켜둔 유저면 대기 상태로만 쌓아두고, 정작 Accept는 본인이 승인할 때 보냄
+    // (상대 서버/클라이언트는 Accept를 받기 전까진 "요청됨" 상태로 표시함)
+    const accepted = !user.requireFollowApproval
+
     await db.insert(follows).values({
         userid: user.id,
         followerActorUrl,
         followerInbox: inboxUrl,
-        accepted: true,
+        accepted,
         followActivityId: body.id as string,
         remoteActorName,
         remoteActorHandle,
         remoteActorIconUrl,
     }).onConflictDoUpdate({
         target: [follows.userid, follows.followerActorUrl],
-        set: { accepted: true, followerInbox: inboxUrl, remoteActorName, remoteActorHandle, remoteActorIconUrl },
+        // accepted는 여기서 안 건드림 — 이미 대기 중인데 같은 Follow가 재전송돼도 자동 승인되면 안 됨
+        set: { followerInbox: inboxUrl, remoteActorName, remoteActorHandle, remoteActorIconUrl },
     })
+
+    if (!accepted) {
+        console.log(`[inbox] Follow 대기: ${followerActorUrl} → @${user.username}`)
+        return
+    }
 
     const accept = buildAcceptActivity(domain, user.username, body)
     await deliverToInbox(inboxUrl, accept, actorUrl(domain, user.username), actor.privateKey)

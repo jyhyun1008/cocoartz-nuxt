@@ -19,15 +19,19 @@ export default eventHandler(async (event) => {
     const domain = config.domain as string
     const followerActorUrl = actorUrl(domain, follower.username)
 
+    // 대상이 "팔로우 수동 승인"을 켜뒀으면 대기 상태(accepted:false)로 쌓아두고 본인이 직접 승인해야 함
+    const accepted = !target.requireFollowApproval
+
     await db.insert(follows).values({
         userid: target.id,
         followerActorUrl,
         followerInbox: `${followerActorUrl}/inbox`,
         followerUserId: follower.id,
-        accepted: true,
+        accepted,
     }).onConflictDoUpdate({
         target: [follows.userid, follows.followerActorUrl],
-        set: { accepted: true, followerUserId: follower.id },
+        // accepted는 여기서 안 건드림 — 이미 대기 중인 요청을 재시도한다고 자동으로 승인 처리되면 안 됨
+        set: { followerUserId: follower.id },
     })
 
     await db.insert(notifications).values({
@@ -36,5 +40,5 @@ export default eventHandler(async (event) => {
         actorUserId: follower.id,
     })
 
-    return { ok: true }
+    return { ok: true, accepted }
 })

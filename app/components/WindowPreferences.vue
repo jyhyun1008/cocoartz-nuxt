@@ -23,6 +23,46 @@
                 </div>
             </div>
 
+            <!-- 팔로우 승인 -->
+            <template v-if="isLoggedIn">
+                <div class="admin-section">
+                    <div class="admin-section-header">
+                        <span class="admin-section-title">팔로우 승인</span>
+                    </div>
+                    <div class="pref-theme-row">
+                        <span class="pref-theme-label">새 팔로우를 수동으로 승인</span>
+                        <button class="pref-theme-btn" type="button" :disabled="approvalSettingSaving" @click="toggleRequireApproval">
+                            <i class="hgi hgi-stroke" :class="requireFollowApproval ? 'hgi-checkmark-circle-01' : 'hgi-circle'"></i>
+                            {{ requireFollowApproval ? '켜짐' : '꺼짐' }}
+                        </button>
+                    </div>
+                    <p class="admin-label-hint" style="margin:6px 0 0">
+                        켜두면 팔로우 요청(로컬/원격 모두)이 바로 승인되지 않고 아래 목록에 쌓여서, 직접 승인/거절해야 팔로워로 반영돼요. 꺼두면 지금처럼 자동 승인됩니다.
+                    </p>
+
+                    <div class="admin-channel-list" style="margin-top:14px">
+                        <div v-for="p in pendingFollows" :key="p.id" class="admin-channel-item">
+                            <div class="admin-icon-preview" style="width:28px;height:28px;border-radius:50%">
+                                <NuxtImg v-if="p.kind === 'remote' ? p.iconUrl : p.avatar" :src="p.kind === 'remote' ? p.iconUrl : p.avatar" />
+                                <i v-else class="hgi hgi-stroke hgi-user-group"></i>
+                            </div>
+                            <span v-if="p.kind === 'remote' && p.name" class="admin-ch-name" v-html="p.name"></span>
+                            <span v-else class="admin-ch-name">{{ p.kind === 'remote' ? p.handle : (p.knownas || p.username) }}</span>
+                            <code class="admin-ch-path">{{ p.kind === 'remote' ? p.handle : `@${p.username}` }}</code>
+                            <div class="admin-ch-actions">
+                                <button class="admin-icon-btn" @click="respondFollow(p.id, true)" title="승인">
+                                    <i class="hgi hgi-stroke hgi-tick-01"></i>
+                                </button>
+                                <button class="admin-icon-btn danger" @click="respondFollow(p.id, false)" title="거절">
+                                    <i class="hgi hgi-stroke hgi-cancel-01"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="!pendingFollows.length" class="empty" style="padding:14px 0">대기 중인 팔로우 요청이 없습니다.</div>
+                    </div>
+                </div>
+            </template>
+
             <!-- 원격 계정 팔로우 -->
             <template v-if="isLoggedIn">
                 <div class="admin-section">
@@ -106,6 +146,39 @@ defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
 const { theme, toggle: toggleTheme } = useTheme()
+
+const { data: pendingFollowsData, refresh: refreshPendingFollows } = await useAsyncData(
+    'pending-follows',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getPendingFollows`, { method: 'POST', body: { userid: userId.value } })
+        : Promise.resolve({ requireFollowApproval: false, pending: [] }),
+    { watch: [userId] },
+)
+const requireFollowApproval = computed(() => pendingFollowsData.value?.requireFollowApproval ?? false)
+const pendingFollows = computed(() => pendingFollowsData.value?.pending ?? [])
+
+const approvalSettingSaving = ref(false)
+async function toggleRequireApproval() {
+    if (approvalSettingSaving.value) return
+    approvalSettingSaving.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/updateProfile`, {
+            method: 'POST',
+            body: { userid: userId.value, requireFollowApproval: !requireFollowApproval.value },
+        })
+        await refreshPendingFollows()
+    } finally {
+        approvalSettingSaving.value = false
+    }
+}
+
+async function respondFollow(followId, approve) {
+    await $fetch(`${apiBaseUrl}/api/${approve ? 'approveFollow' : 'rejectFollow'}`, {
+        method: 'POST',
+        body: { userid: userId.value, followId },
+    }).catch(() => {})
+    await refreshPendingFollows()
+}
 
 const { data: remoteFollowsData, refresh: refreshRemoteFollows } = await useAsyncData(
     'remote-follows',

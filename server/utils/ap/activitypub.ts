@@ -112,6 +112,17 @@ export function buildAcceptActivity(domain: string, username: string, followActi
     }
 }
 
+export function buildRejectActivity(domain: string, username: string, followActivity: unknown) {
+    const base = actorUrl(domain, username)
+    return {
+        '@context': AS_CONTEXT,
+        type: 'Reject',
+        id: `${base}#reject-${Date.now()}`,
+        actor: base,
+        object: followActivity,
+    }
+}
+
 export function buildLikeActivity(domain: string, username: string, objectId: string) {
     const base = actorUrl(domain, username)
     return {

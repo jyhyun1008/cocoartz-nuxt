@@ -50,16 +50,18 @@ export default defineEventHandler(async (event) => {
     const followingCount = localFollowingCount + remoteFollowingCount
 
     let isFollowing = false
+    let isFollowRequested = false
     let myMuteLevel = null
     if (viewerUserId) {
-        const [row] = await db.select().from(follows)
+        const [row] = await db.select({ accepted: follows.accepted }).from(follows)
             .where(and(eq(follows.userid, user.id), eq(follows.followerUserId, viewerUserId)))
-        isFollowing = !!row
+        isFollowing = !!row?.accepted
+        isFollowRequested = !!row && !row.accepted
 
         const [muteRow] = await db.select({ level: mutes.level }).from(mutes)
             .where(and(eq(mutes.userid, viewerUserId), eq(mutes.targetUserId, user.id)))
         myMuteLevel = muteRow?.level ?? null
     }
 
-    return { ...user, posts: userPosts, followerCount, followingCount, isFollowing, myMuteLevel }
+    return { ...user, posts: userPosts, followerCount, followingCount, isFollowing, isFollowRequested, myMuteLevel }
 })

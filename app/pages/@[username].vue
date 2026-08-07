@@ -27,7 +27,8 @@ async function toggleFollow() {
     if (!userId.value || followLoading.value) return
     followLoading.value = true
     try {
-        const endpoint = userData.value?.isFollowing ? 'unfollowUser' : 'followUser'
+        // 요청됨 상태도 unfollowUser로 취소(follows.accepted 여부와 무관하게 그냥 행을 지움)
+        const endpoint = (userData.value?.isFollowing || userData.value?.isFollowRequested) ? 'unfollowUser' : 'followUser'
         await $fetch(`${apiBaseUrl}/api/${endpoint}`, {
             method: 'POST',
             body: { userid: userId.value, targetUsername: username },
@@ -218,11 +219,12 @@ function switchFollowListTab(type) {
                     <template v-else-if="userId">
                         <button
                             id="follow-btn"
-                            :class="{ following: userData?.isFollowing }"
+                            :class="{ following: userData?.isFollowing, requested: userData?.isFollowRequested }"
                             :disabled="followLoading"
+                            :title="userData?.isFollowRequested ? '클릭하면 요청을 취소합니다' : ''"
                             @click="toggleFollow"
                         >
-                            {{ userData?.isFollowing ? '팔로잉' : '팔로우' }}
+                            {{ userData?.isFollowRequested ? '요청됨' : (userData?.isFollowing ? '팔로잉' : '팔로우') }}
                         </button>
                         <div id="mute-btn-group">
                             <button
@@ -572,6 +574,16 @@ function switchFollowListTab(type) {
     border-color: rgba(var(--fg-rgb),0.25);
 }
 #follow-btn.following:hover {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+}
+
+#follow-btn.requested {
+    background: none;
+    color: rgba(var(--fg-rgb),0.4);
+    border-color: rgba(var(--fg-rgb),0.2);
+}
+#follow-btn.requested:hover {
     border-color: #ff6b6b;
     color: #ff6b6b;
 }
