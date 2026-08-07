@@ -18,8 +18,20 @@
         <!-- 채널 목록 -->
         <div v-else-if="view === 'list'" id="settings-content">
 
+            <div class="admin-tabs">
+                <button
+                    v-for="tab in tabs"
+                    :key="tab.id"
+                    class="admin-tab-btn"
+                    :class="{ active: activeTab === tab.id }"
+                    @click="activeTab = tab.id"
+                >
+                    <i :class="tab.icon"></i> {{ tab.label }}
+                </button>
+            </div>
+
             <!-- 서버 정보 섹션 -->
-            <div class="admin-section">
+            <div v-if="activeTab === 'server'" class="admin-section">
                 <div class="admin-section-header">
                     <span class="admin-section-title">서버 정보</span>
                 </div>
@@ -66,7 +78,7 @@
             </div>
 
             <!-- 커스텀 이모지 관리 -->
-            <div class="admin-section">
+            <div v-if="activeTab === 'emoji'" class="admin-section">
                 <div class="admin-section-header">
                     <span class="admin-section-title">커스텀 이모지 관리</span>
                 </div>
@@ -104,7 +116,7 @@
             </div>
 
             <!-- 승인 대기 중인 가입 신청 -->
-            <div v-if="serverForm.registrationMode === 'approval' || pendingUsers.length" class="admin-section">
+            <div v-if="activeTab === 'pending'" class="admin-section">
                 <div class="admin-section-header">
                     <span class="admin-section-title">가입 승인 대기</span>
                 </div>
@@ -131,7 +143,7 @@
             </div>
 
             <!-- 기본 페이지(마을 / 공지 게시판) 맵 편집 -->
-            <div class="admin-section">
+            <div v-if="activeTab === 'pinned'" class="admin-section">
                 <div class="admin-section-header">
                     <span class="admin-section-title">기본 페이지</span>
                 </div>
@@ -167,7 +179,7 @@
             </div>
 
             <!-- 채널 목록 섹션 -->
-            <div class="admin-section">
+            <div v-if="activeTab === 'channels'" class="admin-section">
                 <div class="admin-section-header">
                     <span class="admin-section-title">채널 목록</span>
                     <button class="admin-add-btn" @click="openCreate">
@@ -524,6 +536,23 @@ function buildOrderedList() {
 watch([serverData, roomsData], buildOrderedList, { immediate: true })
 
 const view = ref('list')
+
+// 목록 화면(view === 'list')이 섹션 하나에 전부 이어붙어 있던 걸 탭으로 나눠서 보여줌.
+// "가입 승인" 탭은 원래 섹션 자체가 조건부로만 보이던 것과 동일하게, 탭 목록에도 조건부로만 노출
+const activeTab = ref('server')
+const tabs = computed(() => [
+    { id: 'server', label: '서버 정보', icon: 'hgi hgi-stroke hgi-setting-07' },
+    { id: 'emoji', label: '커스텀 이모지', icon: 'hgi hgi-stroke hgi-smile' },
+    ...(serverForm.registrationMode === 'approval' || pendingUsers.value.length
+        ? [{ id: 'pending', label: '가입 승인', icon: 'hgi hgi-stroke hgi-tick-01' }]
+        : []),
+    { id: 'pinned', label: '기본 페이지', icon: 'hgi hgi-stroke hgi-map-01' },
+    { id: 'channels', label: '채널 목록', icon: 'hgi hgi-stroke hgi-grid' },
+])
+// 가입 승인 탭이 사라졌는데 거기 있던 상태였으면 서버 정보 탭으로 돌려보냄
+watch(tabs, (list) => {
+    if (!list.some((t) => t.id === activeTab.value)) activeTab.value = 'server'
+})
 const saving = ref(false)
 const saveMsg = ref('')
 const formError = ref('')
@@ -783,6 +812,38 @@ async function doDelete() {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(var(--fg-rgb),0.08);
+}
+.admin-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 600;
+    color: rgba(var(--fg-rgb),0.45);
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+}
+.admin-tab-btn:hover { background: rgba(var(--fg-rgb),0.06); color: rgba(var(--fg-rgb),0.8); }
+.admin-tab-btn.active {
+    background: var(--bgaccent);
+    color: var(--accent);
 }
 
 .admin-section {
