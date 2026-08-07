@@ -419,14 +419,15 @@ async function submitServerInfo() {
             method: 'POST',
             body: { userid: userId.value, slug, ...serverForm },
         })
-        await refreshServer()
-        await refreshNuxtData('server-data')
-        serverSaveMsg.value = '저장되었습니다!'
-        setTimeout(() => { serverSaveMsg.value = '' }, 2500)
+        serverSaveMsg.value = '저장되었습니다! 새로고침합니다...'
+        // useServer()(ServerHeader 등에서 씀)가 반응형 참조가 아니라 호출 시점 스냅샷이라,
+        // refreshNuxtData만으로는 이미 열려있는 다른 화면(헤더 색/이름 등)에 반영이 안 됨 —
+        // 그냥 한 번 새로고침해서 확실히 최신 상태로 맞춤
+        setTimeout(() => reloadNuxtApp(), 600)
     } catch (e) {
         serverError.value = e?.data?.message ?? '오류가 발생했습니다'
+        serverSaving.value = false
     }
-    serverSaving.value = false
 }
 
 // 커스텀 이모지 관리
@@ -691,6 +692,9 @@ async function submitCreate() {
 function onMapSaved(mapJson) {
     editTarget.value = { ...editTarget.value, map: mapJson }
     view.value = pinnedEdit.value ? 'list' : 'edit'
+    // 실제 맵 화면(RoomMap.vue)은 방 경로별로 따로 캐싱된 데이터를 쓰기 때문에 여기서
+    // 아무리 갱신해도 반영이 안 됨 — 새로고침해서 방금 저장한 맵이 확실히 보이게 함
+    reloadNuxtApp()
 }
 
 function closeMapEdit() {

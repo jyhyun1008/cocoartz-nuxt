@@ -148,6 +148,9 @@ async function saveEdit() {
         })
         showEdit.value = false
         await refresh()
+        // 하단 프로필바(ServerProfilebar.vue)가 별도 캐시 키('i-data')로 내 정보를 들고 있어서,
+        // 이 페이지 자체 refresh()만으로는 프로필바의 아바타/닉네임이 갱신되지 않음
+        await refreshNuxtData('i-data')
     } catch (e) {
         editError.value = e?.data?.message ?? '저장 중 오류가 발생했습니다'
     } finally {
