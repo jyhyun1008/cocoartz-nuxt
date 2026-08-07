@@ -641,6 +641,9 @@ onMounted(() => {
 }
 
 .post-input {
+    /* input은 flex 자식일 때 기본값이 min-width:auto라서, 버튼과 한 줄에 나란히 있으면
+       내용 크기 밑으로 안 줄어들고 좁은 화면에서 행 전체를 밀어버림 — 항상 줄어들 수 있게 함 */
+    min-width: 0;
     border: 1px solid rgba(var(--fg-rgb),0.12);
     border-radius: 8px;
     padding: 9px 14px;

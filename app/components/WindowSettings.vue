@@ -935,6 +935,7 @@ async function doDelete() {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
     padding-top: 4px;
 }
 
@@ -1007,6 +1008,7 @@ async function doDelete() {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .admin-color-input {
@@ -1024,6 +1026,7 @@ async function doDelete() {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .admin-icon-preview {
