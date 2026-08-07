@@ -1124,8 +1124,7 @@ async function doDelete() {
 .admin-tabs {
     display: flex;
     gap: 4px;
-    overflow-x: auto;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     padding-bottom: 4px;
     margin-bottom: 4px;
     border-bottom: 1px solid rgba(var(--fg-rgb),0.08);
