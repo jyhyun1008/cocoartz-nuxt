@@ -155,13 +155,17 @@ const botImgStyle = computed(() => {
 })
 
 let animInterval = null
+// 멈췄을 때(direction이 null) 기본값(아래를 보는 row 0)으로 되돌리는 대신, 마지막으로 걷던
+// 방향을 그대로 보고 서 있게 하기 위해 따로 기억해둠 — CharacterMoving.vue(내 캐릭터)와 동일한 처리
+let lastRow = 0
 
 watch(() => props.direction, (dir) => {
     if (animInterval) { clearInterval(animInterval); animInterval = null }
     if (!dir || !FRAMES[dir]) {
-        frame.value = { row: 0, col: 1 }
+        frame.value = { row: lastRow, col: 1 }
         return
     }
+    lastRow = FRAMES[dir][0].row
     let idx = 0
     animInterval = setInterval(() => {
         frame.value = FRAMES[dir][idx]

@@ -154,9 +154,14 @@ onMounted(() => {
     const activeKeys = []
     let animInterval = null
     let frameIdx = 0
+    // 멈췄을 때 기본값(아래를 보는 row 0)으로 되돌리는 대신, 마지막으로 걷던 방향을 그대로
+    // 보고 서 있게 하기 위해 따로 기억해둠 — playAnim이 호출될 때마다(=키를 누르고 있는 동안)
+    // 갱신되고, stopAnim은 이 값을 그대로 씀
+    let lastRow = 0
 
     function playAnim(code) {
         frameIdx = 0
+        lastRow = FRAMES[code][0].row
         clearInterval(animInterval)
         animInterval = setInterval(() => {
             applyFrame(FRAMES[code][frameIdx])
@@ -166,7 +171,7 @@ onMounted(() => {
     function stopAnim() {
         clearInterval(animInterval)
         animInterval = null
-        applyFrame({ row: 0, col: 1 })
+        applyFrame({ row: lastRow, col: 1 })
     }
 
     function onKeydown(e) {
