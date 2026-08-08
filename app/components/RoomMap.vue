@@ -1501,6 +1501,14 @@ onMounted(() => {
     #mobile-jump-btn.jump-btn-above-chat {
         bottom: 244px;
     }
+
+    /* 창(정보/멤버/설정/게시판/음성/위키/타임라인/설정/상점 등)을 최소화하면 뜨는 "○○ 열기"
+       버튼도 #mobile-joystick과 정확히 같은 자리(left:14px~20px/bottom:14px~20px)에 겹쳐 뜸 —
+       조이스틱 높이(110px)+여유만큼 위로 올림. 채팅 전용 재열기 버튼("채팅 열기")도 이 클래스를
+       그대로 쓰는 같은 요소라 자연히 같이 올라감. */
+    .reopen-btn {
+        bottom: 142px;
+    }
 }
 
 @keyframes handheld {

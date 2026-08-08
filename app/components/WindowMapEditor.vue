@@ -992,6 +992,28 @@ onMounted(() => {
 .palette-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .palette-save-btn:not(:disabled):hover { opacity: 0.85; }
 
+/* 데스크톱에선 숨김 — 아래 미디어쿼리 안에서만 보이게 함. ⚠️ 이 기본 규칙(display:none)은
+   반드시 아래 @media 블록보다 CSS 소스상 먼저 와야 함 — 나중에 오면 detail specificity가 같아서
+   media query가 매치돼도(display:block) 뒤에 나오는 이 규칙이 그냥 덮어써버려서 모바일에서도
+   계속 안 뜨는 버그가 났었음(실제로 겪음). */
+#wme-mobile-hint {
+    display: none;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 60000;
+    background: rgba(20, 20, 28, 0.8);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.72rem;
+    text-align: center;
+    pointer-events: none;
+}
+
 /* 모바일: 팔레트가 데스크톱처럼 우상단에 240px 폭으로 뜨면 좁은 화면 대부분(폭+높이 다)을
    가려서 맵이 거의 안 보임(놓을 자리를 확인할 수가 없음) — 화면 하단에 붙는 바텀시트로 바꿔서
    맵이 위쪽에 계속 보이게 하고, 팔레트는 엄지로 닿기 쉬운 아래쪽에 고정 높이로 둠. 폭 제한을
@@ -1012,24 +1034,5 @@ onMounted(() => {
     #wme-mobile-hint {
         display: block;
     }
-}
-
-/* 데스크톱에선 숨김 — 위 미디어쿼리 안에서만 보이게 함 */
-#wme-mobile-hint {
-    display: none;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    z-index: 60000;
-    background: rgba(20, 20, 28, 0.8);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    padding: 7px 10px;
-    color: rgba(255, 255, 255, 0.75);
-    font-size: 0.72rem;
-    text-align: center;
-    pointer-events: none;
 }
 </style>
