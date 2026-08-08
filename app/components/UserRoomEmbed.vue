@@ -305,8 +305,10 @@ watch(() => props.username, restorePosition)
 
 const storageKey = computed(() => `ur-pos-${props.username}`)
 const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
-const MOVES = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
-const KEY_REPEAT_MS = 180  // RoomMap.vue와 동일
+// 한 스텝당 이동 거리/반복 간격 — RoomMap.vue와 동일(값을 바꾸면 두 군데 다 맞출 것).
+// 예전(0.25 / 180ms)이 너무 느리다는 피드백을 받아 걸음이 좀 더 빠르게 느껴지도록 올림.
+const MOVES = { KeyS: [0, -0.3], KeyW: [0, 0.3], KeyA: [-0.3, 0], KeyD: [0.3, 0] }
+const KEY_REPEAT_MS = 130  // RoomMap.vue와 동일
 
 // 스페이스바 점프 — 누르고 있는 동안(jumpHeld)은 방향키로 이동할 때 층이 달라지는 칸도
 // 허용됨(canEnterTileJumping). RoomMap.vue와 같은 방식.

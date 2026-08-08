@@ -1060,8 +1060,10 @@ onMounted(() => {
 
     // WASD 이동 (모바일 조이스틱과 한 칸 이동 로직 공유)
     const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
-    const MOVES = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
-    const KEY_REPEAT_MS = 180  // 조이스틱 JOY_REPEAT_MS와 동일
+    // 한 스텝당 이동 거리/반복 간격 — UserRoomEmbed.vue와 동일(값을 바꾸면 두 군데 다 맞출 것).
+    // 예전(0.25 / 180ms)이 너무 느리다는 피드백을 받아 걸음이 좀 더 빠르게 느껴지도록 올림.
+    const MOVES = { KeyS: [0, -0.3], KeyW: [0, 0.3], KeyA: [-0.3, 0], KeyD: [0.3, 0] }
+    const KEY_REPEAT_MS = 130  // 조이스틱 JOY_REPEAT_MS와 동일
 
     // 방향키를 브라우저 자체 keydown 반복(OS/브라우저 auto-repeat)에 맡기지 않고 직접 setInterval로
     // 반복시킴 — 방향키를 먼저 누른 채로 스페이스바를 나중에 누르면(또는 그 반대) 일부 브라우저는
@@ -1242,7 +1244,7 @@ onMounted(() => {
 
     // 모바일 이동 조이스틱: 노브를 4방향(상/하/좌/우) 중 하나로 스냅해 누르는 동안 반복 이동
     const JOY_MAX_RADIUS = 32
-    const JOY_REPEAT_MS = 180
+    const JOY_REPEAT_MS = 130  // KEY_REPEAT_MS와 동일
     let joyTouchId = null
     let joyCenter = { x: 0, y: 0 }
     let joyActiveDir = null
