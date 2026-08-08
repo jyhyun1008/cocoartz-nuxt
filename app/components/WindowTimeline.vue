@@ -248,7 +248,7 @@
                                 <button class="submit-btn" @click="revealedCw[`reply-${comment.id}`] = true">내용 보기</button>
                             </div>
                             <template v-else>
-                                <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="comment.content"></div>
+                                <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                                 <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                                 <button v-if="comment.summary" class="cw-hide-btn" @click="revealedCw[`reply-${comment.id}`] = false">
                                     <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기

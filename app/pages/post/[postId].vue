@@ -357,7 +357,7 @@ onMounted(() => {
                                     </div>
                                 </div>
                             </div>
-                            <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="comment.content"></div>
+                            <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                             <div v-else class="pd-comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                         </template>
                     </div>
