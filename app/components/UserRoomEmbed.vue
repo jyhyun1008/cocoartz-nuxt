@@ -17,37 +17,16 @@
         />
 
         <template v-else>
-            <!-- z=0 타일 레이어 -->
-            <div id="ure-map" :style="mapStyle">
-                <div class="maptiles1" :style="tilesScaleStyle">
-                    <div
-                        v-for="tile in tilesBack"
-                        :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
-                        class="tile-container"
-                        :style="getTileContainerStyle(tile)"
-                    >
-                        <div class="tile-slice" :style="tileTopSliceStyle">
-                            <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileTopImgStyle" />
-                        </div>
-                        <div class="tile-slice" :style="tileSideTopStyle">
-                            <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideTopImgStyle" />
-                        </div>
-                        <div class="tile-slice" :style="tileSideMiddleContainerStyle(tile)">
-                            <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideMiddleImgStyle(tile)" />
-                        </div>
-                        <div class="tile-slice" :style="tileSideBottomStyle">
-                            <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- z≥1 타일 + 맵 아이템 + 캐릭터 레이어 -->
+            <!-- 통합 레이어: 타일(z 무관) + 아이템 + 캐릭터를 전부 같은 스태킹 컨텍스트에서 z-index
+                 하나로 깊이 결정. 예전엔 z=0/z≥1을 #ure-map/#ure-map-front 두 개로 쪼개서 렌더했는데,
+                 이 둘이 서로 다른(뒤/앞 고정) 스태킹 컨텍스트라 z≥1 쪽(아이템·캐릭터 포함)이 내부
+                 z-index값과 무관하게 항상 z=0 쪽 위에 그려졌음 — RoomMap.vue/WindowMapEditor.vue는
+                 이미 이렇게 통합해서 고쳐뒀던 걸 여기도 맞춤. -->
             <div id="ure-map-front">
                 <div class="maptiles-pan" :style="mapStyle">
                     <div class="maptiles1" :style="tilesScaleStyle">
                         <div
-                            v-for="tile in tilesFront"
+                            v-for="tile in sortedTiles"
                             :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
                             class="tile-container"
                             :style="getTileContainerStyle(tile)"
@@ -255,8 +234,6 @@ const sortedTiles = computed(() => {
     })
 })
 
-const tilesBack = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) === 0))
-const tilesFront = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) >= 1))
 // RoomMap.vue의 getCharZIndex와 같은 스케일(타일의 4n+k와 맞물리는 공식) — 예전엔 옛 타일 z-index
 // 스케일(~10000대)에 맞춘 y*-10+9999를 썼는데, 타일이 공용 composable의 4n+k로 바뀌면서 스케일이
 // 완전히 어긋나 캐릭터가 항상 맨 위에 뜨는 버그가 됐었음. 여긴 다른 유저/아이템 충돌 판정이 없는
@@ -415,13 +392,6 @@ onMounted(() => {
 #ure-container.edit-active {
     height: 420px;
     --char-height: 420px;
-}
-
-#ure-map {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    animation: handheld 9s ease-in-out infinite;
 }
 
 #ure-map-front {
