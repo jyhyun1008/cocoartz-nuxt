@@ -90,16 +90,7 @@
                         </div>
                     </div>
                 </div>
-                <div v-if="currentPage.muted === 'soft' && !revealedMutedWiki" class="remote-cw-gate">
-                    <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트한 이모지가 포함된 페이지입니다</div>
-                    <button class="submit-btn" @click="revealedMutedWiki = true">그래도 보기</button>
-                </div>
-                <template v-else>
-                    <div class="wiki-content" v-html="renderedContent"></div>
-                    <button v-if="currentPage.muted === 'soft'" class="cw-hide-btn" @click="revealedMutedWiki = false">
-                        <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
-                    </button>
-                </template>
+                <div class="wiki-content" v-html="renderedContent"></div>
             </div>
         </div>
 
@@ -203,9 +194,6 @@ const pages = computed(() => pagesData.value ?? [])
 
 const currentView = ref('list')
 const currentPage = ref(null)
-// 뮤트한 커스텀 이모지가 포함된 페이지 게이트 — 다른 페이지로 넘어가면 다시 가려진 상태로
-// 시작해야 하니 openPage/openPageBySlug에서 매번 리셋함
-const revealedMutedWiki = ref(false)
 
 const shareCopied = ref(false)
 async function shareWikiPage() {
@@ -218,10 +206,9 @@ async function shareWikiPage() {
 async function openPageBySlug(slug) {
     const data = await $fetch(`${apiBaseUrl}/api/getWikiPageBySlug`, {
         method: 'POST',
-        body: { slug, roomid: props.ids.roomid, viewerUserId: userId.value },
+        body: { slug, roomid: props.ids.roomid },
     })
     currentPage.value = data
-    revealedMutedWiki.value = false
     currentView.value = 'detail'
 }
 
@@ -291,10 +278,9 @@ const editPreviewContent = computed(() =>
 async function openPage(id) {
     const data = await $fetch(`${apiBaseUrl}/api/getWikiPage`, {
         method: 'POST',
-        body: { id, viewerUserId: userId.value },
+        body: { id },
     })
     currentPage.value = data
-    revealedMutedWiki.value = false
     currentView.value = 'detail'
 }
 
