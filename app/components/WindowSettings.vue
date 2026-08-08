@@ -504,7 +504,7 @@
                 </template>
 
                 <template v-if="newShopItem.category === 'map_item'">
-                    <label class="admin-label">레이어 이미지 6장 <span class="admin-label-hint">1~6 순서로 한 번에 선택 — 실제 인게임처럼 겹친 아이콘을 자동으로 만들어요</span></label>
+                    <label class="admin-label">레이어 이미지 6장 <span class="admin-label-hint">1~6 순서로 한 번에 선택 — 실제로 맵에 놓였을 때처럼 겹친 아이콘을 자동으로 만들어요</span></label>
                     <template v-if="objectStorageEnabled">
                         <div class="admin-icon-row">
                             <div v-if="newShopItem.icon" class="admin-icon-preview">

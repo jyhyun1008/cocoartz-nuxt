@@ -1,6 +1,9 @@
 // 서버(buyItem.ts)와 클라이언트(WindowShop.vue) 양쪽에서 "이 카테고리가 개수를 여러 개 쌓을 수
-// 있는지"를 똑같이 판단해야 해서 공용으로 뺌 — 서버 쪽은 Nuxt 앱 composable(app/composables)을
-// 못 쓰므로 프레임워크 의존 없는 순수 모듈로 shared/에 둠.
+// 있는지"를 똑같이 판단해야 해서 공용으로 뺌 — 순수 모듈이라 양쪽 다 명시적 상대경로 import로 씀.
+// (한때 Nuxt의 shared/ 디렉토리에 뒀었는데, 거기 두면 Nuxt가 내용물을 자동으로 스캔해서 auto-import
+// 코드를 생성하다가 Nitro 서버 빌드에서 그 생성된 import 경로가 깨지는 버그가 있었음(RollupError:
+// Could not resolve ".../shared/utils/shopCategories.ts") — 그래서 auto-import 스캔 대상이 아닌
+// 이 위치(프로젝트 루트 lib/)로 옮기고 항상 명시적으로 import하는 쪽으로 정리함.
 //
 // 아바타 파츠(avatar_*)와 terrain은 "있다/없다"만 의미가 있어서 제외 — 캐릭터에 장착하거나 맵
 // 한 칸에 심는 지형이라 여러 개 들고 있을 이유가 없음. 나머지(map_item/functional/consumable)는

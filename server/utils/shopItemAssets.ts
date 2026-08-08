@@ -32,7 +32,7 @@ export async function uploadSingleImage(parts: MultiPartData[] | undefined, fiel
     return uploadImage(file!.data, file!.type!, prefix)
 }
 
-// 맵 아이템 6장 레이어(layer1~layer6 파트) — 업로드하고, 실제 인게임 스태킹 모습 그대로 합성한
+// 맵 아이템 6장 레이어(layer1~layer6 파트) — 업로드하고, 실제 맵에 놓인 스태킹 모습 그대로 합성한
 // 아이콘까지 자동으로 만들어서 같이 올림. 6장 전부 있어야 하고(부분 교체는 지원 안 함), 오브젝트
 // 스토리지가 없으면 애초에 이 기능 자체를 못 씀(공용 이모지 업로드와 같은 제약)
 export async function uploadMapItemLayers(parts: MultiPartData[] | undefined): Promise<{ layers: string[], icon: string }> {

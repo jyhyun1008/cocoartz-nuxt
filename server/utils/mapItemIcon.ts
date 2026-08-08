@@ -1,8 +1,8 @@
 import sharp from 'sharp'
 
 // MapItem.vue의 실제 스프라이트 스태킹 수식(레이어별 세로 눌림 squashRatio·간격 gapPerLayer)을
-// 그대로 재현해서, 관리자가 업로드한 레이어들을 실제 인게임 모습과 동일하게 미리 합성한 썸네일을
-// 만듦. 값들은 전부 MapItem.vue의 defineProps 기본값과 동일 — 그쪽 수식이 바뀌면 여기도 맞춰야 함.
+// 그대로 재현해서, 관리자가 업로드한 레이어들을 실제로 맵에 놓였을 때 모습과 동일하게 미리 합성한
+// 썸네일을 만듦. 값들은 전부 MapItem.vue의 defineProps 기본값과 동일 — 그쪽 수식이 바뀌면 여기도 맞춰야 함.
 // topRatio는 0.5(줌 중간 지점, useItemCatalog.ts가 flipBackOffsets 기준점으로 삼는 값과 동일)로 고정.
 const SPRITE_WIDTH = 230
 const SPRITE_HEIGHT = 256
@@ -21,7 +21,7 @@ function lerp2(topRatio: number, aT: number, aV: number, bT: number, bV: number)
 }
 
 /**
- * 정면(위→아래, 1.png~6.png) 순서의 레이어 이미지 버퍼들을 실제 게임과 같은 비율로 겹쳐서
+ * 정면(위→아래, 1.png~6.png) 순서의 레이어 이미지 버퍼들을 실제 화면과 같은 비율로 겹쳐서
  * 하나의 아이콘 PNG 버퍼로 합성함. layers.length는 보통 6이지만 다른 장수도 허용.
  */
 export async function compositeMapItemIcon(layerBuffers: Buffer[]): Promise<Buffer> {

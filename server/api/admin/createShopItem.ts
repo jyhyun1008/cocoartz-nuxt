@@ -2,7 +2,7 @@ import { db } from '../../utils/db'
 import { users, items } from '../../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
-import { isValidCategory } from '../../../shared/utils/shopCategories'
+import { isValidCategory } from '../../../lib/shopCategories'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })

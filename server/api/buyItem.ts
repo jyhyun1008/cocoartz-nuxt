@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { items, userItems, currencyBalances } from '../db/schema'
 import { eq, and, sql } from 'drizzle-orm'
-import { isStackableCategory } from '../../shared/utils/shopCategories'
+import { isStackableCategory } from '../../lib/shopCategories'
 
 export default eventHandler(async (event) => {
     const { userid, serverid, itemid, quantity } = await readBody(event)

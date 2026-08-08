@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { isStackableCategory } from '../../shared/utils/shopCategories'
+import { isStackableCategory } from '../../lib/shopCategories'
 
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
