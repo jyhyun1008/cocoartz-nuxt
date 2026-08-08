@@ -1501,14 +1501,6 @@ onMounted(() => {
     #mobile-jump-btn.jump-btn-above-chat {
         bottom: 244px;
     }
-
-    /* 창(정보/멤버/설정/게시판/음성/위키/타임라인/설정/상점 등)을 최소화하면 뜨는 "○○ 열기"
-       버튼도 #mobile-joystick과 정확히 같은 자리(left:14px~20px/bottom:14px~20px)에 겹쳐 뜸 —
-       조이스틱 높이(110px)+여유만큼 위로 올림. 채팅 전용 재열기 버튼("채팅 열기")도 이 클래스를
-       그대로 쓰는 같은 요소라 자연히 같이 올라감. */
-    .reopen-btn {
-        bottom: 142px;
-    }
 }
 
 @keyframes handheld {
@@ -1860,6 +1852,17 @@ onMounted(() => {
 /* 모바일 채팅 패널 폭 보정: 위쪽 #chatroom-wrapper.little/.large 기본 규칙과
    동일 우선순위라 소스 순서상 반드시 뒤에 와야 이 값이 적용됨 */
 @media (max-width: 768px) {
+    /* 창(정보/멤버/설정/게시판/음성/위키/타임라인/설정/상점 등)을 최소화하면 뜨는 "○○ 열기"
+       버튼도 #mobile-joystick과 정확히 같은 자리(left:14px~20px/bottom:14px~20px)에 겹쳐 뜸 —
+       조이스틱 높이(110px)+여유만큼 위로 올림. 채팅 전용 재열기 버튼("채팅 열기")도 이 클래스를
+       그대로 쓰는 같은 요소라 자연히 같이 올라감.
+       ⚠️ .reopen-btn 기본 규칙(bottom:14px)이 이 파일 위쪽(위 #chatroom-wrapper 관련 규칙들
+       근처)에 있는데, 그게 이 미디어쿼리보다 소스상 뒤에 있으면 동일 우선순위라서 그쪽이 이겨버림
+       (실제로 겪은 버그) — 그래서 이 규칙은 반드시 .reopen-btn 기본 선언보다 뒤에 와야 함. */
+    .reopen-btn {
+        bottom: 142px;
+    }
+
     /* 조이스틱은 작은창 위로 올라가므로(.joystick-above-chat) 옆 공간을 더 안 비워도 됨 */
     #chatroom-wrapper.little {
         width: calc(100% - 24px);
