@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { posts, users } from '../db/schema'
 import { eq, inArray, or } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
 
 // 안전장치 — 비정상적으로 깊거나(혹은 순환된) 스레드 때문에 무한루프 도는 것을 막기 위한 최대 단계 수
 const MAX_DEPTH = 20
@@ -44,7 +44,9 @@ export default eventHandler(async (event) => {
     }
 
     const muteLookup = await getMuteLookup(viewerUserId)
-    const filtered = applyMuteFilter(all, muteLookup, (item) => ({ userid: item.userid, actorUrl: item.remoteActorUrl }))
+    let filtered = applyMuteFilter(all, muteLookup, (item) => ({ userid: item.userid, actorUrl: item.remoteActorUrl }))
+    const wordMuteLookup = await getWordMuteLookup(viewerUserId)
+    filtered = applyWordMuteFilter(filtered, wordMuteLookup, (item) => item.content)
 
     return filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 })

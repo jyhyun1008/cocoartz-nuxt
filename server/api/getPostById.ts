@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { posts, users, likes, reactions, boosts, rooms } from '../db/schema'
 import { eq } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
 
 export default eventHandler(async (event) => {
     const { postid, userid } = await readBody(event)
@@ -24,6 +24,8 @@ export default eventHandler(async (event) => {
 
     const muteLookup = await getMuteLookup(userid)
     comments = applyMuteFilter(comments, muteLookup, (c) => ({ userid: c.userid, actorUrl: c.remoteActorUrl }))
+    const wordMuteLookup = await getWordMuteLookup(userid)
+    comments = applyWordMuteFilter(comments, wordMuteLookup, (c) => c.content)
 
     const allLikes = await db.select().from(likes).where(eq(likes.postid, postid))
     const isLiked = userid ? allLikes.some((l) => l.userid === userid) : false

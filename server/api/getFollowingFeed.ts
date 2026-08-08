@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { follows, posts, users, remoteFeedPosts } from '../db/schema'
 import { eq, and, inArray, isNull, desc, sql } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -20,6 +20,7 @@ export default eventHandler(async (event) => {
     const followingIds = [...new Set([...followingRows.map(r => r.userid), userid])]
 
     const muteLookup = await getMuteLookup(userid)
+    const wordMuteLookup = await getWordMuteLookup(userid)
 
     let localPosts: any[] = []
     let hasMoreLocal = false
@@ -44,6 +45,7 @@ export default eventHandler(async (event) => {
             item.sortDate = item.createdAt
         }
         localPosts = applyMuteFilter(localPosts, muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
+        localPosts = applyWordMuteFilter(localPosts, wordMuteLookup, (p) => `${p.title ?? ''} ${p.content ?? ''}`)
     }
 
     // 원격 계정 팔로우 → remoteFeedPosts. 재게시(boostedByActorUrl 있음)된 글은 원본 글 자체의
@@ -81,6 +83,7 @@ export default eventHandler(async (event) => {
         boostedByIconUrl: r.boostedByIconUrl,
     }))
     remotePosts = applyMuteFilter(remotePosts, muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
+    remotePosts = applyWordMuteFilter(remotePosts, wordMuteLookup, (p) => p.content)
 
     return { localPosts, hasMoreLocal, remotePosts, hasMoreRemote }
 })

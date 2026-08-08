@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { chats, users, chatReactions } from '../db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
 
 export default eventHandler(async (event) => {
     const { serverid, roomid, userid } = await readBody(event)
@@ -10,6 +10,8 @@ export default eventHandler(async (event) => {
     )
     const muteLookup = await getMuteLookup(userid)
     results = applyMuteFilter(results, muteLookup, (c) => ({ userid: c.userid }))
+    const wordMuteLookup = await getWordMuteLookup(userid)
+    results = applyWordMuteFilter(results, wordMuteLookup, (c) => c.content)
 
     for (const result of results) {
         const userinfo = await db.select().from(users).where(eq(users.id, result.userid))

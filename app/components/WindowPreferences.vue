@@ -131,6 +131,47 @@
                         <div v-if="!mutesList.length" class="empty" style="padding:14px 0">뮤트한 사람이 없습니다.</div>
                     </div>
                 </div>
+
+                <!-- 단어/정규식 뮤트 -->
+                <div class="admin-section">
+                    <div class="admin-section-header">
+                        <span class="admin-section-title">단어 뮤트</span>
+                    </div>
+                    <p class="admin-label-hint" style="margin:-4px 0 10px">
+                        작성자가 누구든, 등록해둔 단어(또는 정규식)가 제목·본문·채팅에 있으면 걸러줘요. 소프트 뮤트는 "뮤트된 게시물입니다" 게이트로 가려지고, 하드 뮤트는 아예 안 보여요.
+                    </p>
+                    <div class="admin-icon-row">
+                        <input v-model="newWordMutePattern" placeholder="단어 또는 정규식" class="post-input" style="flex:1" @keydown.enter="submitWordMute" />
+                        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;white-space:nowrap">
+                            <input type="checkbox" v-model="newWordMuteIsRegex" /> 정규식
+                        </label>
+                        <select v-model="newWordMuteLevel" class="admin-select" style="max-width:110px">
+                            <option value="soft">소프트</option>
+                            <option value="hard">하드</option>
+                        </select>
+                        <button class="admin-add-btn" style="margin-left:0" @click="submitWordMute" :disabled="!newWordMutePattern.trim() || wordMuteSaving">
+                            {{ wordMuteSaving ? '추가 중...' : '추가' }}
+                        </button>
+                    </div>
+                    <p v-if="wordMuteError" class="admin-error">{{ wordMuteError }}</p>
+
+                    <div class="admin-channel-list" style="margin-top:10px">
+                        <div v-for="w in wordMutesList" :key="w.id" class="admin-channel-item">
+                            <i class="hgi hgi-stroke hgi-quote-up admin-ch-icon" style="opacity:0.4"></i>
+                            <code class="admin-ch-name">{{ w.pattern }}</code>
+                            <span v-if="w.isRegex" class="admin-ch-type-badge">정규식</span>
+                            <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': w.level === 'hard' }">
+                                {{ w.level === 'hard' ? '하드 뮤트' : '소프트 뮤트' }}
+                            </span>
+                            <div class="admin-ch-actions">
+                                <button class="admin-icon-btn danger" @click="removeWordMute(w.id)" title="삭제">
+                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="!wordMutesList.length" class="empty" style="padding:14px 0">등록한 단어 뮤트가 없습니다.</div>
+                    </div>
+                </div>
             </template>
             <div v-else class="admin-section">
                 <p class="admin-label-hint">로그인 후 더 많은 설정을 이용할 수 있습니다.</p>
@@ -239,6 +280,54 @@ async function unmute(m) {
             : { userid: userId.value, targetUserId: m.targetUserId },
     }).catch(() => {})
     await refreshMutes()
+}
+
+const { data: wordMutesData, refresh: refreshWordMutes } = await useAsyncData(
+    'word-mutes-list',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getWordMutes`, { method: 'POST', body: { userid: userId.value } }).then(res => Array.isArray(res) ? res : [])
+        : Promise.resolve([]),
+    { watch: [userId] },
+)
+const wordMutesList = computed(() => wordMutesData.value ?? [])
+
+const newWordMutePattern = ref('')
+const newWordMuteIsRegex = ref(false)
+const newWordMuteLevel = ref('soft')
+const wordMuteSaving = ref(false)
+const wordMuteError = ref('')
+
+async function submitWordMute() {
+    if (!newWordMutePattern.value.trim() || wordMuteSaving.value) return
+    wordMuteSaving.value = true
+    wordMuteError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/addWordMute`, {
+            method: 'POST',
+            body: {
+                userid: userId.value,
+                pattern: newWordMutePattern.value.trim(),
+                isRegex: newWordMuteIsRegex.value,
+                level: newWordMuteLevel.value,
+            },
+        })
+        newWordMutePattern.value = ''
+        newWordMuteIsRegex.value = false
+        newWordMuteLevel.value = 'soft'
+        await refreshWordMutes()
+    } catch (e) {
+        wordMuteError.value = e?.data?.message ?? '단어 뮤트 추가에 실패했습니다'
+    } finally {
+        wordMuteSaving.value = false
+    }
+}
+
+async function removeWordMute(id) {
+    await $fetch(`${apiBaseUrl}/api/removeWordMute`, {
+        method: 'POST',
+        body: { userid: userId.value, id },
+    }).catch(() => {})
+    await refreshWordMutes()
 }
 </script>
 

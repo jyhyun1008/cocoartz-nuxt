@@ -267,6 +267,19 @@ export const mutes = pgTable('mutes', {
     uniqueIndex('mutes_userid_target_actor_idx').on(table.userid, table.targetActorUrl),
 ])
 
+// 계정 단위 뮤트(위 mutes)와 별개로, 특정 단어/정규식이 제목+본문에 매치되면 작성자가 누구든
+// 걸리는 개인별 콘텐츠 뮤트. 동작 방식(soft/hard)은 mutes와 동일하게 재사용
+export const wordMutes = pgTable('word_mutes', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    pattern: text().notNull(),
+    isRegex: boolean().default(false).notNull(),
+    level: text().notNull(), // 'soft' | 'hard'
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('word_mutes_userid_pattern_idx').on(table.userid, table.pattern),
+])
+
 // 유저 개인 팔로잉 피드에 들어오는 원격 글
 export const remoteFeedPosts = pgTable('remote_feed_posts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),

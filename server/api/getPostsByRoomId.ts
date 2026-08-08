@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { posts, users } from '../db/schema'
 import { eq, and, isNull, desc } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -23,6 +23,8 @@ export default eventHandler(async (event) => {
 
     const muteLookup = await getMuteLookup(viewerUserId)
     results = applyMuteFilter(results, muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
+    const wordMuteLookup = await getWordMuteLookup(viewerUserId)
+    results = applyWordMuteFilter(results, wordMuteLookup, (p) => `${p.title ?? ''} ${p.content ?? ''}`)
 
     return { posts: results, hasMore }
 })

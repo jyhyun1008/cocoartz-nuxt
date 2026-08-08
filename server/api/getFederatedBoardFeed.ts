@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { posts, users, remoteTimelinePosts, remoteTimelinePostLikes } from '../db/schema'
 import { sql, inArray, eq, and } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -70,8 +70,13 @@ export default eventHandler(async (event) => {
 
     // 뮤트 필터 — 로컬/원격 각자의 기존 방식 그대로(로컬은 userid/remoteActorUrl, 원격은 sourceActorUrl)
     const muteLookup = await getMuteLookup(viewerUserId)
-    const filteredLocal = applyMuteFilter(localRows as any[], muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
-    const filteredRemote = applyMuteFilter(remoteRows as any[], muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
+    let filteredLocal = applyMuteFilter(localRows as any[], muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
+    let filteredRemote = applyMuteFilter(remoteRows as any[], muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
+
+    // 단어/정규식 뮤트 — 작성자와 무관하게 제목+본문 텍스트로 필터
+    const wordMuteLookup = await getWordMuteLookup(viewerUserId)
+    filteredLocal = applyWordMuteFilter(filteredLocal, wordMuteLookup, (p) => `${p.title ?? ''} ${p.content ?? ''}`)
+    filteredRemote = applyWordMuteFilter(filteredRemote, wordMuteLookup, (p) => p.content)
 
     // union 쿼리가 정한 순서(page)를 그대로 유지하며 kind를 붙여 합침 — inArray select는 원래
     // 순서를 안 지켜주므로 id→row 매핑 후 page 순서대로 재배열. 하드뮤트로 걸러진 건 자연히 빠짐

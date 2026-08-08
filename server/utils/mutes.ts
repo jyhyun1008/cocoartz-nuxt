@@ -1,5 +1,5 @@
 import { db } from './db'
-import { mutes } from '../db/schema'
+import { mutes, wordMutes } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 export type MuteLevel = 'soft' | 'hard'
@@ -35,6 +35,58 @@ export function applyMuteFilter<T extends Record<string, any>>(
     const result: T[] = []
     for (const row of rows) {
         const level = lookup.levelOf(getAuthor(row))
+        if (level === 'hard') continue
+        if (level === 'soft') (row as any).muted = 'soft'
+        result.push(row)
+    }
+    return result
+}
+
+// 계정 뮤트(위)와 별개로, 글/댓글/채팅 "내용"에 등록해둔 단어/정규식이 매치되면 작성자가 누구든
+// 걸리는 개인별 콘텐츠 뮤트. 일반 단어는 대소문자 무시 부분일치, 정규식은 사용자가 입력한 그대로
+// (역시 대소문자 무시) 컴파일해서 검사 — 잘못된 정규식이나 등록 이후 깨질 수 있는 패턴은 그
+// 규칙만 무시하고 나머지는 계속 동작하게 함(요청 전체가 죽으면 안 되니)
+export async function getWordMuteLookup(viewerUserId: number | null | undefined) {
+    if (!viewerUserId) {
+        return { levelOf: () => null as MuteLevel | null }
+    }
+
+    const rows = await db.select().from(wordMutes).where(eq(wordMutes.userid, viewerUserId))
+    const rules = rows.map((r) => {
+        try {
+            const source = r.isRegex ? r.pattern : r.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            return { level: r.level as MuteLevel, regex: new RegExp(source, 'i') }
+        } catch {
+            return null
+        }
+    }).filter((r): r is { level: MuteLevel; regex: RegExp } => r !== null)
+
+    return {
+        levelOf(text: string | null | undefined): MuteLevel | null {
+            if (!text || !rules.length) return null
+            let softMatch = false
+            for (const rule of rules) {
+                if (rule.regex.test(text)) {
+                    if (rule.level === 'hard') return 'hard'
+                    softMatch = true
+                }
+            }
+            return softMatch ? 'soft' : null
+        },
+    }
+}
+
+// applyMuteFilter와 동일한 모양이지만 대상이 작성자가 아니라 텍스트 — 두 필터는 같은 rows 배열에
+// 순서대로 이어붙여 써도 안전함(둘 다 hard면 제거, soft면 muted 필드를 덮어쓰기만 하므로 먼저
+// 걸린 soft가 사라지지 않음. hard가 하나라도 있으면 그 시점에 걸러짐)
+export function applyWordMuteFilter<T extends Record<string, any>>(
+    rows: T[],
+    lookup: { levelOf: (text: string | null | undefined) => MuteLevel | null },
+    getText: (row: T) => string | null | undefined,
+): T[] {
+    const result: T[] = []
+    for (const row of rows) {
+        const level = lookup.levelOf(getText(row))
         if (level === 'hard') continue
         if (level === 'soft') (row as any).muted = 'soft'
         result.push(row)
