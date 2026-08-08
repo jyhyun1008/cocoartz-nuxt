@@ -69,10 +69,10 @@ function removePeer(peerId: string) {
 // 관리자가 정지/영구정지를 실행한 직후 호출됨(server/api/admin/banUser.ts 등) — 그 유저가 이미
 // 열어둔 연결(여러 탭이면 전부)을 그 자리에서 끊어서 "즉시 차단"이 되게 함. 같은 Node 프로세스
 // 안에서 모듈 상태(peerMap)를 그대로 공유하니 별도 통신 없이 바로 됨.
-export function kickUserConnections(userId: number) {
+export function kickUserConnections(userId: number, reason: string = 'banned') {
   for (const [peerId, info] of peerMap) {
     if (info.userId !== userId) continue
-    sendTo(info.peer, { type: 'kicked' })
+    sendTo(info.peer, { type: 'kicked', reason })
     try { info.peer.close?.() } catch {}
     removePeer(peerId)
   }
@@ -86,9 +86,15 @@ export default defineWebSocketHandler({
     if (data.type === 'join') {
       const { roomPath, userId, x = 0, y = 0, z = 0 } = data
 
-      // Remove stale connections for the same userId (e.g. page reload before old WS closed)
+      // 같은 계정으로 다른 기기/탭에서 이미 접속돼 있으면 그 연결을 끊음(단순 새로고침으로
+      // 옛 소켓이 아직 안 닫힌 경우도 포함) — 계정당 연결을 하나로 강제하는 이유는, 맵 위
+      // 코인 수집(collectCoin)이 클라이언트 주도(로컬 타이머로 코인을 띄우고 밟으면 호출)라서
+      // 두 클라이언트를 동시에 띄워두면 서버 쿨다운 체크의 select→update 사이 틈을 타 거의
+      // 동시에 호출해 쿨다운 안에 중복 수령할 여지가 있었음(투 배럭 방지)
       for (const [staleId, staleInfo] of peerMap) {
         if (staleInfo.userId === userId && staleId !== peer.id) {
+          sendTo(staleInfo.peer, { type: 'kicked', reason: 'duplicate_session' })
+          try { staleInfo.peer.close?.() } catch {}
           removePeer(staleId)
         }
       }

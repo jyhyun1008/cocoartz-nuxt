@@ -1,5 +1,16 @@
 <template>
     <div id="map-wrapper">
+        <!-- 다른 기기/탭에서 새로 접속했거나 관리자 조치로 연결이 끊겼을 때 — 그냥 조용히
+             멈춰있으면 왜 안 움직이는지 알 수 없으니 이유를 알려주고, 원하면 이 탭에서 다시
+             이어갈 수 있게 버튼을 둠(이 경우 반대로 다른 쪽이 밀려남) -->
+        <div v-if="kickedMessage" id="kicked-overlay">
+            <div class="kicked-box">
+                <i class="hgi hgi-stroke hgi-plug-01"></i>
+                <p>{{ kickedMessage }}</p>
+                <button class="submit-btn" @click="resumeConnection">이 탭에서 계속하기</button>
+            </div>
+        </div>
+
         <!-- 문자열 타입(레거시) 맵: 이미지 한 장짜리 배경 -->
         <div v-if="mapType === 'string'" id="map" :style="mapStyle" :class="{ blur: mapBlurred }">
             <NuxtImg class="maptempimg" :src="mapInfo" />
@@ -321,7 +332,13 @@ const props = defineProps({
     path: { type: String, required: true },
 })
 
-const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, otherUsersInRoom, realtimeChats, jumpPulses } = useRoomSocket()
+const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, otherUsersInRoom, realtimeChats, jumpPulses, kickedReason, resumeConnection } = useRoomSocket()
+
+const kickedMessage = computed(() => {
+    if (kickedReason.value === 'duplicate_session') return '다른 기기나 탭에서 새로 접속해서 이 연결은 끊겼어요.'
+    if (kickedReason.value === 'banned' || kickedReason.value === 'suspended') return '계정이 정지되어 연결이 끊겼어요.'
+    return kickedReason.value ? '연결이 끊겼어요.' : null
+})
 
 // 캐시 키는 route.params.page가 아니라 실제 방 경로(props.path) 기준이어야 함.
 // noti.vue처럼 [page]/index.vue 라우트를 안 쓰는 정적 페이지들(index/settings/members/info/noti)은
@@ -1415,6 +1432,30 @@ onMounted(() => {
     background-color: var(--mapbg);
     touch-action: pan-x pan-y;
 }
+
+#kicked-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.55);
+}
+.kicked-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 32px;
+    border-radius: 14px;
+    background: var(--surface-1);
+    color: rgba(var(--fg-rgb),0.9);
+    text-align: center;
+    max-width: 320px;
+}
+.kicked-box i { font-size: 1.8rem; opacity: 0.6; }
+.kicked-box p { margin: 0; font-size: 0.95rem; }
 
 /* 코인 획득 피드백 — 화면 위쪽 가운데 고정, WindowWiki.vue 등의 .share-toast와 같은
    fade-in-out 연출(로컬 상태 + setTimeout으로 스스로 사라짐) */

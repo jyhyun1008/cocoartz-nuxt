@@ -3,6 +3,10 @@ let _ws: WebSocket | null = null
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let _heartbeatTimer: ReturnType<typeof setInterval> | null = null
 let _apiBaseUrl = ''
+// 서버가 'kicked'(다른 기기에서 접속됨/정지 등)로 끊었을 때는 onclose의 3초 후 자동 재연결을
+// 막아야 함 — 안 막으면 끊긴 쪽이 곧장 다시 join해서 방금 새로 접속한 쪽을 도로 쫓아내는
+// 핑퐁이 벌어짐. 유저가 명시적으로(예: 새로고침) 다시 시도하기 전까지는 조용히 끊긴 채로 둠
+let _suppressReconnect = false
 
 // 아무 동작(이동/채팅) 없이 가만히 있으면 리버스 프록시/방화벽이 "조용한" 연결을 끊어버리는
 // 경우가 있음 — 그러면 서버는 진짜로 나간 걸로 처리해서 user_left를 쏘고, 클라이언트는 3초
@@ -39,6 +43,9 @@ export function useRoomSocket() {
   // 이 값이 바뀔 때마다 점프 연출을 다시 재생함(위치 갱신처럼 계속 켜져있는 상태가 아니라
   // "한 번 튀는" 펄스라 별도로 뺌).
   const jumpPulses = useState<Record<number, number>>('ws-jump-pulses', () => ({}))
+  // 서버가 이 연결을 끊은 이유 — null이면 정상. 'duplicate_session'(다른 기기/탭에서 새로
+  // 접속함) 또는 'banned'/'suspended'(관리자 조치)로 옴. 화면에서 이 값을 보고 안내 배너를 띄움
+  const kickedReason = useState<string | null>('ws-kicked-reason', () => null)
 
   function handleMessage(event: MessageEvent) {
     let data: any
@@ -81,6 +88,10 @@ export function useRoomSocket() {
 
     } else if (data.type === 'chat_delete') {
       realtimeChats.value = [...realtimeChats.value, { wsType: 'chat_delete', id: data.chatid }]
+
+    } else if (data.type === 'kicked') {
+      _suppressReconnect = true
+      kickedReason.value = data.reason ?? 'unknown'
     }
   }
 
@@ -101,6 +112,7 @@ export function useRoomSocket() {
         clearInterval(_heartbeatTimer)
         _heartbeatTimer = null
       }
+      if (_suppressReconnect) return
       // Reconnect after 3 seconds
       _reconnectTimer = setTimeout(() => connect(_apiBaseUrl), 3000)
     }
@@ -146,16 +158,27 @@ export function useRoomSocket() {
     rawSend({ type: 'chat_delete', chatid })
   }
 
+  // 'kicked' 배너에서 유저가 명시적으로 다시 접속을 시도할 때(예: "여기서 계속하기" 버튼) 호출 —
+  // 자동 재연결 억제를 풀고 바로 새 연결을 시작함. 이 탭에서 이어가면 이번엔 반대로 다른 쪽이
+  // (아직 열려 있었다면) 밀려남
+  function resumeConnection() {
+    _suppressReconnect = false
+    kickedReason.value = null
+    connect(_apiBaseUrl)
+  }
+
   return {
     presenceByRoom: readonly(presenceByRoom),
     otherUsersInRoom: readonly(otherUsersInRoom),
     realtimeChats: readonly(realtimeChats),
     jumpPulses: readonly(jumpPulses),
+    kickedReason: readonly(kickedReason),
     connect,
     joinRoom,
     sendPosition,
     sendChat,
     editChat,
     deleteChat,
+    resumeConnection,
   }
 }
