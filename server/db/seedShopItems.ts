@@ -2,7 +2,8 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
 import { items, userItems, users } from './schema'
-import { eq } from 'drizzle-orm'
+import { eq, and, like, inArray } from 'drizzle-orm'
+import { AVATAR_CATEGORIES } from '../../lib/shopCategories'
 
 // 상점/인벤토리 UI를 빈 화면 없이 바로 확인해볼 수 있게, 이미 리포에 들어있는 에셋(맵 아이템
 // 카탈로그·타일셋·캐릭터 파츠)을 그대로 참조하는 샘플 아이템을 등록함. 진짜 상품 구성은 이 파일을
@@ -52,6 +53,20 @@ const SAMPLE_ITEMS = [
 ] satisfies (typeof items.$inferInsert)[]
 
 async function run() {
+    // 예전(AvatarPartIcon.vue의 CSS 크롭 방식 도입 전) 시드가 avatar_* 아이템에 지금은 삭제된
+    // /character/icon/{part}-{variant}.png 파일을 icon으로 박아둔 적이 있음(59be293 → 8675ad9에서
+    // 시드 코드는 고쳤지만 onConflictDoNothing 특성상 이미 심어진 DB 행은 그대로 남아있었음).
+    // 그땐 avatar_* 렌더링이 icon 필드를 아예 안 봐서 무해했는데, 이제 icon이 "관리자가 새로
+    // 업로드한 원본 스프라이트시트" 취급이라(getAvatarPartCatalog.ts) 이 죽은 값이 존재하지 않는
+    // 파일을 그대로 렌더링에 쓰려고 해서 404가 남 — 실행할 때마다 안전하게 정리함
+    const staleIconCleanup = await db.update(items)
+        .set({ icon: null })
+        .where(and(inArray(items.category, AVATAR_CATEGORIES), like(items.icon, '/character/icon/%')))
+        .returning({ name: items.name })
+    if (staleIconCleanup.length) {
+        console.log(`🧹 죽은 아바타 아이콘 경로 정리: ${staleIconCleanup.map(r => r.name).join(', ')}`)
+    }
+
     for (const item of SAMPLE_ITEMS) {
         const [row] = await db.insert(items).values(item)
             .onConflictDoNothing({ target: [items.category, items.itemKey] })
