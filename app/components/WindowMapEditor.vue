@@ -909,4 +909,22 @@ onMounted(() => {
 
 .palette-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .palette-save-btn:not(:disabled):hover { opacity: 0.85; }
+
+/* 모바일: 팔레트가 데스크톱처럼 우상단에 240px 폭으로 뜨면 좁은 화면 대부분(폭+높이 다)을
+   가려서 맵이 거의 안 보임(놓을 자리를 확인할 수가 없음) — 화면 하단에 붙는 바텀시트로 바꿔서
+   맵이 위쪽에 계속 보이게 하고, 팔레트는 엄지로 닿기 쉬운 아래쪽에 고정 높이로 둠. 폭 제한을
+   풀면 타일/아이템 한 줄에 더 많이 들어가서 내용 자체도 짧아짐. */
+@media (max-width: 768px) {
+    #wme-palette {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        border-radius: 14px 14px 0 0;
+        max-width: none;
+        width: 100%;
+        max-height: 48%;
+        box-sizing: border-box;
+    }
+}
 </style>
