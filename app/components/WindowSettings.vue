@@ -280,6 +280,7 @@
                             <code class="admin-ch-path">{{ entry.path }}</code>
                             <span class="admin-ch-type-badge">{{ typeLabel(entry.type) }}</span>
                             <span v-if="entry.federated" class="admin-ch-type-badge admin-ch-federated-badge"><i class="hgi hgi-stroke hgi-globe-02"></i> 연합</span>
+                            <span v-if="entry.galleryView" class="admin-ch-type-badge"><i class="hgi hgi-stroke hgi-grid"></i> 갤러리</span>
                             <div class="admin-ch-actions">
                                 <button class="admin-icon-btn" @click="moveUp(i)" :disabled="i === 0" title="위로">↑</button>
                                 <button class="admin-icon-btn" @click="moveDown(i)" :disabled="i === orderedList.length - 1" title="아래로">↓</button>
@@ -606,6 +607,12 @@
                     <span>연합 게시판으로 지정</span>
                     <span class="admin-label-hint">— 서버당 1개만 지정 가능하며, 이 게시판에 작성된 글만 fediverse로 연합됩니다. 다른 연합 게시판이 있다면 자동 해제됩니다.</span>
                 </label>
+                <label v-if="form.type === 'board' && !federatedChecked" class="admin-checkbox-row">
+                    <input type="checkbox" v-model="form.galleryView" />
+                    <i class="hgi hgi-stroke hgi-grid"></i>
+                    <span>갤러리 보기로 표시</span>
+                    <span class="admin-label-hint">— 글 목록을 2단 그리드 카드로 보여줍니다(정사각형 썸네일 + 제목/작성자/작성시각). 연합 게시판은 지원하지 않아요.</span>
+                </label>
 
                 <p v-if="formError" class="admin-error">{{ formError }}</p>
                 <button class="submit-btn" style="align-self:flex-start" @click="submitCreate" :disabled="!form.knownas.trim() || !form.path.trim() || saving">
@@ -639,6 +646,12 @@
                     <i class="hgi hgi-stroke hgi-globe-02"></i>
                     <span>연합 게시판으로 지정</span>
                     <span class="admin-label-hint">— 서버당 1개만 지정 가능하며, 이 게시판에 작성된 글만 fediverse로 연합됩니다. 다른 연합 게시판이 있다면 자동 해제됩니다.</span>
+                </label>
+                <label v-if="form.type === 'board' && !federatedChecked" class="admin-checkbox-row">
+                    <input type="checkbox" v-model="form.galleryView" />
+                    <i class="hgi hgi-stroke hgi-grid"></i>
+                    <span>갤러리 보기로 표시</span>
+                    <span class="admin-label-hint">— 글 목록을 2단 그리드 카드로 보여줍니다(정사각형 썸네일 + 제목/작성자/작성시각). 연합 게시판은 지원하지 않아요.</span>
                 </label>
 
                 <p v-if="formError" class="admin-error">{{ formError }}</p>
@@ -1363,7 +1376,12 @@ async function savePinnedName(pinned) {
     pinnedSaving.value = ''
 }
 
-const form = reactive({ knownas: '', path: '', type: 'room', info: '' })
+const form = reactive({ knownas: '', path: '', type: 'room', info: '', galleryView: false })
+
+// 연합 게시판은 갤러리 보기를 지원 안 하니(정사각형 그리드에 원격 글까지 섞이면 안 어울림),
+// 연합 체크를 켜는 순간 갤러리 체크는 자동으로 꺼줌 — 서버(setFederatedRoom.ts)도 같은 규칙을
+// 한 번 더 강제하지만, 폼에서도 미리 꺼줘야 저장 직전까지 둘 다 켜진 것처럼 보이지 않음
+watch(federatedChecked, (v) => { if (v) form.galleryView = false })
 
 function isTitleEntry(entry) {
     return entry?.type === 'title'
@@ -1442,6 +1460,7 @@ function openCreate() {
     form.path = ''
     form.type = 'room'
     form.info = ''
+    form.galleryView = false
     federatedChecked.value = false
     formError.value = ''
     view.value = 'create'
@@ -1490,6 +1509,7 @@ function openEdit(room) {
     form.path = room.path
     form.type = room.type
     form.info = room.info ?? ''
+    form.galleryView = !!room.galleryView
     federatedChecked.value = !!room.federated
     formError.value = ''
     view.value = 'edit'

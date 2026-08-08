@@ -9,11 +9,15 @@ async function checkAdmin(userid: number) {
 }
 
 export default eventHandler(async (event) => {
-    const { userid, slug, path, knownas, type, info } = await readBody(event)
+    const { userid, slug, path, knownas, type, info, galleryView } = await readBody(event)
     await checkAdmin(userid)
     if (!path || !knownas || !type) throw createError({ statusCode: 400, message: '필수 항목 누락' })
 
-    const [room] = await db.insert(rooms).values({ path, knownas, type, info }).returning()
+    // 갤러리 보기는 게시판 채널에서만 의미가 있음(연합 여부는 생성 직후 별도 setFederatedRoom
+    // 호출로 정해지는데, 그쪽에서 federated:true면 galleryView를 자동으로 꺼줌)
+    const finalGalleryView = type === 'board' && galleryView === true
+
+    const [room] = await db.insert(rooms).values({ path, knownas, type, info, galleryView: finalGalleryView }).returning()
 
     const [server] = await db.select().from(servers).where(eq(servers.slug, slug))
     if (server) {

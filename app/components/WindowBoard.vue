@@ -16,7 +16,7 @@
 
         <!-- 목록 -->
         <div v-if="currentView === 'list'" id="board-wrapper">
-            <div v-if="mergedFeed.length" class="board">
+            <div v-if="mergedFeed.length && !galleryView" class="board">
                 <template v-for="entry in mergedFeed" :key="`${entry.kind}-${entry.post.id}`">
                     <!-- 뮤트(소프트)된 글 게이트 — 로컬/원격 공통 -->
                     <div
@@ -98,6 +98,39 @@
                     </div>
                 </template>
             </div>
+
+            <!-- 갤러리 보기(관리자가 채널 관리에서 켠 게시판만) — 연합 게시판은 galleryView가 서버에서
+                 애초에 true로 저장이 안 되니 여기 mergedFeed엔 항상 로컬 글만 있음(feedItems 참고) -->
+            <div v-else-if="mergedFeed.length && galleryView" class="board-gallery">
+                <template v-for="entry in mergedFeed" :key="`gal-${entry.post.id}`">
+                    <div
+                        v-if="entry.post.muted === 'soft' && !revealedMuted[`${entry.kind}-${entry.post.id}`]"
+                        class="gallery-card gallery-card-muted"
+                    >
+                        <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 게시물입니다</div>
+                        <button class="submit-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = true">그래도 보기</button>
+                    </div>
+                    <div v-else class="gallery-card" @click="openPost(entry.post.id)">
+                        <div class="gallery-thumb">
+                            <img v-if="postThumbnail(entry.post.content)" :src="postThumbnail(entry.post.content)" loading="lazy" />
+                            <i v-else class="hgi hgi-stroke hgi-image-02"></i>
+                        </div>
+                        <div class="gallery-card-title">{{ entry.post.title }}</div>
+                        <div class="gallery-card-meta">
+                            <NuxtLink :to="entry.post.user?.username ? `/@${entry.post.user.username}` : '#'" class="post-author user-name-link" @click.stop>
+                                <NuxtImg v-if="entry.post.user?.avatar" class="avatar avatar-sm" :src="entry.post.user.avatar" />
+                                <div v-else class="avatar avatar-placeholder avatar-sm">{{ (entry.post.user?.knownas ?? entry.post.user?.username ?? '?')[0] }}</div>
+                                {{ entry.post.user?.knownas ?? entry.post.user?.username }}
+                            </NuxtLink>
+                            <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
+                        </div>
+                        <button v-if="entry.post.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = false">
+                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                        </button>
+                    </div>
+                </template>
+            </div>
+
             <div v-else class="empty">게시물이 없습니다.</div>
             <button v-if="hasMoreToShow" class="load-more-btn" :disabled="loadingMore" @click="loadMore">
                 {{ loadingMore ? '불러오는 중...' : '더보기' }}
@@ -487,6 +520,12 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    // 관리자가 채널 관리에서 켠 값 — 유저가 직접 바꾸는 옵션이 아님. 연합 게시판은 서버에서
+    // 애초에 true로 저장이 안 되니(setFederatedRoom.ts) 여기선 별도 방어 없이 그대로 믿고 씀
+    galleryView: {
+        type: Boolean,
+        default: false,
+    },
     roomName: {
         type: String,
         default: '',
@@ -596,6 +635,13 @@ watch([() => route.params.page, () => props.isFederated, () => props.ids?.roomid
 
 function stripHtml(html) {
     return (html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// 갤러리 보기 썸네일 — 별도 썸네일 필드가 없어서 본문(마크다운) 안 첫 번째 이미지를 그대로 씀.
+// 없으면 카드에 자리표시 아이콘만 보여줌(gallery-thumb-placeholder)
+function postThumbnail(content) {
+    const match = content?.match(/!\[[^\]]*\]\(([^)\s]+)/)
+    return match ? match[1] : null
 }
 
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 싶어서, 그 img 태그만 플레이스홀더로
@@ -975,6 +1021,86 @@ onMounted(() => {
     flex-wrap: wrap;
     min-width: 0;
 }
+
+/* 갤러리 보기 — 관리자가 채널 관리에서 켠 게시판만(연합 게시판은 지원 안 함). 2단 고정 그리드 +
+   정사각형 썸네일 카드 */
+.board-gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.gallery-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    background: rgba(var(--fg-rgb),0.03);
+    border: 1px solid rgba(var(--fg-rgb),0.06);
+}
+
+.gallery-card:hover { background: rgba(var(--fg-rgb),0.06); border-color: rgba(var(--fg-rgb),0.12); }
+
+.gallery-card-muted {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    aspect-ratio: 1;
+    cursor: default;
+    gap: 8px;
+}
+
+.gallery-thumb {
+    aspect-ratio: 1;
+    border-radius: 7px;
+    overflow: hidden;
+    background: rgba(var(--fg-rgb),0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    color: rgba(var(--fg-rgb),0.25);
+}
+
+.gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gallery-card-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: rgba(var(--fg-rgb),0.9);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+}
+
+.gallery-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: rgba(var(--fg-rgb),0.45);
+}
+
+.gallery-card-meta .post-author {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.gallery-card-meta .datetime { flex-shrink: 0; }
 
 .external-post-card {
     flex-direction: row;

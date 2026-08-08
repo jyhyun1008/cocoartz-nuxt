@@ -35,7 +35,9 @@ export default eventHandler(async (event) => {
             if (otherIds.length) {
                 await tx.update(rooms).set({ federated: false }).where(inArray(rooms.id, otherIds))
             }
-            await tx.update(rooms).set({ federated: true }).where(eq(rooms.id, roomid))
+            // 연합 게시판은 갤러리 보기를 지원 안 함(원격 글까지 섞여서 정사각형 그리드가 안 맞음) —
+            // 이미 갤러리로 켜져 있던 게시판을 연합으로 지정하면 조용히 꺼줌
+            await tx.update(rooms).set({ federated: true, galleryView: false }).where(eq(rooms.id, roomid))
         })
     } else {
         await db.update(rooms).set({ federated: false }).where(eq(rooms.id, roomid))

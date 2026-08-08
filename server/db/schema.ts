@@ -67,6 +67,10 @@ export const rooms = pgTable('rooms', {
     writerole: text(),
     adminrole: text(),
     federated: boolean().default(false).notNull(),
+    // 게시판(type='board') 목록을 카드 리스트 대신 2단 그리드 갤러리로 보여줄지 — 관리자만 채널
+    // 관리 화면에서 켤 수 있고(유저가 직접 바꾸는 옵션 아님), 연합 게시판은 카드에 원격 글까지
+    // 섞여서 정사각형 썸네일 레이아웃이 안 어울려서 못 켜게 막음(setFederatedRoom.ts 참고)
+    galleryView: boolean().default(false).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

@@ -1,0 +1,1 @@
+ALTER TABLE "rooms" ADD COLUMN "galleryView" boolean DEFAULT false NOT NULL;
