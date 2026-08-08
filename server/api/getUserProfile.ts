@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
         banner: users.banner,
         bio: users.bio,
         map: users.map,
+        character: users.character,
         createdAt: users.createdAt,
     }).from(users).where(eq(users.username, username))
 

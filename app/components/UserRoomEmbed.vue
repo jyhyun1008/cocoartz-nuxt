@@ -69,6 +69,20 @@
                             :z-index="charZIndex"
                             :jumping="isJumping"
                         />
+                        <!-- 남의 프로필에 놀러왔을 때만: 방 주인 아바타를 스폰 지점 옆(0.5칸 대각선)에
+                             가만히 세워둠 — 위 CharacterMoving은 방문자(나) 캐릭터라 방 주인 모습은
+                             따로 안 보였음. OtherCharacter는 direction을 안 주면(기본 null) 계속
+                             정지 자세라 걷지 않고 그 자리에 서 있기만 함. -->
+                        <OtherCharacter
+                            v-if="!isOwn"
+                            :layers="ownerCharLayers"
+                            :top-ratio="topRatio"
+                            :local-x="ownerPosition.x"
+                            :local-y="ownerPosition.y"
+                            :local-z="ownerCharZ"
+                            :z-index="ownerCharZIndex"
+                            :name="username"
+                        />
                     </div>
                 </div>
             </div>
@@ -99,6 +113,9 @@ const props = defineProps({
     username: { type: String, required: true },
     isOwn: { type: Boolean, default: false },
     ownUserId: { type: Number, default: 0 },
+    // 방 주인의 character JSON(useCharacter.ts 형식) — getUserProfile.ts가 내려줌. 남의 프로필에
+    // 놀러왔을 때(!isOwn)만 스폰 지점 옆에 세워두는 용도라 내 프로필에선 안 씀
+    ownerCharacter: { type: String, default: null },
 })
 
 const emit = defineEmits(['map-saved'])
@@ -282,6 +299,13 @@ const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrent
 // 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
 const { getAvatarPartImage } = useAvatarPartCatalog()
 const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage))
+
+// 방 주인 아바타(!isOwn일 때만 렌더) — 스폰 지점에서 대각선으로 0.5칸 띄워서 방문자 스폰
+// 위치랑 겹치지 않게 함. 정지 상태라 topZAt/충돌판정 없이 스폰 지점의 층(z)을 그대로 씀
+const ownerCharLayers = computed(() => getCharacterLayers(props.ownerCharacter, getAvatarPartImage))
+const ownerPosition = computed(() => ({ x: mapSpawn.value.x + 0.5, y: mapSpawn.value.y - 0.5 }))
+const ownerCharZ = computed(() => mapSpawn.value.z)
+const ownerCharZIndex = computed(() => -4 * Math.round(ownerPosition.value.y) + 4 + 4 * ownerCharZ.value)
 
 const position = { x: 0, y: 0 }
 

@@ -327,6 +327,7 @@ function switchFollowListTab(type) {
                         :username="userData?.username ?? ''"
                         :is-own="isOwn"
                         :own-user-id="userId ?? 0"
+                        :owner-character="userData?.character ?? null"
                         @map-saved="refresh"
                     />
                 </div>
