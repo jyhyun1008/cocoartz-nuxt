@@ -21,6 +21,11 @@ export default defineNuxtConfig({
         lang: 'ko',
       },
       meta: [
+        // Nuxt가 기본으로 넣어주는 viewport(width=device-width, initial-scale=1)는 사용자
+        // 핀치/더블탭 줌을 막지 않음 — 여기서 명시적으로 덮어써서 전체 사이트에서 브라우저 자체
+        // 확대·축소를 끔(맵 화면들이 핀치를 자체 줌 컨트롤로 직접 처리하는데, 브라우저 기본
+        // 핀치줌까지 같이 반응하면 두 로직이 동시에 겹쳐 어긋나 보임)
+        { name: 'viewport', content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' },
         { name: 'author', content: 'CocoArtz' },
         { name: 'robots', content: 'all' },
         { name: 'description', content: '코코아츠 커뮤니티' },
