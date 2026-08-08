@@ -480,14 +480,8 @@ const zoomLevel = ref(1)
 //   zoom=1.0 → 0.5 (표준 45° isometric)
 //   줌아웃(zoom<1) → 0.5보다 높아짐 (하이앵글)
 //   줌인(zoom>1)  → 0.5보다 낮아짐 (정면뷰)
-const topRatio = computed(() => {
-    // zoom-in: zoom=1.0 → 0.5, zoom=2.5 → 1/3 (기울기 1/9)
-    // zoom-out: zoom=1.0 → 0.5, zoom=0.7 → ~0.584 (하이앵글)
-    const raw = zoomLevel.value >= 1.0
-        ? 0.5 - (zoomLevel.value - 1.0) / 9
-        : 0.5 + (1.0 - zoomLevel.value) * 0.28
-    return Math.max(1 / 3, Math.min(0.9, raw))
-})
+// useIsoMap.ts 공용 수식(app/composables/useIsoMap.ts) — UserRoomEmbed.vue/WindowMapEditor.vue와 동일
+const topRatio = useTopRatioFromZoom(zoomLevel)
 
 const chatInput = ref('')
 const chatInputEl = ref(null)
@@ -747,8 +741,17 @@ const sortedTiles = computed(() => {
     })
 })
 
-const TILE_W = 128
-const TILE_IMG_H = 128  // 타일 이미지는 정사각형(128×128) 가정
+// useIsoMap.ts 공용 수식(app/composables/useIsoMap.ts) — UserRoomEmbed.vue/WindowMapEditor.vue와
+// 완전히 같은 타일 기하학을 씀. 피사계심도(blur)만 이 화면 전용이라 아래 getTileContainerStyle에서
+// 별도로 덧붙임(캐릭터가 있는 깊이에서 멀어질수록 흐려짐)
+const {
+    getFilePath,
+    getTileContainerStyle: getIsoTileContainerStyle,
+    tileTopSliceStyle, tileTopImgStyle,
+    tileSideTopStyle, tileSideTopImgStyle,
+    tileSideMiddleContainerStyle, tileSideMiddleImgStyle,
+    tileSideBottomStyle, tileSideBottomImgStyle,
+} = useIsoTiles(topRatio)
 
 // ─── 이동 충돌 판정용 타일 조회 ──────────────────────────
 // 물 블록(타일셋 2번, /public/tileset/2.png) — 지나갈 수 없는 타일
@@ -904,113 +907,29 @@ const isJumping = ref(false)
 // 떠 보이게 CharacterMoving.vue에 넘겨줌(타일/아이템의 z 오프셋과 같은 식)
 const charZ = ref(0)
 
-function getFilePath(tile) {
-    return `/tileset/${tile.itemid}.png`
-}
-
 // 피사계심도(초점 흐림): 캐릭터가 있는 깊이(x+y)에서 멀어질수록 흐려짐. 타일뿐 아니라
-// 아이템에도 그대로 씀 — depth(=x+y)만 넣어주면 동일한 흐림값을 돌려줌
+// 아이템에도 그대로 씀 — depth(=x+y)만 넣어주면 동일한 흐림값을 돌려줌. 이건 이 화면(방 안에서
+// 실시간으로 돌아다니는 캐릭터가 있는 화면) 전용 연출이라 공용 composable엔 안 넣고 여기서만 씀
+// — UserRoomEmbed.vue도 자기 charDepth를 기준으로 똑같은 방식을 로컬에서 따로 적용함.
 function getDepthBlur(depth) {
     const depthDiff = Math.abs(depth - charDepth.value)
     // zoom이 클수록 화면에서 커지므로 blur도 같이 강해보임 → zoomLevel로 보정
     return (Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1)
 }
 
-// 타일 컨테이너 위치
-// Y step = topRatio * TILE_IMG_H 에 맞춰야 계단 현상이 없음.
-// (step이 top face 높이와 불일치하면 overlap=0 → 계단처럼 보임)
+// 공용 위치/스케일/z-index(getIsoTileContainerStyle) 위에 이 화면 전용 blur만 얹음. n=x+y, k=z(0~2)는
+// 그 타일 자신의 층 — 같은 (x+y)를 가진 타일끼리는 층(z)으로만 순서가 갈림. 아이템(MapItem.vue의
+// defaultZIndex)은 n=x+y+2z, k=z+1로 스케일이 달라서 타일과 정확히 같은 슬롯을 공유하진 않지만,
+// 실제 배치에서 문제되는 조합은 sortedTiles의 DOM 순서(아래 x+y+2z 기준 정렬)가 동률 구간을 추가로
+// 보정해줘서 지금 보이는 결과가 맞음 — 캐릭터 z-index는 아직 이 스킴에 안 맞춰져 있음(별도로 손볼 예정).
 function getTileContainerStyle(tile) {
-    const { x, y, z = 0 } = tile.position
-    // 렌더된 top face 높이 = topRatio * TILE_IMG_H
-    // isometric에서 step = top face 높이의 절반
-    const dynH = TILE_IMG_H * topRatio.value   // = rendered top face height
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    // elevation = 렌더된 side 높이 (dynH/4 + S/2 + dynH/2) → z=1 바닥이 z=0 앞모서리에 정렬
-    const sideH = dynH * 3 / 4 + S / 2
-    const screenX = (x - y) * (TILE_W / 2)
-    const screenY = (x + y) * (dynH / 2) - z * sideH
-    const scale = (1 + (x + y) * 0.004).toFixed(3)
+    const { x, y } = tile.position
     const blur = getDepthBlur(x + y)
-    // z-index = 4n + k (n = 화면상 깊이 슬롯, k = 그 슬롯 안에서의 높이 순번 0~3).
-    // n=x+y, k=z(0~2)는 그 타일 자신의 층 — 같은 (x+y)를 가진 타일끼리는 층(z)으로만 순서가
-    // 갈림. 아이템(MapItem.vue의 defaultZIndex)은 n=x+y+2z, k=z+1로 스케일이 달라서 타일과
-    // 정확히 같은 슬롯을 공유하진 않지만, 실제 배치에서 문제되는 조합은 sortedTiles의 DOM
-    // 순서(아래 x+y+2z 기준 정렬)가 동률 구간을 추가로 보정해줘서 지금 보이는 결과가 맞음
-    // — 캐릭터 z-index는 아직 이 스킴에 안 맞춰져 있음(별도로 손볼 예정, 지금은 그대로 둠).
-    const n = x + y
-    const k = z
-    const zIndex = 4 * n + k
     return {
-        left: `calc(50% + ${screenX - TILE_W / 2}px)`,
-        top: `calc(50% + ${screenY - dynH / 2}px)`,
-        transform: `scale(${scale})`,
+        ...getIsoTileContainerStyle(tile),
         filter: Number(blur) > 0 ? `blur(${blur}px)` : undefined,
-        zIndex,
     }
 }
-
-// ─── 타일 분할: 상단(바닥면) / 하단(옆면) ───────────────────
-// 핵심: 각 슬라이스 안에서 이미지를 실제로 스케일링해서 비율 변화를 시각적으로 표현
-// 이미지의 상단 절반(바닥면)은 topRatio*H 높이 공간에 맞게 늘어나거나 줄어듦
-// 이미지의 하단 절반(옆면)은 (1-topRatio)*H 높이 공간에 맞게 변환
-
-// 상단 슬라이스 컨테이너: 바닥면이 차지할 높이
-const tileTopSliceStyle = computed(() => ({
-    height: `${topRatio.value * TILE_IMG_H}px`,
-}))
-// 상단 이미지: 원래 이미지를 2*topRatio 배율로 y 스케일 → 상단 절반이 슬라이스를 채움
-const tileTopImgStyle = computed(() => ({
-    width: '128px',
-    height: `${TILE_IMG_H * 2 * topRatio.value}px`,
-}))
-
-// 옆면 3분할 렌더링 (25/25/50)
-// S = sideH = (1-topRatio)*128. 원본 이미지 기준:
-//   상단 25%: 경계선 (고정)        rows 64–79  → rendered S/4
-//   중간 25%: 흙 본체 (스트레치)   rows 80–95  → rendered S/4 base, grows z*S per level
-//   하단 50%: 바닥 아트 전체 (고정) rows 96–127 → rendered S/2
-// 전체 scaled 이미지 높이 = 2*S (배율 S/64 적용)
-// 중간 pivot: row 80 → scaled y = 5S/4
-
-// 상단 경계선: dynH/4 (확대할수록 짧아짐 — 가운데는 커지고 테두리는 얇아지는 효과)
-const tileSideTopStyle = computed(() => ({
-    height: `${topRatio.value * TILE_IMG_H / 4}px`,
-}))
-const tileSideTopImgStyle = computed(() => ({
-    width: '128px',
-    height: `${TILE_IMG_H * 2 * topRatio.value}px`,
-    marginTop: `${-TILE_IMG_H * topRatio.value}px`,
-}))
-
-// 중간 스트레치: rows 80–95, pivot=row 80 → 5S/4 in 2S image
-// middleBaseH = S/4, middleH = z*S + 3S/4, sf = 4z+3
-function tileSideMiddleContainerStyle(tile) {
-    const z = tile.position.z ?? 0
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    //return { height: `${z * S + S / 2}px` }
-    return { height: `${S / 2}px` }
-}
-function tileSideMiddleImgStyle(tile) {
-    const z = tile.position.z ?? 0
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    //const sf = 4 * z + 2
-    const sf = 2
-    return {
-        width: '128px',
-        height: `${2 * S * sf}px`,
-        marginTop: `${-5 * S / 4 * sf}px`,
-    }
-}
-
-// 하단 고정 S/2 (rows 96–127)
-const tileSideBottomStyle = computed(() => ({
-    height: `${(topRatio.value) * TILE_IMG_H / 2}px`,
-}))
-const tileSideBottomImgStyle = computed(() => ({
-    width: '128px',
-    height: `${(topRatio.value) * TILE_IMG_H * 2}px`,
-    marginTop: `${-(topRatio.value) * TILE_IMG_H * 3 / 2}px`,
-}))
 
 // 타일 전체 CSS scale
 // transformOrigin = 스크린 상 캐릭터 발 위치 (동적 추적)

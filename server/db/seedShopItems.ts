@@ -27,22 +27,27 @@ const STARTER_AVATAR_ITEMS = [
     { category: 'avatar_body', itemKey: '1', name: '기본 바디' },
 ].map(i => ({ ...i, price: 0, description: '가입하면 기본으로 지급되는 기본 파츠예요.', isDefault: true }))
 
+// 타일셋 기본 5종(/public/tileset/1~5.png) — 아바타 기본 파츠랑 똑같은 원리로 전부 상점
+// isDefault 아이템으로 등록해둠. WindowMapEditor.vue의 타일 팔레트가 이제 하드코딩된 목록이 아니라
+// 이 카탈로그(+인벤토리 보유 여부)로만 결정되니, 나중에 새 기본 지형을 추가하고 싶으면 코드를
+// 안 고치고 관리자 페이지에서 isDefault 켜서 등록하기만 하면 됨(특수지형은 isDefault 끄고 유료로)
+const STARTER_TERRAIN_ITEMS = [
+    { category: 'terrain', itemKey: '1', name: '잔디', icon: '/tileset/1.png' },
+    { category: 'terrain', itemKey: '2', name: '물', icon: '/tileset/2.png' },
+    { category: 'terrain', itemKey: '3', name: '모래', icon: '/tileset/3.png' },
+    { category: 'terrain', itemKey: '4', name: '돌', icon: '/tileset/4.png' },
+    { category: 'terrain', itemKey: '5', name: '나무', icon: '/tileset/5.png' },
+].map(i => ({ ...i, price: 0, description: '가입하면 기본으로 지급되는 기본 지형이에요.', isDefault: true }))
+
 const SAMPLE_ITEMS = [
     ...STARTER_AVATAR_ITEMS,
-    // useItemCatalog.ts ITEM_CATALOG의 id와 매칭 — itemKey가 그 id 문자열
-    {
-        category: 'map_item', itemKey: '1', name: '무지개 기둥', price: 150,
-        icon: '/item/icon/1.png', description: '방/맵에 배치할 수 있는 장식용 오브젝트예요.',
-    },
+    ...STARTER_TERRAIN_ITEMS,
+    // useItemCatalog.ts ITEM_CATALOG의 id와 매칭 — itemKey가 그 id 문자열.
+    // "무지개 기둥"(itemKey '1')은 여기 없음 — 상점에서 삭제 요청받아서 뺐음(코드
+    // STATIC_ITEM_CATALOG에서도 제거됨). 다시 파는 걸로 바꾸고 싶으면 여기 새로 추가할 것.
     {
         category: 'map_item', itemKey: '2', name: '회색 소파', price: 150,
         icon: '/item/icon/2.png', description: '방/맵에 배치할 수 있는 장식용 오브젝트예요.',
-    },
-    // 지형은 아직 "특수지형" 전용 타일셋이 따로 없어서, 기존 기본 타일 중 하나를 자리표시자로 등록.
-    // 실제 특수지형 타일이 추가되면 itemKey를 그 타일 인덱스로 바꿔서 다시 등록할 것
-    {
-        category: 'terrain', itemKey: '2', name: '특수지형 샘플', price: 100,
-        icon: '/tileset/2.png', description: '맵 편집기에서 배치할 수 있는 특수 지형(예시)이에요.',
     },
 ] satisfies (typeof items.$inferInsert)[]
 

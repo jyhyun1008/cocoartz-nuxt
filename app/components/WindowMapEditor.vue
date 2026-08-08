@@ -50,10 +50,11 @@
                         :selected="selectedEditIndex === idx"
                         @select="selectedEditIndex = idx"
                     />
-                    <!-- 스폰 지점 표시(편집기 전용 — 실제 맵에는 안 그림). 지도 앱 핀처럼 아래로
-                         뾰족한 물방울 모양 — border-radius로 한쪽 모서리만 각지게 두고 45도 돌리는
-                         전형적인 CSS 핀 트릭. 안쪽 아이콘은 그 회전을 다시 반대로 상쇄해서 똑바로 보이게 함 -->
-                    <div class="spawn-marker" :style="getSpawnMarkerStyle()">
+                    <!-- 스폰 지점 표시(편집기 전용 — 실제 맵에는 안 그림, 방 모드만). 지도 앱 핀처럼
+                         아래로 뾰족한 물방울 모양 — border-radius로 한쪽 모서리만 각지게 두고 45도
+                         돌리는 전형적인 CSS 핀 트릭. 안쪽 아이콘은 그 회전을 다시 반대로 상쇄해서
+                         똑바로 보이게 함 -->
+                    <div v-if="hasSpawn" class="spawn-marker" :style="getSpawnMarkerStyle()">
                         <i class="hgi hgi-stroke hgi-flag-02 spawn-marker-icon"></i>
                     </div>
                 </div>
@@ -86,7 +87,7 @@
             <div class="palette-label">타일</div>
             <div class="palette-tiles-row">
                 <div
-                    v-for="tid in TILE_IDS"
+                    v-for="tid in paletteTileIds"
                     :key="tid"
                     class="palette-tile-btn"
                     :class="{ active: placementMode === 'tile' && !isErasing && selectedTile === tid }"
@@ -103,11 +104,11 @@
             <div class="palette-label">아이템</div>
             <div class="palette-tiles-row">
                 <div
-                    v-for="def in ITEM_CATALOG"
+                    v-for="def in paletteItems"
                     :key="def.id"
                     class="palette-tile-btn palette-item-btn"
                     :class="{ active: placementMode === 'item' && !isErasing && selectedItem === def.id }"
-                    :title="def.name"
+                    :title="isUserMode ? `${def.name} (보유 ${ownedCounts.get(def.id) ?? 0}개 중 ${availableCount(def.id)}개 배치 가능)` : def.name"
                     @click="placementMode = 'item'; isErasing = false; selectedItem = def.id"
                 >
                     <img
@@ -116,6 +117,9 @@
                         :src="src"
                         :style="itemThumbLayerStyle(def.layers.length, i)"
                     />
+                    <span v-if="isUserMode" class="palette-item-count" :class="{ 'palette-item-count-empty': availableCount(def.id) <= 0 }">
+                        {{ availableCount(def.id) }}/{{ ownedCounts.get(def.id) ?? 0 }}
+                    </span>
                 </div>
                 <div
                     class="palette-tile-btn erase-btn"
@@ -123,6 +127,9 @@
                     @click="placementMode = 'item'; isErasing = true"
                 ><i class="hgi hgi-stroke hgi-eraser"></i></div>
             </div>
+            <p v-if="isUserMode && !paletteItems.length" class="palette-hint">
+                보유한 맵 아이템이 없어요 — 상점에서 사면 여기 떠요.
+            </p>
             <div class="palette-flip-row">
                 <button
                     class="palette-flip-btn select-mode-btn"
@@ -130,6 +137,7 @@
                     @click="placementMode = 'select'; deselectItem()"
                 ><i class="hgi hgi-stroke hgi-mouse-left-click-01"></i> 아이템 선택/편집</button>
                 <button
+                    v-if="hasSpawn"
                     class="palette-flip-btn select-mode-btn"
                     :class="{ active: placementMode === 'spawn' }"
                     @click="placementMode = 'spawn'"
@@ -231,17 +239,85 @@
 </template>
 
 <script setup>
+// 채널(방) 맵 편집과 개인 방 맵 편집을 하나의 컴포넌트로 통일해서 씀 — roomId를 주면 방 맵
+// (관리자 전용, admin/saveRoomMap + 스폰 지점 지원), userId를 주면 개인 방 맵(saveUserMap,
+// 스폰 지점 없음)을 편집함. 둘 중 정확히 하나만 넘길 것.
 const props = defineProps({
     mapData: { type: String, default: null },
-    roomId: { type: Number, required: true },
+    roomId: { type: Number, default: null },
+    userId: { type: Number, default: null },
 })
 
 const emit = defineEmits(['saved', 'cancel'])
 
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
-const { userId } = useCurrentUser()
+const { userId: currentUserId } = useCurrentUser()
 const { ITEM_CATALOG, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
+
+// 스폰 지점은 "여러 유저가 동시에 접속하는 방"에만 의미가 있는 개념이라 개인 방(userId 모드)엔 없음
+const hasSpawn = computed(() => props.roomId != null)
+const isUserMode = computed(() => props.userId != null)
+
+// 개인 방(userId 모드)일 땐 상점에서 산 맵 아이템만 팔레트에 뜨고, 놓을 수 있는 개수도 보유 개수로
+// 제한됨 — 방(roomId 모드, 관리자 전용)은 이 제한 없이 카탈로그 전체를 그대로 씀(공용 공간 꾸미는
+// 권한이라 개인 지갑이랑 무관해야 함)
+const { data: inventoryData } = await useAsyncData(
+    // roomId 모드/다른 userId 사이를 오갈 때 캐시가 섞이지 않도록 키에 대상을 포함시킴
+    `map-editor-inventory-${props.userId ?? 'room'}`,
+    () => isUserMode.value
+        ? $fetch(`${apiBaseUrl}/api/getMyInventory`, { method: 'POST', body: { userid: props.userId } }).catch(() => [])
+        : [],
+)
+// itemKey(=ITEM_CATALOG/맵 배치에 쓰는 id)를 키로 보유 개수를 모음 — getMyInventory가 돌려주는
+// itemid는 items 테이블의 자기 PK라, 레거시 아이템처럼 itemKey랑 다를 수 있어서 itemKey로 다시 매핑함
+const ownedCounts = computed(() => {
+    const map = new Map()
+    for (const row of inventoryData.value ?? []) {
+        if (row.category !== 'map_item') continue
+        const id = Number(row.itemKey)
+        if (Number.isFinite(id)) map.set(id, row.count)
+    }
+    return map
+})
+
+// 지금 맵에 놓여있는 개수 — 아이템을 놓거나 지울 때마다 editItems가 바뀌면서 자동으로 다시 셈
+const placedCounts = computed(() => {
+    const map = new Map()
+    for (const it of editItems.value) map.set(it.itemid, (map.get(it.itemid) ?? 0) + 1)
+    return map
+})
+
+// 앞으로 더 놓을 수 있는 개수 — 방 모드는 제한 없음(Infinity)
+function availableCount(id) {
+    if (!isUserMode.value) return Infinity
+    return (ownedCounts.value.get(id) ?? 0) - (placedCounts.value.get(id) ?? 0)
+}
+
+// 팔레트에 실제로 보여줄 아이템 — 개인 방은 하나라도 가진 것만, 방은 카탈로그 전체
+const paletteItems = computed(() => {
+    if (!isUserMode.value) return ITEM_CATALOG.value
+    return ITEM_CATALOG.value.filter(def => (ownedCounts.value.get(def.id) ?? 0) > 0)
+})
+
+// 지형(타일)도 맵 아이템이랑 같은 원리 — 아바타 기본 파츠처럼 기본 지형 5종도 전부 items 테이블에
+// isDefault:true로 등록돼있어서(server/db/seedShopItems.ts) 하드코딩된 목록이 따로 없음. 개인 방은
+// 상점(getShopCatalog)에서 보유한 지형만, 방(관리자)은 등록된 전체를 팔레트에 보여줌 — 그래서 새
+// 기본/특수 지형을 추가하고 싶으면 코드를 안 고치고 관리자 페이지에서 등록하기만 하면 됨. 지형은
+// 아바타 파츠처럼 "있다/없다"만 의미가 있어서 개수 배지는 따로 안 둠.
+const { data: terrainCatalogData } = await useAsyncData(
+    `map-editor-terrain-catalog-${props.userId ?? 'room'}`,
+    () => $fetch(`${apiBaseUrl}/api/getShopCatalog`, { method: 'POST', body: { userid: props.userId ?? undefined } })
+        .then(rows => rows.filter(r => r.category === 'terrain'))
+        .catch(() => []),
+)
+const paletteTileIds = computed(() => {
+    const terrainRows = terrainCatalogData.value ?? []
+    return terrainRows
+        .filter(r => isUserMode.value ? r.owned > 0 : true)
+        .map(r => Number(r.itemKey))
+        .filter(Number.isFinite)
+})
 
 // 아이템 팔레트 썸네일: layers[0] 한 장만 보여주면 실제로 배치했을 때 모양(6장 겹친 스택)이랑
 // 달라 보여서 헷갈리니까, 작은 버튼 안에서도 대충 같은 방향으로 살짝씩 겹쳐 쌓아 미리보기를 만듦.
@@ -255,9 +331,6 @@ function itemThumbLayerStyle(total, i) {
     }
 }
 
-const TILE_W = 128
-const TILE_IMG_H = 128
-const TILE_IDS = [1, 2, 3, 4, 5]
 const GRID_SIZE = 10
 
 // ─── 패닝 상태 (panX/panY 직접 제어) ──────────
@@ -291,12 +364,16 @@ function onPanEnd() {
 
 // ─── 줌 ───────────────────────────────────────
 const zoomLevel = ref(0.5)  // 초기에 전체 그리드가 보이도록 축소
-const topRatio = computed(() => {
-    const raw = zoomLevel.value >= 1.0
-        ? 0.5 - (zoomLevel.value - 1.0) / 9
-        : 0.5 + (1.0 - zoomLevel.value) * 0.28
-    return Math.max(1 / 3, Math.min(0.9, raw))
-})
+// useIsoMap.ts 공용 수식 — RoomMap.vue/UserRoomEmbed.vue와 동일
+const topRatio = useTopRatioFromZoom(zoomLevel)
+const {
+    getFilePath, getTileContainerStyle,
+    getEditCellStyle: isoGetEditCellStyle, getSpawnMarkerStyle: isoGetSpawnMarkerStyle,
+    tileTopSliceStyle, tileTopImgStyle,
+    tileSideTopStyle, tileSideTopImgStyle,
+    tileSideMiddleContainerStyle, tileSideMiddleImgStyle,
+    tileSideBottomStyle, tileSideBottomImgStyle,
+} = useIsoTiles(topRatio)
 
 // 줌 피벗: 맵 컨테이너 중앙 (패닝된 뷰 기준)
 const tilesScaleStyle = computed(() => ({
@@ -377,8 +454,13 @@ function handleCellClick(x, y) {
         if (isErasing.value) {
             if (idx !== -1) editItems.value.splice(idx, 1)
         } else if (idx !== -1) {
+            // 이미 있던 칸에 다른 아이템으로 바꿔 놓는 거면(같은 아이템 재배치는 제외) 새로 하나
+            // 소모하는 거라 여유분을 확인함 — 기존 것을 빼는 건 항상 자유(제자리로 돌아오는 거니까)
+            const replacing = editItems.value[idx].itemid !== selectedItem.value
+            if (replacing && availableCount(selectedItem.value) <= 0) return
             editItems.value[idx] = { position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value }
         } else {
+            if (availableCount(selectedItem.value) <= 0) return  // 보유 개수 다 씀 — 인벤토리 반영(개인 방만 제한됨)
             editItems.value.push({ position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value })
         }
         return
@@ -400,11 +482,24 @@ function handleCellClick(x, y) {
 async function saveMap() {
     isSaving.value = true
     try {
-        const mapJson = JSON.stringify([editTiles.value, editItems.value, editSpawn.value])
-        await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
-            method: 'POST',
-            body: { userid: userId.value, id: props.roomId, map: mapJson },
-        })
+        // 개인 방(userId 모드)은 스폰 지점 개념이 없어서 2칸짜리([tiles, items])로 저장 — 방 모드는
+        // 기존 그대로 3칸([tiles, items, spawn]). saveUserMap.ts는 mapInfo[2]가 없어도 그냥 무시하고
+        // 읽으니 하위호환 걱정 없음(기존에 [tiles] 1칸짜리로 저장돼있던 개인 방도 그대로 읽힘)
+        const mapJson = hasSpawn.value
+            ? JSON.stringify([editTiles.value, editItems.value, editSpawn.value])
+            : JSON.stringify([editTiles.value, editItems.value])
+
+        if (hasSpawn.value) {
+            await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
+                method: 'POST',
+                body: { userid: currentUserId.value, id: props.roomId, map: mapJson },
+            })
+        } else {
+            await $fetch(`${apiBaseUrl}/api/saveUserMap`, {
+                method: 'POST',
+                body: { userid: props.userId ?? currentUserId.value, map: mapJson },
+            })
+        }
         emit('saved', mapJson)
     } catch {
         alert('저장에 실패했습니다.')
@@ -414,43 +509,12 @@ async function saveMap() {
 }
 
 function getEditCellStyle(x, y) {
-    const dynH = TILE_IMG_H * topRatio.value
-    const screenX = (x - y) * (TILE_W / 2)
-    const screenY = (x + y) * (dynH / 2)
-    return {
-        position: 'absolute',
-        left: `calc(50% + ${screenX - TILE_W / 2}px)`,
-        top: `calc(50% + ${screenY - dynH / 2}px)`,
-        width: `${TILE_W}px`,
-        height: `${dynH}px`,
-        clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-        cursor: isErasing.value ? 'cell' : 'crosshair',
-        zIndex: 50000,
-    }
+    return isoGetEditCellStyle(x, y, isErasing.value)
 }
 
-// 스폰 지점 마커(깃발) 위치 — 타일 z-index/오프셋 계산이랑 같은 isometric 식(getTileContainerStyle)
-// 재사용. 편집기 전용 안내 표시라 클릭은 안 받고(pointer-events:none), 그리드(z-index 50000)보다는
-// 낮게 둬서 클릭에 방해 안 되게 함
+// 스폰 지점 마커(깃발) 위치 — hasSpawn(방 모드)일 때만 씀
 function getSpawnMarkerStyle() {
-    const { x, y, z } = editSpawn.value
-    const dynH = TILE_IMG_H * topRatio.value
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    const sideH = dynH * 3 / 4 + S / 2
-    const screenX = (x - y) * (TILE_W / 2)
-    const screenY = (x + y) * (dynH / 2) - z * sideH
-    // 핀의 뾰족한 끝이 타일 중심(screenX, screenY)에 딱 닿도록 위치 계산.
-    // .spawn-marker는 한 변 22px 정사각형을 45도 돌려서 만든 물방울 모양이라(border-radius로
-    // 한쪽 모서리만 각지게 두고 회전) 그 뾰족한 끝은 박스 중심에서 "정사각형 중심→모서리" 대각선
-    // 거리(half*√2)만큼 아래로 내려가 있음 — 그냥 절반(half)만큼만 내리면 끝이 타일 중심보다
-    // 위쪽에서 뜬 것처럼 보임(실제 버그였음)
-    const half = 11
-    const tipDrop = half * Math.SQRT2
-    return {
-        left: `calc(50% + ${screenX - half}px)`,
-        top: `calc(50% + ${screenY - half - tipDrop}px)`,
-        zIndex: 49999,
-    }
+    return isoGetSpawnMarkerStyle(editSpawn.value)
 }
 
 // ─── 타일 렌더링 ──────────────────────────────
@@ -478,51 +542,9 @@ const sortedTiles = computed(() =>
     })
 )
 
-function getFilePath(tile) { return `/tileset/${tile.itemid}.png` }
-
-function getTileContainerStyle(tile) {
-    const { x, y, z = 0 } = tile.position
-    const dynH = TILE_IMG_H * topRatio.value
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    const sideH = dynH * 3 / 4 + S / 2
-    const screenX = (x - y) * (TILE_W / 2)
-    const screenY = (x + y) * (dynH / 2) - z * sideH
-    const scale = (1 + (x + y) * 0.004).toFixed(3)
-    // z-index는 RoomMap.vue의 getTileContainerStyle과 반드시 같은 "4n+k" 스케일(n=x+y, k=z)을
-    // 써야 함 — 여기만 n=x+y+2z로 따로 놀고 있어서 편집 화면과 실제 맵 화면의 z-index가
-    // 어긋나는(같은 배치인데 가려지는 순서가 다르게 보이는) 버그가 있었음
-    const n = x + y
-    const k = z
-    return {
-        left: `calc(50% + ${screenX - TILE_W / 2}px)`,
-        top: `calc(50% + ${screenY - dynH / 2}px)`,
-        transform: `scale(${scale})`,
-        zIndex: 4 * n + k,
-    }
-}
-
-const tileTopSliceStyle = computed(() => ({ height: `${topRatio.value * TILE_IMG_H}px` }))
-const tileTopImgStyle = computed(() => ({ width: '128px', height: `${TILE_IMG_H * 2 * topRatio.value}px` }))
-const tileSideTopStyle = computed(() => ({ height: `${topRatio.value * TILE_IMG_H / 4}px` }))
-const tileSideTopImgStyle = computed(() => ({
-    width: '128px',
-    height: `${TILE_IMG_H * 2 * topRatio.value}px`,
-    marginTop: `${-TILE_IMG_H * topRatio.value}px`,
-}))
-function tileSideMiddleContainerStyle() {
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    return { height: `${S / 2}px` }
-}
-function tileSideMiddleImgStyle() {
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    return { width: '128px', height: `${4 * S}px`, marginTop: `${-5 * S / 2}px` }
-}
-const tileSideBottomStyle = computed(() => ({ height: `${topRatio.value * TILE_IMG_H / 2}px` }))
-const tileSideBottomImgStyle = computed(() => ({
-    width: '128px',
-    height: `${topRatio.value * TILE_IMG_H * 2}px`,
-    marginTop: `${-topRatio.value * TILE_IMG_H * 3 / 2}px`,
-}))
+// useIsoMap.ts 공용 수식(app/composables/useIsoMap.ts) — RoomMap.vue/UserRoomEmbed.vue와 완전히
+// 같은 위치/스케일/z-index 계산을 씀. 예전엔 여기 z-index만 n=x+y+2z로 따로 놀아서(4n+k가 아니라)
+// 편집 화면과 실제 맵 화면의 깊이 순서가 어긋나는 버그가 있었는데, 공용화하면서 더는 그럴 일이 없음.
 
 onMounted(() => {
     editTiles.value = JSON.parse(JSON.stringify(mapInfo.value?.[0] ?? []))
@@ -535,10 +557,7 @@ onMounted(() => {
     // 초기 panY: 그리드 중앙이 화면 중앙에 오도록 계산
     // tile (cx,cy) 중심 screen_y = panY + H/2 + screenY*z  (screenY = (cx+cy)*(dynH/2))
     // 중앙 정렬: panY = -(GRID_SIZE-1)*(dynH/2)*z
-    const z = zoomLevel.value
-    const raw = z >= 1 ? 0.5 - (z - 1) / 9 : 0.5 + (1 - z) * 0.28
-    const tr = Math.max(1 / 3, Math.min(0.9, raw))
-    panY.value = -Math.round((GRID_SIZE - 1) * (tr * 128 / 2) * z)
+    panY.value = -Math.round((GRID_SIZE - 1) * (topRatio.value * 128 / 2) * zoomLevel.value)
 
     containerRef.value?.addEventListener('wheel', (e) => {
         // 팔레트(#wme-palette) 안에서의 스크롤은 지도 줌으로 먹지 않고 그대로 통과시켜서
@@ -557,9 +576,12 @@ onMounted(() => {
 #wme-container {
     position: relative;
     width: 100%;
-    /* 이 편집기는 WindowSettings.vue의 관리자 모달(채널 맵 편집)에서만 쓰여서 이미 큰 모달 공간을
-       그대로 채워도 됨 — 고정 380px 대신 부모(#settings-content, flex column)가 주는 높이만큼
-       늘어나게 함(부모 쪽도 이 뷰일 때 모달 자체를 키워서 늘어날 공간을 넉넉히 줌) */
+    /* 이 편집기는 두 군데서 씀: WindowSettings.vue의 관리자 모달(채널 맵 편집, flex column
+       부모라 flex:1 1 auto로 남는 공간을 채움)이랑, UserRoomEmbed.vue의 개인 방 꾸미기(고정
+       높이 부모라 height:100%로 그 높이를 그대로 채움) — 부모가 flex든 고정 높이든 둘 다
+       자연스럽게 맞도록 height:100%와 flex:1 1 auto를 같이 둠(flex 부모가 아니면 flex 속성 자체가
+       무시되고 height:100%만 적용됨) */
+    height: 100%;
     flex: 1 1 auto;
     min-height: 380px;
     border-radius: 10px;
@@ -642,6 +664,12 @@ onMounted(() => {
     flex-direction: column;
     gap: 8px;
     min-width: 160px;
+    /* 타일/아이템을 상점에서 사면 사는 만큼 팔레트 버튼이 계속 늘어나는데, 폭 제한이 없으면
+       한 줄에 다 욱여넣으려고 패널 자체가 옆으로 계속 넓어짐 — 36px 버튼 5개(+간격) 폭으로 고정해서
+       그 이상은 아래(.palette-tiles-row의 flex-wrap)로 자연스럽게 줄바꿈되게 함. 딱 맞춘 200px로
+       했더니 아래 overflow-y:auto가 스크롤바를 만들 때 그만큼 폭을 갉아먹어서 4개만 들어가길래
+       스크롤바 폭(보통 15~17px) 여유분까지 얹어서 넉넉하게 잡음 */
+    max-width: 240px;
     /* 편집 패널이 추가되면서 내용이 #wme-container(고정 380px, overflow:hidden)보다 길어져서
        아래쪽이 그냥 잘려 보이던 문제 — 패널 자체 높이를 컨테이너 안으로 제한하고 내부 스크롤로 처리 */
     max-height: calc(100% - 20px);
@@ -699,6 +727,25 @@ onMounted(() => {
     height: auto;
     transform: translateX(-50%);
     object-fit: contain;
+}
+
+/* 개인 방 모드: 아이템 아이콘 위에 "남은/보유" 개수 배지 */
+.palette-item-count {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    z-index: 1;
+    font-size: 0.55rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 4px;
+    padding: 0 3px;
+    pointer-events: none;
+}
+.palette-item-count-empty {
+    color: #ff6b6b;
 }
 
 .palette-tile-btn.active {

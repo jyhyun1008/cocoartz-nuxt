@@ -1,46 +1,27 @@
 <template>
     <div
         id="ure-container"
+        :class="{ 'edit-active': isEditMode }"
         ref="containerRef"
-        :style="{ cursor: isDragging ? 'grabbing' : 'default' }"
-        @mousedown="onPanStart"
-        @mousemove="onPanMove"
-        @mouseup="onPanEnd"
-        @mouseleave="onPanEnd"
-        @contextmenu.prevent
     >
+        <!-- 맵 편집기(WindowMapEditor.vue)는 채널 맵 편집이랑 완전히 같은 컴포넌트를 그대로 씀 —
+             userId를 주면 스폰 지점 없이 saveUserMap으로 저장하는 개인 방 모드로 동작함(자세한
+             분기는 WindowMapEditor.vue의 hasSpawn 참고). 덕분에 타일뿐 아니라 상점에서 산 맵
+             아이템도 개인 방에 그대로 놓을 수 있음 — 예전엔 타일만 되던 부분이 이걸로 해결됨. -->
+        <WindowMapEditor
+            v-if="isEditMode"
+            :map-data="props.mapData"
+            :user-id="props.ownUserId"
+            @saved="onEditorSaved"
+            @cancel="isEditMode = false"
+        />
 
-        <!-- z=0 타일 레이어 -->
-        <div id="ure-map" :style="mapStyle">
-            <div class="maptiles1" :style="tilesScaleStyle">
-                <div
-                    v-for="tile in tilesBack"
-                    :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
-                    class="tile-container"
-                    :style="getTileContainerStyle(tile)"
-                >
-                    <div class="tile-slice" :style="tileTopSliceStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileTopImgStyle" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideTopStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideTopImgStyle" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideMiddleContainerStyle(tile)">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideMiddleImgStyle(tile)" />
-                    </div>
-                    <div class="tile-slice" :style="tileSideBottomStyle">
-                        <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- z≥1 타일 + 캐릭터 레이어 -->
-        <div id="ure-map-front">
-            <div class="maptiles-pan" :style="mapStyle">
+        <template v-else>
+            <!-- z=0 타일 레이어 -->
+            <div id="ure-map" :style="mapStyle">
                 <div class="maptiles1" :style="tilesScaleStyle">
                     <div
-                        v-for="tile in tilesFront"
+                        v-for="tile in tilesBack"
                         :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
                         class="tile-container"
                         :style="getTileContainerStyle(tile)"
@@ -58,80 +39,66 @@
                             <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
                         </div>
                     </div>
-                    <CharacterMoving
-                        v-if="!isEditMode"
-                        :layers="localCharLayers"
-                        :top-ratio="topRatio"
-                        :zoom-level="zoomLevel"
-                        :tile-mode="true"
-                        :local-x="localPosition.x"
-                        :local-y="localPosition.y"
-                        :z-index="charZIndex"
-                    />
                 </div>
             </div>
-        </div>
 
-        <!-- 편집 그리드 레이어 (편집 모드에서만 표시) -->
-        <div v-if="isEditMode" id="ure-edit-grid-layer">
-            <div class="maptiles-pan" :style="mapStyle">
-                <div class="maptiles1" :style="tilesScaleStyle">
-                    <div
-                        v-for="cell in editGridCells"
-                        :key="`ec-${cell.x}-${cell.y}`"
-                        class="edit-cell"
-                        :class="{ 'edit-cell-hover': hoverCell && hoverCell.x === cell.x && hoverCell.y === cell.y }"
-                        :style="getEditCellStyle(cell.x, cell.y)"
-                        @click.stop="handleCellClick(cell.x, cell.y)"
-                        @mouseenter="hoverCell = cell"
-                        @mouseleave="hoverCell = null"
-                    ></div>
+            <!-- z≥1 타일 + 맵 아이템 + 캐릭터 레이어 -->
+            <div id="ure-map-front">
+                <div class="maptiles-pan" :style="mapStyle">
+                    <div class="maptiles1" :style="tilesScaleStyle">
+                        <div
+                            v-for="tile in tilesFront"
+                            :key="`${tile.position.x}-${tile.position.y}-${tile.position.z ?? 0}`"
+                            class="tile-container"
+                            :style="getTileContainerStyle(tile)"
+                        >
+                            <div class="tile-slice" :style="tileTopSliceStyle">
+                                <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileTopImgStyle" />
+                            </div>
+                            <div class="tile-slice" :style="tileSideTopStyle">
+                                <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideTopImgStyle" />
+                            </div>
+                            <div class="tile-slice" :style="tileSideMiddleContainerStyle(tile)">
+                                <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideMiddleImgStyle(tile)" />
+                            </div>
+                            <div class="tile-slice" :style="tileSideBottomStyle">
+                                <NuxtImg :src="getFilePath(tile)" class="tile-img-full" :style="tileSideBottomImgStyle" />
+                            </div>
+                        </div>
+                        <MapItem
+                            v-for="(item, idx) in mapItems"
+                            :key="`item-${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${idx}`"
+                            :layers="getItemLayers(item.itemid)"
+                            :position="item.position"
+                            :top-ratio="topRatio"
+                            :blur-px="getDepthBlur(item.position.x + item.position.y)"
+                            :flip-x="!!item.flip"
+                            :flip-back="!!item.flipBack"
+                            :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
+                            :title="item.title"
+                            :link="item.link"
+                            interactive
+                        />
+                        <CharacterMoving
+                            :layers="localCharLayers"
+                            :top-ratio="topRatio"
+                            :zoom-level="zoomLevel"
+                            :tile-mode="true"
+                            :local-x="localPosition.x"
+                            :local-y="localPosition.y"
+                            :local-z="charZ"
+                            :z-index="charZIndex"
+                            :jumping="isJumping"
+                        />
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <!-- 편집 팔레트 -->
-        <div v-if="isEditMode" id="ure-palette">
-            <div class="palette-label">타일</div>
-            <div class="palette-tiles-row">
-                <div
-                    v-for="tid in TILE_IDS"
-                    :key="tid"
-                    class="palette-tile-btn"
-                    :class="{ active: !isErasing && selectedTile === tid }"
-                    @click="isErasing = false; selectedTile = tid"
-                >
-                    <img :src="`/tileset/${tid}.png`" />
-                </div>
-                <div
-                    class="palette-tile-btn erase-btn"
-                    :class="{ active: isErasing }"
-                    @click="isErasing = true"
-                >✕</div>
-            </div>
-            <div class="palette-label">높이</div>
-            <div class="palette-z-row">
-                <button
-                    v-for="(label, z) in ['바닥', '1층', '2층']"
-                    :key="z"
-                    class="palette-z-btn"
-                    :class="{ active: selectedZ === z }"
-                    @click="selectedZ = z"
-                >{{ label }}</button>
-            </div>
-            <div class="palette-actions">
-                <button class="palette-cancel-btn" @click="cancelEdit">취소</button>
-                <button class="palette-save-btn" :disabled="isSaving" @click="saveMap">
-                    {{ isSaving ? '저장 중' : '저장' }}
-                </button>
-            </div>
-        </div>
+        </template>
 
         <!-- 방 꾸미기 버튼 -->
-        <button v-if="isOwn && !isEditMode" id="ure-edit-btn" @click="enterEditMode">
+        <button v-if="isOwn && !isEditMode" id="ure-edit-btn" @click="isEditMode = true">
             ✎ 방 꾸미기
         </button>
-
     </div>
 </template>
 
@@ -145,106 +112,58 @@ const props = defineProps({
 
 const emit = defineEmits(['map-saved'])
 
-const config = useRuntimeConfig()
-const apiBaseUrl = config.public.apiBaseUrl
+const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 
-const TILE_W = 128
-const TILE_IMG_H = 128
-const TILE_IDS = [1, 2, 3, 4, 5]
-const GRID_SIZE = 10
-
-// ─── 편집 상태 ───────────────────────────────
+// ─── 편집 모드 ────────────────────────────────
+// 실제 편집 UI(타일/아이템 배치, 저장)는 전부 WindowMapEditor.vue로 위임함 — 여긴 그 결과를 받아서
+// 프로필 페이지 쪽에 그대로 다시 흘려보내는(map-saved) 역할만 함
 const isEditMode = ref(false)
-const editTiles = ref([])
-const selectedTile = ref(1)
-const selectedZ = ref(0)
-const isErasing = ref(false)
-const hoverCell = ref(null)
-const isSaving = ref(false)
 
-const editGridCells = computed(() => {
-    const cells = []
-    for (let x = 0; x < GRID_SIZE; x++)
-        for (let y = 0; y < GRID_SIZE; y++)
-            cells.push({ x, y })
-    return cells
-})
-
-function enterEditMode() {
-    editTiles.value = JSON.parse(JSON.stringify(mapInfo.value?.[0] ?? []))
-    isEditMode.value = true
-}
-
-function cancelEdit() {
+function onEditorSaved(mapJson) {
     isEditMode.value = false
-    editTiles.value = []
-    hoverCell.value = null
+    emit('map-saved', mapJson)
 }
 
-function handleCellClick(x, y) {
-    const z = selectedZ.value
-    const idx = editTiles.value.findIndex(
-        t => t.position.x === x && t.position.y === y && (t.position.z ?? 0) === z
-    )
-    if (isErasing.value) {
-        if (idx !== -1) editTiles.value.splice(idx, 1)
-    } else {
-        if (idx !== -1) {
-            editTiles.value[idx] = { position: { x, y, z }, itemid: selectedTile.value }
-        } else {
-            editTiles.value.push({ position: { x, y, z }, itemid: selectedTile.value })
-        }
-    }
-}
-
-async function saveMap() {
-    isSaving.value = true
-    try {
-        const mapJson = JSON.stringify([editTiles.value])
-        await $fetch(`${apiBaseUrl}/api/saveUserMap`, {
-            method: 'POST',
-            body: { userid: props.ownUserId, map: mapJson },
-        })
-        emit('map-saved', mapJson)
-        isEditMode.value = false
-        hoverCell.value = null
-    } catch {
-        alert('저장에 실패했습니다.')
-    } finally {
-        isSaving.value = false
-    }
-}
-
-function getEditCellStyle(x, y) {
-    const dynH = TILE_IMG_H * topRatio.value
-    const screenX = (x - y) * (TILE_W / 2)
-    const screenY = (x + y) * (dynH / 2)
-    return {
-        position: 'absolute',
-        left: `calc(50% + ${screenX - TILE_W / 2}px)`,
-        top: `calc(50% + ${screenY - dynH / 2}px)`,
-        width: `${TILE_W}px`,
-        height: `${dynH}px`,
-        clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-        cursor: isErasing.value ? 'cell' : 'crosshair',
-        zIndex: 50000,
-    }
-}
-
-// ─── 맵/타일 렌더링 ──────────────────────────
+// ─── 맵/타일 렌더링(둘러보기 전용 — 편집 중엔 WindowMapEditor가 자기 카메라로 따로 그림) ──────
 const zoomLevel = ref(1)
-const topRatio = computed(() => {
-    const raw = zoomLevel.value >= 1.0
-        ? 0.5 - (zoomLevel.value - 1.0) / 9
-        : 0.5 + (1.0 - zoomLevel.value) * 0.28
-    return Math.max(1 / 3, Math.min(0.9, raw))
-})
+// useIsoMap.ts 공용 수식 — RoomMap.vue/WindowMapEditor.vue와 동일
+const topRatio = useTopRatioFromZoom(zoomLevel)
+const {
+    getFilePath,
+    getTileContainerStyle: getIsoTileContainerStyle,
+    tileTopSliceStyle, tileTopImgStyle,
+    tileSideTopStyle, tileSideTopImgStyle,
+    tileSideMiddleContainerStyle, tileSideMiddleImgStyle,
+    tileSideBottomStyle, tileSideBottomImgStyle,
+} = useIsoTiles(topRatio)
 
 const localPosition = ref({ x: 0, y: 0 })
 const mapLeft = ref(0)
 const mapTop = ref(0)
 const charDepth = ref(0)
+// 지금 캐릭터가 서 있는 층 — 타일/아이템의 z와 같은 오프셋으로 CharacterMoving에 넘겨서 높은
+// 지형(예: 기본 맵의 z=1 단상) 위에 서면 그만큼 떠 보이게 함
+const charZ = ref(0)
+// 스페이스바 점프 연출 트리거 — RoomMap.vue와 같은 방식(자세한 설명은 그쪽 주석 참고)
+const isJumping = ref(false)
 const containerRef = ref(null)
+
+// 피사계심도(초점 흐림) — RoomMap.vue와 같은 방식(캐릭터가 있는 깊이에서 멀어질수록 흐려짐).
+// 타일/아이템 둘 다 적용 — 원래 있던 걸 공용 composable로 옮기면서 실수로 타일 쪽만 빠뜨렸었음
+function getDepthBlur(depth) {
+    const depthDiff = Math.abs(depth - charDepth.value)
+    return Number((Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1))
+}
+
+// 공용 위치/스케일/z-index(getIsoTileContainerStyle) 위에 이 화면 전용 blur만 얹음
+function getTileContainerStyle(tile) {
+    const { x, y } = tile.position
+    const blur = getDepthBlur(x + y)
+    return {
+        ...getIsoTileContainerStyle(tile),
+        filter: blur > 0 ? `blur(${blur}px)` : undefined,
+    }
+}
 
 const mapStyle = computed(() => ({
     left: `${mapLeft.value}px`,
@@ -281,10 +200,52 @@ const mapInfo = computed(() => {
     try { return JSON.parse(props.mapData) } catch { return buildDefaultMap() }
 })
 
-// 편집 모드면 editTiles, 아니면 저장된 mapInfo 사용
-const displayTiles = computed(() =>
-    isEditMode.value ? editTiles.value : (mapInfo.value?.[0] ?? [])
-)
+const displayTiles = computed(() => mapInfo.value?.[0] ?? [])
+// 예전 개인 방 맵은 [tiles] 1칸짜리라 mapInfo[1]이 없을 수 있음 — 그럴 땐 그냥 빈 배열(아이템 없음)
+const mapItems = computed(() => mapInfo.value?.[1] ?? [])
+
+// ─── 이동 충돌 판정 — RoomMap.vue와 같은 방식(자세한 설명은 그쪽 주석 참고). 여긴 다른 유저/점프가
+// 없는 단순 미리보기라 그 부분만 빼고 이식함. 이게 없으면 지형 없는 칸으로도 그냥 걸어나가버림.
+const WATER_TILE_ID = 2
+function tilesAt(tx, ty) {
+    return displayTiles.value.filter(t => t.position.x === tx && t.position.y === ty)
+}
+function tileAt(tx, ty, z) {
+    return tilesAt(tx, ty).find(t => (t.position.z ?? 0) === z) ?? null
+}
+function topZAt(tx, ty) {
+    const ts = tilesAt(tx, ty)
+    if (!ts.length) return null
+    return Math.max(...ts.map(t => t.position.z ?? 0))
+}
+function canEnterTile(tx, ty, zCur) {
+    const here = tileAt(tx, ty, zCur)
+    if (!here) return false
+    if (tileAt(tx, ty, zCur + 1)) return false
+    return here.itemid !== WATER_TILE_ID
+}
+// 스페이스바로 점프 중일 때만 씀 — 같은 층에서 막혀도 바로 위/아래 층에 유효한(물 아닌) 타일이
+// 있으면 그쪽으로 넘어갈 수 있게 해줌
+function canEnterTileJumping(tx, ty, zCur) {
+    if (canEnterTile(tx, ty, zCur)) return true
+    const up = tileAt(tx, ty, zCur + 1)
+    if (up) return up.itemid !== WATER_TILE_ID
+    const down = tileAt(tx, ty, zCur - 1)
+    if (down) return down.itemid !== WATER_TILE_ID
+    return false
+}
+const COLLISION_Y_OFFSET = -1
+function toCollisionTile(px, py) {
+    const effY = py + COLLISION_Y_OFFSET
+    return {
+        tx: Math.round(px / 4 - effY / 2),
+        ty: Math.round(-effY / 2 - px / 4),
+    }
+}
+function computeCharZ(px, py) {
+    const { tx, ty } = toCollisionTile(px, py)
+    return topZAt(tx, ty) ?? 0
+}
 
 const sortedTiles = computed(() => {
     return [...displayTiles.value].sort((a, b) => {
@@ -296,51 +257,12 @@ const sortedTiles = computed(() => {
 
 const tilesBack = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) === 0))
 const tilesFront = computed(() => sortedTiles.value.filter(t => (t.position.z ?? 0) >= 1))
-const charZIndex = computed(() => localPosition.value.y * -10 + 9999)
+// RoomMap.vue의 getCharZIndex와 같은 스케일(타일의 4n+k와 맞물리는 공식) — 예전엔 옛 타일 z-index
+// 스케일(~10000대)에 맞춘 y*-10+9999를 썼는데, 타일이 공용 composable의 4n+k로 바뀌면서 스케일이
+// 완전히 어긋나 캐릭터가 항상 맨 위에 뜨는 버그가 됐었음. 여긴 다른 유저/아이템 충돌 판정이 없는
+// 단순 미리보기라 RoomMap.vue의 "블로커 아이템" 예외 없이 기본 공식만 씀
+const charZIndex = computed(() => -4 * Math.round(localPosition.value.y) + 4 + 4 * charZ.value)
 
-function getFilePath(tile) { return `/tileset/${tile.itemid}.png` }
-
-function getTileContainerStyle(tile) {
-    const { x, y, z = 0 } = tile.position
-    const dynH = TILE_IMG_H * topRatio.value
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    const sideH = dynH * 3 / 4 + S / 2
-    const screenX = (x - y) * (TILE_W / 2)
-    const screenY = (x + y) * (dynH / 2) - z * sideH
-    const scale = (1 + (x + y) * 0.004).toFixed(3)
-    const depthDiff = Math.abs((x + y) - charDepth.value)
-    const blur = (Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1)
-    return {
-        left: `calc(50% + ${screenX - TILE_W / 2}px)`,
-        top: `calc(50% + ${screenY - dynH / 2}px)`,
-        transform: `scale(${scale})`,
-        filter: (!isEditMode.value && Number(blur) > 0) ? `blur(${blur}px)` : undefined,
-        zIndex: (x + y) * 10 + z * 2 + 10000,
-    }
-}
-
-const tileTopSliceStyle = computed(() => ({ height: `${topRatio.value * TILE_IMG_H}px` }))
-const tileTopImgStyle = computed(() => ({ width: '128px', height: `${TILE_IMG_H * 2 * topRatio.value}px` }))
-const tileSideTopStyle = computed(() => ({ height: `${topRatio.value * TILE_IMG_H / 4}px` }))
-const tileSideTopImgStyle = computed(() => ({
-    width: '128px',
-    height: `${TILE_IMG_H * 2 * topRatio.value}px`,
-    marginTop: `${-TILE_IMG_H * topRatio.value}px`,
-}))
-function tileSideMiddleContainerStyle() {
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    return { height: `${S / 2}px` }
-}
-function tileSideMiddleImgStyle() {
-    const S = (1 - topRatio.value) * TILE_IMG_H
-    return { width: '128px', height: `${4 * S}px`, marginTop: `${-5 * S / 2}px` }
-}
-const tileSideBottomStyle = computed(() => ({ height: `${topRatio.value * TILE_IMG_H / 2}px` }))
-const tileSideBottomImgStyle = computed(() => ({
-    width: '128px',
-    height: `${topRatio.value * TILE_IMG_H * 2}px`,
-    marginTop: `${-topRatio.value * TILE_IMG_H * 3 / 2}px`,
-}))
 const tilesScaleStyle = computed(() => {
     const ox = localPosition.value.x * 32
     const oy = -localPosition.value.y * topRatio.value * 64
@@ -350,7 +272,9 @@ const tilesScaleStyle = computed(() => {
     }
 })
 
-// 패닝용 position (WASD + drag 공유)
+// 패닝용 position (WASD 전용 — RoomMap.vue의 일반 방 화면도 드래그 패닝은 없고 WASD만 지원해서
+// 통일했음. 예전엔 여기만 우클릭 드래그로도 맵을 움직일 수 있었는데, 그러면서 캐릭터가 실제
+// 서 있는 자리랑 화면에 보이는 자리가 어긋나 보이는 문제가 있었음)
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character))
 
@@ -372,52 +296,97 @@ watch(() => props.username, (newUsername) => {
     } catch {}
     localPosition.value = { ...position }
     charDepth.value = -position.y + 2
+    charZ.value = computeCharZ(position.x, position.y)
     updateMapPosition(position)
-})
+}, { immediate: true })
 
-const isDragging = ref(false)
-let dragLastClient = { x: 0, y: 0 }
+const storageKey = computed(() => `ur-pos-${props.username}`)
+const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
+const MOVES = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
+const KEY_REPEAT_MS = 180  // RoomMap.vue와 동일
 
-function onPanStart(e) {
-    if (e.button !== 2) return
-    isDragging.value = true
-    dragLastClient = { x: e.clientX, y: e.clientY }
-    e.preventDefault()
+// 스페이스바 점프 — 누르고 있는 동안(jumpHeld)은 방향키로 이동할 때 층이 달라지는 칸도
+// 허용됨(canEnterTileJumping). RoomMap.vue와 같은 방식.
+let jumpHeld = false
+let jumpAnimTimer = null
+function triggerJumpAnim() {
+    // true→true로 다시 대입하면 Vue가 변화 없음으로 보고 클래스를 안 건드려서 CSS 애니메이션이
+    // 재시작 안 됨 — 한 틱 false로 껐다가 다음 틱에 다시 true로 켜서 강제로 재생함
+    isJumping.value = false
+    nextTick(() => { isJumping.value = true })
+    clearTimeout(jumpAnimTimer)
+    jumpAnimTimer = setTimeout(() => { isJumping.value = false }, 400)
 }
 
-function onPanMove(e) {
-    if (!isDragging.value) return
-    const dx = e.clientX - dragLastClient.x
-    const dy = e.clientY - dragLastClient.y
-    dragLastClient = { x: e.clientX, y: e.clientY }
-    position.x -= dx / 32
-    position.y += dy / (topRatio.value * 64)
+function moveStep(code) {
+    const delta = MOVES[code]
+    if (!delta) return
+    const newX = position.x + delta[0]
+    const newY = position.y + delta[1]
+
+    // 실제로 칸(타일)이 바뀌는 이동일 때만 충돌 검사 — RoomMap.vue의 moveStep과 같은 방식
+    const { tx: curTx, ty: curTy } = toCollisionTile(position.x, position.y)
+    const { tx: newTx, ty: newTy } = toCollisionTile(newX, newY)
+    if (curTx !== newTx || curTy !== newTy) {
+        const zCur = topZAt(curTx, curTy) ?? 0
+        const canEnter = jumpHeld ? canEnterTileJumping(newTx, newTy, zCur) : canEnterTile(newTx, newTy, zCur)
+        if (!canEnter) return  // 지형 없음/물 블록/낮은 천장(점프 중 아니면 층이 달라도) — 이동 취소
+        if (jumpHeld) triggerJumpAnim()  // 점프 중 실제로 한 칸 넘어갈 때마다 다시 튀는 연출 재생
+        charZ.value = topZAt(newTx, newTy) ?? 0
+    }
+
+    position.x = newX
+    position.y = newY
     localPosition.value = { ...position }
     charDepth.value = -position.y + 2
     updateMapPosition(position)
-    try { localStorage.setItem(storageKey.value, JSON.stringify({ x: position.x, y: position.y })) } catch {}
+    localStorage.setItem(storageKey.value, JSON.stringify(position))
 }
 
-function onPanEnd() {
-    isDragging.value = false
+// 방향키를 브라우저 자체 auto-repeat에 맡기지 않고 직접 setInterval로 반복시킴 — 방향키를 먼저
+// 누른 채로 스페이스바를 나중에 누르면(또는 그 반대) 일부 브라우저는 "마지막으로 누른 키만"
+// auto-repeat를 계속하고 먼저 누르고 있던 키의 repeat가 멈춰버리는 경우가 있어서, 방향키+스페이스바를
+// 어떤 순서로 누르든 계속 같이 눌려있는 걸로 인식되게 함(RoomMap.vue와 완전히 같은 방식)
+const heldMoveKeys = []
+let moveRepeatInterval = null
+function startMoveRepeat() {
+    if (moveRepeatInterval) return
+    moveRepeatInterval = setInterval(() => {
+        const code = heldMoveKeys[heldMoveKeys.length - 1]
+        if (code) moveStep(code)
+    }, KEY_REPEAT_MS)
 }
-
-const storageKey = computed(() => `ur-pos-${props.username}`)
+function stopMoveRepeatIfEmpty() {
+    if (heldMoveKeys.length > 0) return
+    clearInterval(moveRepeatInterval)
+    moveRepeatInterval = null
+}
 
 onMounted(() => {
     ensureUserLoaded()
 
     window.addEventListener('keydown', (e) => {
         if (isEditMode.value) return
-        const moves = { KeyS: [0, -0.25], KeyW: [0, 0.25], KeyA: [-0.25, 0], KeyD: [0.25, 0] }
-        const delta = moves[e.code]
-        if (!delta) return
-        position.x += delta[0]
-        position.y += delta[1]
-        localPosition.value = { ...position }
-        charDepth.value = -position.y + 2
-        updateMapPosition(position)
-        localStorage.setItem(storageKey.value, JSON.stringify(position))
+        if (e.code === 'Space') {
+            e.preventDefault()  // 안 막으면 브라우저 기본 동작(페이지 스크롤)이 먹음
+            if (!e.repeat) {
+                jumpHeld = true
+                triggerJumpAnim()
+            }
+            return
+        }
+        if (!MOVES[e.code] || e.repeat) return  // 반복은 moveRepeatInterval이 전담 — 브라우저 자체 auto-repeat는 무시
+        moveStep(e.code)
+        if (!heldMoveKeys.includes(e.code)) heldMoveKeys.push(e.code)
+        startMoveRepeat()
+    })
+
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') { jumpHeld = false; return }
+        if (!MOVE_KEYS.has(e.code)) return
+        const idx = heldMoveKeys.indexOf(e.code)
+        if (idx !== -1) heldMoveKeys.splice(idx, 1)
+        stopMoveRepeatIfEmpty()
     })
 
     containerRef.value?.addEventListener('wheel', (e) => {
@@ -471,167 +440,6 @@ onMounted(() => {
     width: 100%; height: 100%;
     pointer-events: none;
 }
-
-/* 편집 그리드 레이어 */
-#ure-edit-grid-layer {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    animation: handheld 9s ease-in-out infinite;
-}
-
-#ure-edit-grid-layer .maptiles-pan {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-}
-
-#ure-edit-grid-layer .maptiles1 {
-    pointer-events: none;
-}
-
-.edit-cell {
-    pointer-events: auto;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    transition: background 0.1s;
-}
-
-.edit-cell-hover {
-    background: rgba(255, 255, 255, 0.28) !important;
-}
-
-/* 편집 팔레트 */
-#ure-palette {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 60000;
-    background: rgba(20, 20, 28, 0.92);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 160px;
-}
-
-.palette-label {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.palette-tiles-row {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-}
-
-.palette-tile-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    border: 2px solid transparent;
-    background: rgba(255, 255, 255, 0.08);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    transition: border-color 0.1s, background 0.1s;
-    flex-shrink: 0;
-}
-
-.palette-tile-btn img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center top;
-}
-
-.palette-tile-btn.active {
-    border-color: var(--accent, #D21F3C);
-    background: rgba(210, 31, 60, 0.2);
-}
-
-.palette-tile-btn:hover:not(.active) {
-    background: rgba(255, 255, 255, 0.18);
-}
-
-.erase-btn {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 1rem;
-    font-weight: 700;
-}
-
-.erase-btn.active {
-    border-color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.2);
-    color: #ff6b6b;
-}
-
-.palette-z-row {
-    display: flex;
-    gap: 4px;
-}
-
-.palette-z-btn {
-    flex: 1;
-    padding: 4px 0;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.72rem;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.1s;
-}
-
-.palette-z-btn.active {
-    background: var(--accent, #D21F3C);
-    border-color: var(--accent, #D21F3C);
-    color: white;
-}
-
-.palette-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 2px;
-}
-
-.palette-cancel-btn, .palette-save-btn {
-    flex: 1;
-    padding: 6px 0;
-    border-radius: 7px;
-    border: none;
-    font-size: 0.8rem;
-    font-family: inherit;
-    cursor: pointer;
-    font-weight: 600;
-    transition: opacity 0.15s;
-}
-
-.palette-cancel-btn {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.palette-cancel-btn:hover { background: rgba(255, 255, 255, 0.18); }
-
-.palette-save-btn {
-    background: var(--accent, #D21F3C);
-    color: white;
-}
-
-.palette-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.palette-save-btn:not(:disabled):hover { opacity: 0.85; }
 
 /* 방 꾸미기 버튼 */
 #ure-edit-btn {
