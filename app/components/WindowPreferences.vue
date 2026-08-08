@@ -179,8 +179,9 @@
                         <span class="admin-section-title">커스텀 이모지 뮤트</span>
                     </div>
                     <p class="admin-label-hint" style="margin:-4px 0 10px">
-                        보고 싶지 않은 이 서버 커스텀 이모지를 골라두면, 글·댓글·채팅 본문에 쓰였을 때 "뮤트된 게시물입니다" 게이트로 가려져요. 리액션으로 달려있으면 게이트 없이 아예 안 보여요. 눌러서 뮤트/해제할 수 있어요.
+                        보고 싶지 않은 커스텀 이모지를 뮤트해두면, 글·댓글·채팅 본문에 그 샷코드(:shortcode:)가 있을 때 "뮤트된 게시물입니다" 게이트로 가려져요. 리액션으로 달려있으면 게이트 없이 아예 안 보여요. 어느 서버 이모지든 샷코드 문자열만 같으면 걸려요 — 이 서버 이모지는 아래에서 클릭으로, 다른(원격) 서버 이모지는 샷코드를 직접 입력해서 뮤트할 수 있어요.
                     </p>
+
                     <div class="emoji-mute-grid">
                         <button
                             v-for="e in customEmojiList"
@@ -196,7 +197,35 @@
                         </button>
                         <div v-if="!customEmojiList.length" class="empty" style="padding:14px 0">등록된 커스텀 이모지가 없습니다.</div>
                     </div>
+
+                    <label class="admin-label" style="margin-top:14px">다른 서버(원격) 이모지 직접 추가</label>
+                    <div class="admin-icon-row">
+                        <input
+                            v-model="newEmojiMuteShortcode"
+                            placeholder="샷코드 (콜론 없이, 예: blobcat)"
+                            class="post-input"
+                            style="flex:1"
+                            @keydown.enter="submitEmojiMuteByShortcode"
+                        />
+                        <button class="admin-add-btn" style="margin-left:0" :disabled="!newEmojiMuteShortcode.trim()" @click="submitEmojiMuteByShortcode">
+                            추가
+                        </button>
+                    </div>
                     <p v-if="emojiMuteError" class="admin-error">{{ emojiMuteError }}</p>
+
+                    <!-- 위 그리드에 없는(=이 서버에 등록 안 된, 즉 원격) 뮤트 목록만 따로 표시 -->
+                    <div v-if="remoteMutedEmojis.length" class="admin-channel-list" style="margin-top:10px">
+                        <div v-for="m in remoteMutedEmojis" :key="m.id" class="admin-channel-item">
+                            <i class="hgi hgi-stroke hgi-globe-02 admin-ch-icon" style="opacity:0.4"></i>
+                            <code class="admin-ch-name">:{{ m.shortcode }}:</code>
+                            <span class="admin-ch-type-badge">원격 추정</span>
+                            <div class="admin-ch-actions">
+                                <button class="admin-icon-btn danger" @click="removeEmojiMuteById(m.id)" title="삭제">
+                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </template>
             <div v-else class="admin-section">
@@ -356,7 +385,8 @@ async function removeWordMute(id) {
     await refreshWordMutes()
 }
 
-// 커스텀 이모지 뮤트 — 자유 입력 대신 이 서버에 등록된 이모지 목록에서 클릭으로 뮤트/해제
+// 커스텀 이모지 뮤트 — 이 서버 등록 이모지는 그리드에서 클릭으로, 그 외(다른/원격 서버 이모지)는
+// 샷코드를 직접 입력해서 뮤트할 수 있음(뮤트는 서버 구분 없이 그냥 문자열 매칭이라 어느 쪽이든 동작함)
 const { list: customEmojiList, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
 onMounted(() => { ensureCustomEmojisLoaded() })
 
@@ -368,7 +398,13 @@ const { data: emojiMutesData, refresh: refreshEmojiMutes } = await useAsyncData(
     { watch: [userId] },
 )
 const mutedShortcodes = computed(() => new Set((emojiMutesData.value ?? []).map((m) => m.shortcode)))
+// 그리드(이 서버 등록 이모지)에 없는 뮤트 항목만 따로 — 직접 입력으로 추가한 원격 추정 이모지
+const remoteMutedEmojis = computed(() => {
+    const localShortcodes = new Set(customEmojiList.value.map((e) => e.shortcode))
+    return (emojiMutesData.value ?? []).filter((m) => !localShortcodes.has(m.shortcode))
+})
 const emojiMuteError = ref('')
+const newEmojiMuteShortcode = ref('')
 
 async function toggleEmojiMute(shortcode) {
     emojiMuteError.value = ''
@@ -391,6 +427,30 @@ async function toggleEmojiMute(shortcode) {
     } catch (e) {
         emojiMuteError.value = e?.data?.message ?? '처리에 실패했습니다'
     }
+}
+
+async function submitEmojiMuteByShortcode() {
+    const shortcode = newEmojiMuteShortcode.value.trim().replace(/^:|:$/g, '')
+    if (!shortcode) return
+    emojiMuteError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/addEmojiMute`, {
+            method: 'POST',
+            body: { userid: userId.value, shortcode },
+        })
+        newEmojiMuteShortcode.value = ''
+        await refreshEmojiMutes()
+    } catch (e) {
+        emojiMuteError.value = e?.data?.message ?? '처리에 실패했습니다'
+    }
+}
+
+async function removeEmojiMuteById(id) {
+    await $fetch(`${apiBaseUrl}/api/removeEmojiMute`, {
+        method: 'POST',
+        body: { userid: userId.value, id },
+    }).catch(() => {})
+    await refreshEmojiMutes()
 }
 </script>
 
