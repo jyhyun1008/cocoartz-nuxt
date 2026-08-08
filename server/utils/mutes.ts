@@ -1,5 +1,5 @@
 import { db } from './db'
-import { mutes, wordMutes } from '../db/schema'
+import { mutes, wordMutes, emojiMutes } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 export type MuteLevel = 'soft' | 'hard'
@@ -92,4 +92,40 @@ export function applyWordMuteFilter<T extends Record<string, any>>(
         result.push(row)
     }
     return result
+}
+
+// 커스텀 이모지(:shortcode:) 개인 뮤트 — 단어 뮤트처럼 유저가 soft/hard를 고르게 하지 않고
+// 맥락별로 동작을 고정함(shortcodes 자체를 돌려줘서 호출부가 둘 다 활용):
+// - 글/댓글/위키/채팅 "본문"에 그 이모지가 쓰였으면 → 항상 soft(위 applyWordMuteFilter를 그대로
+//   재사용할 수 있도록 같은 {levelOf(text)} 모양으로 맞춤)
+// - 리액션 목록에 그 이모지가 달려있으면 → 아예 목록에서 제외(아래 filterMutedReactions)
+export async function getEmojiMuteLookup(viewerUserId: number | null | undefined) {
+    if (!viewerUserId) {
+        return { shortcodes: new Set<string>(), levelOf: () => null as MuteLevel | null }
+    }
+
+    const rows = await db.select({ shortcode: emojiMutes.shortcode }).from(emojiMutes).where(eq(emojiMutes.userid, viewerUserId))
+    const shortcodes = new Set(rows.map((r) => r.shortcode))
+
+    return {
+        shortcodes,
+        levelOf(text: string | null | undefined): MuteLevel | null {
+            if (!text || !shortcodes.size) return null
+            for (const code of shortcodes) {
+                if (text.includes(`:${code}:`)) return 'soft'
+            }
+            return null
+        },
+    }
+}
+
+// 리액션 목록(emoji가 유니코드 문자 그대로거나 커스텀 이모지는 ":shortcode:" 형태로 저장됨)에서
+// 뮤트해둔 커스텀 이모지 리액션만 통째로 제외 — 리액션 한 알을 "그래도 보기" 게이트로 가리는 건
+// UX상 어색해서 소프트 단계 없이 아예 안 보이는 단계 하나만 둠
+export function filterMutedReactions<T extends { emoji: string }>(list: T[], shortcodes: Set<string>): T[] {
+    if (!shortcodes.size) return list
+    return list.filter((r) => {
+        const m = r.emoji.match(/^:(.+):$/)
+        return !(m && shortcodes.has(m[1]))
+    })
 }

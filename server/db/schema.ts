@@ -280,6 +280,18 @@ export const wordMutes = pgTable('word_mutes', {
     uniqueIndex('word_mutes_userid_pattern_idx').on(table.userid, table.pattern),
 ])
 
+// 특정 커스텀 이모지(:shortcode:) 자체를 개인적으로 뮤트 — 위 word_mutes와 달리 레벨을 유저가
+// 고르게 하지 않고 맥락별로 동작을 고정함: 글/댓글/위키/채팅 "본문"에 그 이모지가 쓰였으면
+// 소프트(게이트), 리액션으로 달려있으면 그냥 목록에서 통째로 제외(가릴 필요 없이 아예 안 보임)
+export const emojiMutes = pgTable('emoji_mutes', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    shortcode: text().notNull(), // 콜론 없이 저장 — 매칭 시 `:${shortcode}:` 형태로 비교
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('emoji_mutes_userid_shortcode_idx').on(table.userid, table.shortcode),
+])
+
 // 유저 개인 팔로잉 피드에 들어오는 원격 글
 export const remoteFeedPosts = pgTable('remote_feed_posts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),

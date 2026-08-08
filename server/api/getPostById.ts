@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { posts, users, likes, reactions, boosts, rooms } from '../db/schema'
 import { eq } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup, filterMutedReactions } from '../utils/mutes'
 
 export default eventHandler(async (event) => {
     const { postid, userid } = await readBody(event)
@@ -26,6 +26,8 @@ export default eventHandler(async (event) => {
     comments = applyMuteFilter(comments, muteLookup, (c) => ({ userid: c.userid, actorUrl: c.remoteActorUrl }))
     const wordMuteLookup = await getWordMuteLookup(userid)
     comments = applyWordMuteFilter(comments, wordMuteLookup, (c) => c.content)
+    const emojiMuteLookup = await getEmojiMuteLookup(userid)
+    comments = applyWordMuteFilter(comments, emojiMuteLookup, (c) => c.content)
 
     const allLikes = await db.select().from(likes).where(eq(likes.postid, postid))
     const isLiked = userid ? allLikes.some((l) => l.userid === userid) : false
@@ -37,7 +39,10 @@ export default eventHandler(async (event) => {
         reactionMap[r.emoji].count++
         if (r.userid === userid) reactionMap[r.emoji].reacted = true
     }
-    const postReactions = Object.entries(reactionMap).map(([emoji, data]) => ({ emoji, ...data }))
+    const postReactions = filterMutedReactions(
+        Object.entries(reactionMap).map(([emoji, data]) => ({ emoji, ...data })),
+        emojiMuteLookup.shortcodes,
+    )
 
     const allBoosts = await db.select().from(boosts).where(eq(boosts.postid, postid))
 

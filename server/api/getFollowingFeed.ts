@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { follows, posts, users, remoteFeedPosts } from '../db/schema'
 import { eq, and, inArray, isNull, desc, sql } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -21,6 +21,7 @@ export default eventHandler(async (event) => {
 
     const muteLookup = await getMuteLookup(userid)
     const wordMuteLookup = await getWordMuteLookup(userid)
+    const emojiMuteLookup = await getEmojiMuteLookup(userid)
 
     let localPosts: any[] = []
     let hasMoreLocal = false
@@ -46,6 +47,7 @@ export default eventHandler(async (event) => {
         }
         localPosts = applyMuteFilter(localPosts, muteLookup, (p) => ({ userid: p.userid, actorUrl: p.remoteActorUrl }))
         localPosts = applyWordMuteFilter(localPosts, wordMuteLookup, (p) => `${p.title ?? ''} ${p.content ?? ''}`)
+        localPosts = applyWordMuteFilter(localPosts, emojiMuteLookup, (p) => `${p.title ?? ''} ${p.content ?? ''}`)
     }
 
     // 원격 계정 팔로우 → remoteFeedPosts. 재게시(boostedByActorUrl 있음)된 글은 원본 글 자체의
@@ -84,6 +86,7 @@ export default eventHandler(async (event) => {
     }))
     remotePosts = applyMuteFilter(remotePosts, muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
     remotePosts = applyWordMuteFilter(remotePosts, wordMuteLookup, (p) => p.content)
+    remotePosts = applyWordMuteFilter(remotePosts, emojiMuteLookup, (p) => p.content)
 
     return { localPosts, hasMoreLocal, remotePosts, hasMoreRemote }
 })

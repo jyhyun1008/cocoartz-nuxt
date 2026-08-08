@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { chats, users, chatReactions } from '../db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup, filterMutedReactions } from '../utils/mutes'
 
 export default eventHandler(async (event) => {
     const { serverid, roomid, userid } = await readBody(event)
@@ -12,6 +12,8 @@ export default eventHandler(async (event) => {
     results = applyMuteFilter(results, muteLookup, (c) => ({ userid: c.userid }))
     const wordMuteLookup = await getWordMuteLookup(userid)
     results = applyWordMuteFilter(results, wordMuteLookup, (c) => c.content)
+    const emojiMuteLookup = await getEmojiMuteLookup(userid)
+    results = applyWordMuteFilter(results, emojiMuteLookup, (c) => c.content)
 
     for (const result of results) {
         const userinfo = await db.select().from(users).where(eq(users.id, result.userid))
@@ -31,7 +33,10 @@ export default eventHandler(async (event) => {
         }
         for (const result of results) {
             const map = byChat[result.id] ?? {}
-            ;(result as any).reactions = Object.entries(map).map(([emoji, data]) => ({ emoji, ...data }))
+            ;(result as any).reactions = filterMutedReactions(
+                Object.entries(map).map(([emoji, data]) => ({ emoji, ...data })),
+                emojiMuteLookup.shortcodes,
+            )
         }
     }
 

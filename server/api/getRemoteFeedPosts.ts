@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { remoteTimelinePosts, remoteTimelinePostLikes } from '../db/schema'
 import { desc, and, eq, inArray, sql } from 'drizzle-orm'
-import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter } from '../utils/mutes'
+import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup } from '../utils/mutes'
 
 const PAGE_SIZE = 20
 
@@ -32,6 +32,8 @@ export default eventHandler(async (event) => {
     posts = applyMuteFilter(posts, muteLookup, (p) => ({ actorUrl: p.sourceActorUrl }))
     const wordMuteLookup = await getWordMuteLookup(viewerUserId)
     posts = applyWordMuteFilter(posts, wordMuteLookup, (p) => p.content)
+    const emojiMuteLookup = await getEmojiMuteLookup(viewerUserId)
+    posts = applyWordMuteFilter(posts, emojiMuteLookup, (p) => p.content)
 
     if (viewerUserId && posts.length) {
         const ids = posts.map((p) => p.id)

@@ -172,6 +172,32 @@
                         <div v-if="!wordMutesList.length" class="empty" style="padding:14px 0">등록한 단어 뮤트가 없습니다.</div>
                     </div>
                 </div>
+
+                <!-- 커스텀 이모지 뮤트 -->
+                <div class="admin-section">
+                    <div class="admin-section-header">
+                        <span class="admin-section-title">커스텀 이모지 뮤트</span>
+                    </div>
+                    <p class="admin-label-hint" style="margin:-4px 0 10px">
+                        보고 싶지 않은 이 서버 커스텀 이모지를 골라두면, 글·댓글·위키·채팅 본문에 쓰였을 때 "뮤트된 게시물입니다" 게이트로 가려져요. 리액션으로 달려있으면 게이트 없이 아예 안 보여요. 눌러서 뮤트/해제할 수 있어요.
+                    </p>
+                    <div class="emoji-mute-grid">
+                        <button
+                            v-for="e in customEmojiList"
+                            :key="e.shortcode"
+                            type="button"
+                            class="emoji-mute-item"
+                            :class="{ muted: mutedShortcodes.has(e.shortcode) }"
+                            :title="`:${e.shortcode}:`"
+                            @click="toggleEmojiMute(e.shortcode)"
+                        >
+                            <NuxtImg :src="e.imageUrl" class="emoji-mute-img" />
+                            <i v-if="mutedShortcodes.has(e.shortcode)" class="hgi hgi-stroke hgi-volume-mute-01 emoji-mute-badge"></i>
+                        </button>
+                        <div v-if="!customEmojiList.length" class="empty" style="padding:14px 0">등록된 커스텀 이모지가 없습니다.</div>
+                    </div>
+                    <p v-if="emojiMuteError" class="admin-error">{{ emojiMuteError }}</p>
+                </div>
             </template>
             <div v-else class="admin-section">
                 <p class="admin-label-hint">로그인 후 더 많은 설정을 이용할 수 있습니다.</p>
@@ -329,6 +355,43 @@ async function removeWordMute(id) {
     }).catch(() => {})
     await refreshWordMutes()
 }
+
+// 커스텀 이모지 뮤트 — 자유 입력 대신 이 서버에 등록된 이모지 목록에서 클릭으로 뮤트/해제
+const { list: customEmojiList, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+onMounted(() => { ensureCustomEmojisLoaded() })
+
+const { data: emojiMutesData, refresh: refreshEmojiMutes } = await useAsyncData(
+    'emoji-mutes-list',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getEmojiMutes`, { method: 'POST', body: { userid: userId.value } }).then(res => Array.isArray(res) ? res : [])
+        : Promise.resolve([]),
+    { watch: [userId] },
+)
+const mutedShortcodes = computed(() => new Set((emojiMutesData.value ?? []).map((m) => m.shortcode)))
+const emojiMuteError = ref('')
+
+async function toggleEmojiMute(shortcode) {
+    emojiMuteError.value = ''
+    try {
+        if (mutedShortcodes.value.has(shortcode)) {
+            const row = (emojiMutesData.value ?? []).find((m) => m.shortcode === shortcode)
+            if (row) {
+                await $fetch(`${apiBaseUrl}/api/removeEmojiMute`, {
+                    method: 'POST',
+                    body: { userid: userId.value, id: row.id },
+                })
+            }
+        } else {
+            await $fetch(`${apiBaseUrl}/api/addEmojiMute`, {
+                method: 'POST',
+                body: { userid: userId.value, shortcode },
+            })
+        }
+        await refreshEmojiMutes()
+    } catch (e) {
+        emojiMuteError.value = e?.data?.message ?? '처리에 실패했습니다'
+    }
+}
 </script>
 
 <style>
@@ -346,6 +409,49 @@ async function removeWordMute(id) {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+.emoji-mute-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.emoji-mute-item {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    background: rgba(var(--fg-rgb),0.03);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+}
+.emoji-mute-item:hover { background: rgba(var(--fg-rgb),0.07); }
+.emoji-mute-item.muted {
+    border-color: rgba(255,84,84,0.5);
+    background: rgba(255,84,84,0.08);
+}
+
+.emoji-mute-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 1;
+    transition: opacity 0.1s;
+}
+.emoji-mute-item.muted .emoji-mute-img { opacity: 0.35; }
+
+.emoji-mute-badge {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #ff5454;
+    pointer-events: none;
 }
 
 .pref-theme-label {
