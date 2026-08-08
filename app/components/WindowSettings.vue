@@ -383,7 +383,8 @@
                     <template v-for="item in filteredShopItems" :key="item.id">
                         <div class="admin-channel-item">
                             <div class="admin-icon-preview" style="width:28px;height:28px">
-                                <NuxtImg v-if="item.icon" :src="item.icon" class="admin-icon-preview-img" />
+                                <AvatarPartIcon v-if="avatarPartFromCategory(item.category)" :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="28" />
+                                <NuxtImg v-else-if="item.icon" :src="item.icon" class="admin-icon-preview-img" />
                                 <i v-else class="hgi hgi-stroke hgi-package"></i>
                             </div>
                             <span class="admin-ch-name">{{ item.name }}</span>
@@ -414,7 +415,13 @@
                                 </label>
                             </div>
 
-                            <template v-if="item.category !== 'map_item'">
+                            <template v-if="avatarPartFromCategory(item.category)">
+                                <label class="admin-label">아이콘 <span class="admin-label-hint">itemKey는 등록 후 못 바꾸니 원본 이미지에서 자동으로 잘려 나와요</span></label>
+                                <div class="admin-icon-row">
+                                    <AvatarPartIcon :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="56" />
+                                </div>
+                            </template>
+                            <template v-else-if="item.category !== 'map_item'">
                                 <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
                                 <div class="admin-icon-row">
                                     <div class="admin-icon-preview">
@@ -503,7 +510,18 @@
                 </div>
                 <p v-if="newShopItem.isDefault" class="admin-label-hint">앞으로 가입하는 유저에게 자동으로 인벤토리로 지급돼요. 기존 유저한테도 주려면 저장 후 <code>npm run db:seed-shop-items</code>를 다시 돌리세요.</p>
 
-                <template v-if="newShopItem.category && newShopItem.category !== 'map_item'">
+                <template v-if="avatarPartFromCategory(newShopItem.category)">
+                    <label class="admin-label">아이콘 <span class="admin-label-hint">itemKey(캐릭터 파츠 variant 번호)로 원본 이미지를 자동으로 잘라 보여줘서 따로 안 올려도 됨</span></label>
+                    <div class="admin-icon-row">
+                        <AvatarPartIcon
+                            v-if="newShopItem.itemKey"
+                            :part="avatarPartFromCategory(newShopItem.category)" :variant="newShopItem.itemKey" :size="56"
+                        />
+                        <div v-else class="admin-icon-preview"><i class="hgi hgi-stroke hgi-image-02"></i></div>
+                        <span class="admin-label-hint">itemKey를 입력하면 미리보기가 떠요 — /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 파일이 미리 있어야 함</span>
+                    </div>
+                </template>
+                <template v-else-if="newShopItem.category && newShopItem.category !== 'map_item'">
                     <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
                     <div class="admin-icon-row">
                         <div class="admin-icon-preview">
@@ -679,6 +697,8 @@
 </template>
 
 <script setup>
+import { avatarPartFromCategory } from '../../lib/shopCategories'
+
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const slug = config.public.serverSlug

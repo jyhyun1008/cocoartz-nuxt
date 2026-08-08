@@ -16,14 +16,15 @@ const db = drizzle(client, { schema })
 // 캐릭터 파츠 variant "1"(useCharacter.ts DEFAULT_CHARACTER) — 상점 도입 전부터 전원이 이미
 // 장착하고 있던 "기본" 세트라 price 0이고, 아래에서 기존 유저 전원 + 앞으로 가입할 유저에게
 // 자동으로 인벤토리에 지급함(서버 쪽은 server/api/auth/register.ts에서 같은 목록을 다시 조회함 —
-// 파츠나 variant 번호가 바뀌면 두 곳 다 손볼 것)
+// 파츠나 variant 번호가 바뀌면 두 곳 다 손볼 것). icon은 따로 안 넣음 — AvatarPartIcon.vue가
+// itemKey(variant 번호)로 원본 캐릭터 PNG를 CSS로 크롭해서 자동으로 아이콘을 만들어줌
 const STARTER_AVATAR_ITEMS = [
-    { category: 'avatar_hair', itemKey: '1', name: '기본 헤어', icon: '/character/icon/hair-1.png' },
-    { category: 'avatar_top', itemKey: '1', name: '기본 상의', icon: '/character/icon/top-1.png' },
-    { category: 'avatar_bottom', itemKey: '1', name: '기본 하의', icon: '/character/icon/bottom-1.png' },
-    { category: 'avatar_shoes', itemKey: '1', name: '기본 신발', icon: '/character/icon/shoes-1.png' },
-    { category: 'avatar_face', itemKey: '1', name: '기본 얼굴', icon: '/character/icon/face-1.png' },
-    { category: 'avatar_body', itemKey: '1', name: '기본 바디', icon: '/character/icon/body-1.png' },
+    { category: 'avatar_hair', itemKey: '1', name: '기본 헤어' },
+    { category: 'avatar_top', itemKey: '1', name: '기본 상의' },
+    { category: 'avatar_bottom', itemKey: '1', name: '기본 하의' },
+    { category: 'avatar_shoes', itemKey: '1', name: '기본 신발' },
+    { category: 'avatar_face', itemKey: '1', name: '기본 얼굴' },
+    { category: 'avatar_body', itemKey: '1', name: '기본 바디' },
 ].map(i => ({ ...i, price: 0, description: '가입하면 기본으로 지급되는 기본 파츠예요.', isDefault: true }))
 
 const SAMPLE_ITEMS = [

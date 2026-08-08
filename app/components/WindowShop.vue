@@ -37,7 +37,8 @@
             <div v-if="visibleItems.length" class="shop-grid">
                 <div v-for="item in visibleItems" :key="item.id" class="shop-card">
                     <div class="shop-card-icon">
-                        <NuxtImg v-if="item.icon" :src="item.icon" />
+                        <AvatarPartIcon v-if="avatarPartFromCategory(item.category)" :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="56" />
+                        <NuxtImg v-else-if="item.icon" :src="item.icon" />
                         <i v-else class="hgi hgi-stroke hgi-package" />
                     </div>
                     <div class="shop-card-name">{{ item.name }}</div>
@@ -74,7 +75,7 @@
 </template>
 
 <script setup>
-import { isStackableCategory } from '../../lib/shopCategories'
+import { isStackableCategory, avatarPartFromCategory } from '../../lib/shopCategories'
 
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl

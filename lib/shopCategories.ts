@@ -24,3 +24,10 @@ export const ALL_CATEGORIES = [...AVATAR_CATEGORIES, ...ITEM_CATEGORIES]
 export function isValidCategory(category: string): boolean {
     return ALL_CATEGORIES.includes(category)
 }
+
+// 'avatar_hair' → 'hair' 같은 식으로 캐릭터 파츠 이름만 뽑아냄 — 아바타 카테고리가 아니면 null.
+// AvatarPartIcon.vue(원본 캐릭터 PNG를 CSS로 크롭해서 아이콘으로 씀)에 넘길 part prop을 여기서 구함
+export function avatarPartFromCategory(category: string): string | null {
+    if (!category?.startsWith('avatar_')) return null
+    return category.slice('avatar_'.length)
+}
