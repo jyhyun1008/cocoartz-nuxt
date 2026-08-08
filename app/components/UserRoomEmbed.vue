@@ -104,7 +104,9 @@ function onEditorSaved(mapJson) {
 }
 
 // ─── 맵/타일 렌더링(둘러보기 전용 — 편집 중엔 WindowMapEditor가 자기 카메라로 따로 그림) ──────
-const zoomLevel = ref(1)
+// RoomMap.vue(전체 화면)는 1.0(표준)에서 시작하지만, 여긴 300px짜리 작은 미리보기라 처음부터
+// 살짝 줌아웃해서 더 넓게 보이게 함 — 스크롤로 더 줌아웃(0.7까지)/줌인(2.5까지)은 그대로 가능
+const zoomLevel = ref(0.8)
 // useIsoMap.ts 공용 수식 — RoomMap.vue/WindowMapEditor.vue와 동일
 const topRatio = useTopRatioFromZoom(zoomLevel)
 const {
@@ -182,6 +184,12 @@ const mapInfo = computed(() => {
 const displayTiles = computed(() => mapInfo.value?.[0] ?? [])
 // 예전 개인 방 맵은 [tiles] 1칸짜리라 mapInfo[1]이 없을 수 있음 — 그럴 땐 그냥 빈 배열(아이템 없음)
 const mapItems = computed(() => mapInfo.value?.[1] ?? [])
+// 방 주인이 WindowMapEditor.vue에서 지정한 스폰 지점 — [tiles, items] 2칸짜리(스폰 지점 개념
+// 추가 전에 저장된 개인 방 맵)까지 하위호환으로 없으면 원점(0,0)으로
+const mapSpawn = computed(() => {
+    const s = mapInfo.value?.[2]
+    return s && typeof s.x === 'number' && typeof s.y === 'number' ? { x: s.x, y: s.y, z: s.z ?? 0 } : { x: 0, y: 0, z: 0 }
+})
 
 // ─── 이동 충돌 판정 — RoomMap.vue와 같은 방식(자세한 설명은 그쪽 주석 참고). 여긴 다른 유저/점프가
 // 없는 단순 미리보기라 그 부분만 빼고 이식함. 이게 없으면 지형 없는 칸으로도 그냥 걸어나가버림.
@@ -257,25 +265,41 @@ const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?
 
 const position = { x: 0, y: 0 }
 
-// username은 비동기로 로드되므로, 준비됐을 때 localStorage에서 position 복원
-watch(() => props.username, (newUsername) => {
-    if (!newUsername) return
+// localStorage에서 position 복원 — 저장된 게 없으면(처음 방문이거나 캐시를 지웠으면) 원점(0,0)
+// 대신 방 주인이 지정한 스폰 지점에서 시작함.
+//
+// 예전엔 이걸 watch(..., {immediate:true})로 처리했는데, immediate 콜백은 setup() 단계에서 바로
+// 도는 것까지는 맞지만 SSR에서는 그 setup()이 서버(Node)에서도 한 번 실행됨 — 근데 localStorage는
+// 브라우저 전용이라 서버에서 참조하면 그 즉시 예외가 나고, try/catch로 감싸놨어도 그 라인에서 바로
+// 터지는 거라 if/else 배정 자체가 통째로 스킵됨. 그러면 SSR이 그려서 클라이언트로 보내는 첫 HTML은
+// position이 초기값(0,0)인 채로 굳어버리고, 그게 "새로고침하면 항상 스폰(우연히도 기본 스폰이
+// 0,0이라 구분이 안 갔음)"처럼 보였던 원인. onMounted는 브라우저에서만(SSR에서는 아예 안) 도는 게
+// 보장되니, localStorage를 만지는 로직을 통째로 여기로 옮겨서 이 문제 자체를 없앰.
+function restorePosition(username) {
+    if (!username) return
     try {
-        const stored = localStorage.getItem(`ur-pos-${newUsername}`)
+        const stored = localStorage.getItem(`ur-pos-${username}`)
         if (stored) {
             const parsed = JSON.parse(stored)
             position.x = parsed.x ?? 0
             position.y = parsed.y ?? 0
         } else {
-            position.x = 0
-            position.y = 0
+            position.x = mapSpawn.value.x
+            position.y = mapSpawn.value.y
         }
-    } catch {}
+    } catch {
+        position.x = mapSpawn.value.x
+        position.y = mapSpawn.value.y
+    }
     localPosition.value = { ...position }
     charDepth.value = -position.y + 2
     charZ.value = computeCharZ(position.x, position.y)
     updateMapPosition(position)
-}, { immediate: true })
+}
+
+// 프로필 페이지가 다른 유저로 라우팅만 바뀌고(컴포넌트가 재마운트 안 되고) username prop만 바뀌는
+// 경우도 커버해야 해서 watch는 그대로 둠 — 다만 첫 진입은 onMounted가 맡으니 immediate는 뺌
+watch(() => props.username, restorePosition)
 
 const storageKey = computed(() => `ur-pos-${props.username}`)
 const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
@@ -341,6 +365,7 @@ function stopMoveRepeatIfEmpty() {
 
 onMounted(() => {
     ensureUserLoaded()
+    restorePosition(props.username)  // 브라우저에서만 도는 게 보장되니 여기서 localStorage를 안전하게 읽음
 
     window.addEventListener('keydown', (e) => {
         if (isEditMode.value) return

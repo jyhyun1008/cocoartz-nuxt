@@ -50,11 +50,11 @@
                         :selected="selectedEditIndex === idx"
                         @select="selectedEditIndex = idx"
                     />
-                    <!-- 스폰 지점 표시(편집기 전용 — 실제 맵에는 안 그림, 방 모드만). 지도 앱 핀처럼
+                    <!-- 스폰 지점 표시(편집기 전용 — 실제 맵에는 안 그림). 지도 앱 핀처럼
                          아래로 뾰족한 물방울 모양 — border-radius로 한쪽 모서리만 각지게 두고 45도
                          돌리는 전형적인 CSS 핀 트릭. 안쪽 아이콘은 그 회전을 다시 반대로 상쇄해서
                          똑바로 보이게 함 -->
-                    <div v-if="hasSpawn" class="spawn-marker" :style="getSpawnMarkerStyle()">
+                    <div class="spawn-marker" :style="getSpawnMarkerStyle()">
                         <i class="hgi hgi-stroke hgi-flag-02 spawn-marker-icon"></i>
                     </div>
                 </div>
@@ -137,7 +137,6 @@
                     @click="placementMode = 'select'; deselectItem()"
                 ><i class="hgi hgi-stroke hgi-mouse-left-click-01"></i> 아이템 선택/편집</button>
                 <button
-                    v-if="hasSpawn"
                     class="palette-flip-btn select-mode-btn"
                     :class="{ active: placementMode === 'spawn' }"
                     @click="placementMode = 'spawn'"
@@ -255,8 +254,6 @@ const apiBaseUrl = config.public.apiBaseUrl
 const { userId: currentUserId } = useCurrentUser()
 const { ITEM_CATALOG, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 
-// 스폰 지점은 "여러 유저가 동시에 접속하는 방"에만 의미가 있는 개념이라 개인 방(userId 모드)엔 없음
-const hasSpawn = computed(() => props.roomId != null)
 const isUserMode = computed(() => props.userId != null)
 
 // 개인 방(userId 모드)일 땐 상점에서 산 맵 아이템만 팔레트에 뜨고, 놓을 수 있는 개수도 보유 개수로
@@ -482,14 +479,13 @@ function handleCellClick(x, y) {
 async function saveMap() {
     isSaving.value = true
     try {
-        // 개인 방(userId 모드)은 스폰 지점 개념이 없어서 2칸짜리([tiles, items])로 저장 — 방 모드는
-        // 기존 그대로 3칸([tiles, items, spawn]). saveUserMap.ts는 mapInfo[2]가 없어도 그냥 무시하고
-        // 읽으니 하위호환 걱정 없음(기존에 [tiles] 1칸짜리로 저장돼있던 개인 방도 그대로 읽힘)
-        const mapJson = hasSpawn.value
-            ? JSON.stringify([editTiles.value, editItems.value, editSpawn.value])
-            : JSON.stringify([editTiles.value, editItems.value])
+        // 스폰 지점은 방/개인 방 둘 다 씀(누군가 이 공간에 처음 들어올 때 서는 자리라는 의미는
+        // 똑같음) — 항상 3칸([tiles, items, spawn])으로 저장. saveUserMap.ts는 예전에 [tiles] 1칸,
+        // 그다음 [tiles, items] 2칸짜리로 저장돼있던 개인 방도 없는 자리를 그냥 기본값으로 채워서
+        // 읽으니 하위호환 걱정 없음.
+        const mapJson = JSON.stringify([editTiles.value, editItems.value, editSpawn.value])
 
-        if (hasSpawn.value) {
+        if (props.roomId != null) {
             await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
                 method: 'POST',
                 body: { userid: currentUserId.value, id: props.roomId, map: mapJson },
@@ -512,7 +508,7 @@ function getEditCellStyle(x, y) {
     return isoGetEditCellStyle(x, y, isErasing.value)
 }
 
-// 스폰 지점 마커(깃발) 위치 — hasSpawn(방 모드)일 때만 씀
+// 스폰 지점 마커(깃발) 위치
 function getSpawnMarkerStyle() {
     return isoGetSpawnMarkerStyle(editSpawn.value)
 }
