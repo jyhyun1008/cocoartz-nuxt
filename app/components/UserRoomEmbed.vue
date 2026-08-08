@@ -74,6 +74,18 @@
             </div>
         </template>
 
+        <!-- 모바일 전용 이동 조이스틱/점프 버튼 — RoomMap.vue와 같은 방식(4방향 스냅 조이스틱 +
+             스페이스바 대응 버튼), 다만 여기는 방 하나짜리 화면이라 controlsBlocked 같은 채팅
+             가림 처리는 필요 없음. 편집 중엔 WindowMapEditor가 자기 UI를 따로 그리니 숨김. -->
+        <template v-if="!isEditMode">
+            <div id="ure-joystick" ref="joystickBase">
+                <div id="ure-joystick-knob" :style="joystickKnobStyle"></div>
+            </div>
+            <div id="ure-jump-btn" ref="jumpBtnRef">
+                <span class="ure-jump-btn-bar"></span>
+            </div>
+        </template>
+
         <!-- 방 꾸미기 버튼 -->
         <button v-if="isOwn && !isEditMode" id="ure-edit-btn" @click="isEditMode = true">
             ✎ 방 꾸미기
@@ -128,6 +140,12 @@ const charZ = ref(0)
 // 스페이스바 점프 연출 트리거 — RoomMap.vue와 같은 방식(자세한 설명은 그쪽 주석 참고)
 const isJumping = ref(false)
 const containerRef = ref(null)
+const joystickBase = ref(null)
+const jumpBtnRef = ref(null)
+const joystickKnobOffset = ref({ x: 0, y: 0 })
+const joystickKnobStyle = computed(() => ({
+    transform: `translate(${joystickKnobOffset.value.x}px, ${joystickKnobOffset.value.y}px)`,
+}))
 
 // 피사계심도(초점 흐림) — RoomMap.vue와 같은 방식(캐릭터가 있는 깊이에서 멀어질수록 흐려짐).
 // 타일/아이템 둘 다 적용 — 원래 있던 걸 공용 composable로 옮기면서 실수로 타일 쪽만 빠뜨렸었음
@@ -310,6 +328,16 @@ const MOVE_KEYS = new Set(['KeyS', 'KeyW', 'KeyA', 'KeyD'])
 const MOVES = { KeyS: [0, -0.3], KeyW: [0, 0.3], KeyA: [-0.3, 0], KeyD: [0.3, 0] }
 const KEY_REPEAT_MS = 130  // RoomMap.vue와 동일
 
+// CharacterMoving.vue는 실제 keydown/keyup(window)을 직접 리스닝해서 걷기 애니메이션을 재생함.
+// 모바일 조이스틱은 키보드가 아니라 터치라 그 이벤트가 안 나서, 애니메이션 트리거용 합성 키
+// 이벤트를 쏴서 같은 로직을 그대로 재사용함 — RoomMap.vue와 완전히 같은 방식. isSynthetic
+// 플래그로 아래 window keydown/keyup 리스너(실제 이동 처리)가 이걸 다시 처리하지 않게 막음.
+function dispatchSyntheticKey(type, code) {
+    const ev = new KeyboardEvent(type, { code, bubbles: true })
+    ev.isSynthetic = true
+    window.dispatchEvent(ev)
+}
+
 // 스페이스바 점프 — 누르고 있는 동안(jumpHeld)은 방향키로 이동할 때 층이 달라지는 칸도
 // 허용됨(canEnterTileJumping). RoomMap.vue와 같은 방식.
 let jumpHeld = false
@@ -372,6 +400,7 @@ onMounted(() => {
     restorePosition(props.username)  // 브라우저에서만 도는 게 보장되니 여기서 localStorage를 안전하게 읽음
 
     window.addEventListener('keydown', (e) => {
+        if (e.isSynthetic) return  // 조이스틱/점프 버튼이 걷기 애니메이션만 재생시키려고 쏘는 합성 이벤트 — 이동은 moveStep이 직접 처리하므로 여기선 무시
         if (isEditMode.value) return
         if (e.code === 'Space') {
             e.preventDefault()  // 안 막으면 브라우저 기본 동작(페이지 스크롤)이 먹음
@@ -388,6 +417,7 @@ onMounted(() => {
     })
 
     window.addEventListener('keyup', (e) => {
+        if (e.isSynthetic) return
         if (e.code === 'Space') { jumpHeld = false; return }
         if (!MOVE_KEYS.has(e.code)) return
         const idx = heldMoveKeys.indexOf(e.code)
@@ -403,6 +433,96 @@ onMounted(() => {
         zoomLevel.value = Math.max(0.7, Math.min(2.5, zoomLevel.value + delta))
         updateMapPosition(position)
     }, { passive: false })
+
+    // ─── 모바일 조이스틱/점프 버튼 (RoomMap.vue와 완전히 같은 방식) ──────────────
+    const JOY_MAX_RADIUS = 32
+    let joyTouchId = null
+    let joyCenter = { x: 0, y: 0 }
+    let joyActiveDir = null
+    let joyInterval = null
+
+    function directionFromDelta(dx, dy) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return null
+        return Math.abs(dx) > Math.abs(dy)
+            ? (dx > 0 ? 'KeyD' : 'KeyA')
+            : (dy > 0 ? 'KeyS' : 'KeyW')
+    }
+
+    function startJoystickMove(code) {
+        dispatchSyntheticKey('keydown', code)
+        moveStep(code)
+        clearInterval(joyInterval)
+        joyInterval = setInterval(() => moveStep(code), KEY_REPEAT_MS)
+    }
+
+    function stopJoystickMove(code) {
+        clearInterval(joyInterval)
+        joyInterval = null
+        joystickKnobOffset.value = { x: 0, y: 0 }
+        if (code) dispatchSyntheticKey('keyup', code)
+    }
+
+    function onJoystickTouchStart(e) {
+        e.preventDefault()
+        if (isEditMode.value) return
+        const touch = e.changedTouches[0]
+        joyTouchId = touch.identifier
+        const rect = e.currentTarget.getBoundingClientRect()
+        joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        joyActiveDir = null
+    }
+
+    function onJoystickTouchMove(e) {
+        if (joyTouchId === null) return
+        const touch = Array.from(e.changedTouches).find(t => t.identifier === joyTouchId)
+        if (!touch) return
+        e.preventDefault()
+        const dx = touch.clientX - joyCenter.x
+        const dy = touch.clientY - joyCenter.y
+        const dist = Math.min(Math.hypot(dx, dy), JOY_MAX_RADIUS)
+        const angle = Math.atan2(dy, dx)
+        joystickKnobOffset.value = { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist }
+
+        const dir = directionFromDelta(dx, dy)
+        if (dir !== joyActiveDir) {
+            clearInterval(joyInterval)
+            joyInterval = null
+            if (joyActiveDir) dispatchSyntheticKey('keyup', joyActiveDir)
+            joyActiveDir = dir
+            if (dir && !isEditMode.value) startJoystickMove(dir)
+        }
+    }
+
+    function onJoystickTouchEnd(e) {
+        if (joyTouchId === null) return
+        const touch = Array.from(e.changedTouches).find(t => t.identifier === joyTouchId)
+        if (!touch) return
+        joyTouchId = null
+        const dir = joyActiveDir
+        joyActiveDir = null
+        stopJoystickMove(dir)
+    }
+
+    const joyEl = joystickBase.value
+    joyEl?.addEventListener('touchstart', onJoystickTouchStart, { passive: false })
+    joyEl?.addEventListener('touchmove', onJoystickTouchMove, { passive: false })
+    joyEl?.addEventListener('touchend', onJoystickTouchEnd, { passive: true })
+    joyEl?.addEventListener('touchcancel', onJoystickTouchEnd, { passive: true })
+
+    // 모바일 점프 버튼 — 스페이스바 keydown/keyup과 완전히 같은 jumpHeld/triggerJumpAnim을 그대로 씀
+    function onJumpBtnTouchStart(e) {
+        e.preventDefault()
+        if (isEditMode.value) return
+        jumpHeld = true
+        triggerJumpAnim()
+    }
+    function onJumpBtnTouchEnd() {
+        jumpHeld = false
+    }
+    const jumpBtnEl = jumpBtnRef.value
+    jumpBtnEl?.addEventListener('touchstart', onJumpBtnTouchStart, { passive: false })
+    jumpBtnEl?.addEventListener('touchend', onJumpBtnTouchEnd, { passive: true })
+    jumpBtnEl?.addEventListener('touchcancel', onJumpBtnTouchEnd, { passive: true })
 })
 </script>
 
@@ -462,5 +582,88 @@ onMounted(() => {
     background: var(--accent, #D21F3C);
     border-color: var(--accent, #D21F3C);
     color: white;
+}
+
+/* 모바일 전용 이동 조이스틱/점프 버튼 — RoomMap.vue의 #mobile-joystick/#mobile-jump-btn과 같은
+   방식이지만, 여긴 전체화면이 아니라 카드 안에 박힌 작은 뷰라 크기를 좀 줄이고 위치도
+   #ure-container 기준 absolute로 둠(부모가 이미 position:relative). 기본은 숨겨두고 터치
+   화면에서만 노출함. */
+#ure-joystick {
+    display: none;
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: rgba(20, 20, 28, 0.55);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    z-index: 200;
+    touch-action: none;
+}
+
+#ure-joystick-knob {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 38px;
+    height: 38px;
+    margin: -19px 0 0 -19px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    transition: transform 0.05s linear;
+}
+
+#ure-jump-btn {
+    display: none;
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(20, 20, 28, 0.55);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    z-index: 200;
+    touch-action: none;
+    align-items: center;
+    justify-content: center;
+}
+
+#ure-jump-btn:active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.ure-jump-btn-bar {
+    display: block;
+    width: 28px;
+    height: 10px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 768px) {
+    /* 방보다 화면(손가락)이 작으니, 조이스틱/점프 버튼 놓을 자리가 생기게 세로로 좀 키움 */
+    #ure-container:not(.edit-active) {
+        height: 420px;
+        --char-height: 420px;
+    }
+
+    #ure-joystick {
+        display: block;
+    }
+
+    #ure-jump-btn {
+        display: flex;
+    }
+
+    /* 조이스틱/점프 버튼이 하단을 차지하니, 방 꾸미기 버튼은 겹치지 않게 위쪽으로 옮김 */
+    #ure-edit-btn {
+        top: 10px;
+        right: 10px;
+        bottom: auto;
+    }
 }
 </style>
