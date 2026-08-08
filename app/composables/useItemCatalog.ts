@@ -14,16 +14,14 @@ export interface MapItemDef {
     flipBackOffsets?: number[]
 }
 
-// 상점 기능 이전부터 코드에 박혀있던 레거시 아이템(id 1·2) — 새 맵 아이템은 이제 관리자 페이지
+// 상점 기능 이전부터 코드에 박혀있던 레거시 아이템 — 새 맵 아이템은 이제 관리자 페이지
 // (WindowSettings.vue "상점 아이템" 탭)에서 6장 레이어를 업로드해서 등록하면 items 테이블
 // (category='map_item')에 들어가고, server/api/getMapItemCatalog.ts를 거쳐 아래 useItemCatalog가
 // 이 배열과 합쳐줌. 새 아이템을 여기 직접 추가하지 말 것 — 관리자 페이지를 쓸 것.
+// id 1(무지개 기둥)은 삭제함(2026-08-08) — 상점에서도 빼고 유일하게 배치돼있던 마을 방 맵에서도
+// 같이 치웠음. id를 재사용하면 예전에 그 자리에 저장돼있던 맵이 있을 경우 엉뚱한 그림이 나올 수
+// 있으니, 다음에 새 아이템을 추가할 땐 1을 다시 쓰지 말고 새 id(관리자 페이지로 추가하면 자동)를 쓸 것.
 export const STATIC_ITEM_CATALOG: MapItemDef[] = [
-    {
-        id: 1,
-        name: '무지개 기둥',
-        layers: [1, 2, 3, 4, 5, 6].map(n => `/item/1/${n}.png`),
-    },
     {
         id: 2,
         name: '아이템 2',
