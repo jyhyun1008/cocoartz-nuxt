@@ -183,6 +183,13 @@
       "when": 1786163194313,
       "tag": "0025_careless_peter_quill",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786165957546,
+      "tag": "0026_equal_freak",
+      "breakpoints": true
     }
   ]
 }

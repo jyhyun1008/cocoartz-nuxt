@@ -1,6 +1,11 @@
 import { db } from '../../utils/db'
-import { users, servers, currencyBalances } from '../../db/schema'
-import { eq, or, count } from 'drizzle-orm'
+import { users, servers, currencyBalances, items, userItems } from '../../db/schema'
+import { eq, or, count, inArray } from 'drizzle-orm'
+
+// 캐릭터 파츠 variant "1"(useCharacter.ts DEFAULT_CHARACTER) — 상점 도입 전부터 전원이 이미
+// 장착하고 있던 기본 세트라, 가입 시점에 인벤토리로도 지급해서 인벤토리와 실제 장착 상태를 맞춤.
+// server/db/seedShopItems.ts가 기존 유저에게 소급 지급하는 목록과 반드시 같아야 함
+const STARTER_AVATAR_CATEGORIES = ['avatar_hair', 'avatar_top', 'avatar_bottom', 'avatar_shoes', 'avatar_face', 'avatar_body']
 import bcrypt from 'bcryptjs'
 import { sendMail } from '../../utils/mailer'
 
@@ -59,6 +64,16 @@ export default eventHandler(async (event) => {
         await db.insert(currencyBalances).values({
             userid: newUser.id, serverid: server.id, balance: server.signupBonus,
         }).onConflictDoNothing()
+    }
+
+    // 기본 아바타 세트도 같이 지급 — items 테이블에 아직 시드가 안 돼있으면(seedShopItems.ts
+    // 미실행) 조용히 스킵됨(길이 0이라 insert 자체가 안 일어남)
+    const starterItems = await db.select({ id: items.id }).from(items)
+        .where(inArray(items.category, STARTER_AVATAR_CATEGORIES))
+    if (starterItems.length) {
+        await db.insert(userItems)
+            .values(starterItems.map(i => ({ userid: newUser.id, itemid: i.id, count: 1 })))
+            .onConflictDoNothing()
     }
 
     if (!approved) {

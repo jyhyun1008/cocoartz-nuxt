@@ -278,6 +278,12 @@
             <i class="hgi hgi-stroke hgi-user-settings-01"></i> 내 설정 열기
         </div>
 
+        <WindowShop v-if="props.page === 'shop' && showOverlay" @close="closeOverlay" />
+        <div v-if="props.page === 'shop' && !showOverlay"
+             class="reopen-btn" @click="openOverlay">
+            <i class="hgi hgi-stroke hgi-shopping-bag-01"></i> 상점 열기
+        </div>
+
         <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) — 왼쪽에 배치 -->
         <div
             v-show="!controlsBlocked"

@@ -14,7 +14,11 @@ export interface MapItemDef {
     flipBackOffsets?: number[]
 }
 
-export const ITEM_CATALOG: MapItemDef[] = [
+// 상점 기능 이전부터 코드에 박혀있던 레거시 아이템(id 1·2) — 새 맵 아이템은 이제 관리자 페이지
+// (WindowSettings.vue "상점 아이템" 탭)에서 6장 레이어를 업로드해서 등록하면 items 테이블
+// (category='map_item')에 들어가고, server/api/getMapItemCatalog.ts를 거쳐 아래 useItemCatalog가
+// 이 배열과 합쳐줌. 새 아이템을 여기 직접 추가하지 말 것 — 관리자 페이지를 쓸 것.
+export const STATIC_ITEM_CATALOG: MapItemDef[] = [
     {
         id: 1,
         name: '무지개 기둥',
@@ -28,8 +32,27 @@ export const ITEM_CATALOG: MapItemDef[] = [
 ]
 
 export function useItemCatalog() {
+    const config = useRuntimeConfig()
+    const apiBaseUrl = config.public.apiBaseUrl
+
+    // DB 쪽(관리자가 등록한 맵 아이템)은 장식성 추가 데이터라 SSR을 안 기다리고 클라이언트에서만
+    // 불러옴 — RoomMap.vue/WindowMapEditor.vue 양쪽에서 같은 키로 호출되니 한 번만 fetch됨
+    const { data: dbCatalogData } = useAsyncData(
+        'db-map-item-catalog',
+        () => $fetch<MapItemDef[]>(`${apiBaseUrl}/api/getMapItemCatalog`).catch(() => []),
+        { server: false },
+    )
+
+    const ITEM_CATALOG = computed<MapItemDef[]>(() => {
+        const dbItems = dbCatalogData.value ?? []
+        const dbIds = new Set(dbItems.map(i => i.id))
+        // 이론상 겹칠 일은 없지만(관리자 아이템은 항상 자기 DB PK를 itemKey로 씀), 혹시 겹치면
+        // DB 쪽을 우선함(관리자가 의도적으로 손본 값일 수 있으므로)
+        return [...STATIC_ITEM_CATALOG.filter(i => !dbIds.has(i.id)), ...dbItems]
+    })
+
     function getItemDef(itemid: number) {
-        return ITEM_CATALOG.find(i => i.id === itemid)
+        return ITEM_CATALOG.value.find(i => i.id === itemid)
     }
     function getItemLayers(itemid: number) {
         return getItemDef(itemid)?.layers ?? []

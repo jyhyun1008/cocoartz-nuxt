@@ -361,6 +361,170 @@
                 <p v-if="emailSaveMsg" class="admin-save-msg">{{ emailSaveMsg }}</p>
                 <p v-if="emailTestMsg" class="admin-label-hint">{{ emailTestMsg }}</p>
             </div>
+
+            <!-- 상점 아이템 관리 -->
+            <div v-if="activeTab === 'shop'" class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">상점 아이템 관리</span>
+                </div>
+                <p class="admin-label-hint" style="margin:-4px 0 10px">
+                    등록/수정해도 이미 산 사람의 인벤토리나 맵에 놓인 아이템엔 영향 없어요. category·itemKey는 한번 등록하면 못 바꿔요(다른 값으로 옮기려면 새로 등록).
+                </p>
+
+                <div class="admin-tabs shop-subtabs">
+                    <button class="admin-tab-btn" :class="{ active: shopCategoryFilter === 'all' }" @click="shopCategoryFilter = 'all'">전체</button>
+                    <button
+                        v-for="c in ALL_SHOP_CATEGORIES" :key="c.id" class="admin-tab-btn"
+                        :class="{ active: shopCategoryFilter === c.id }" @click="shopCategoryFilter = c.id"
+                    >{{ c.label }}</button>
+                </div>
+
+                <div class="admin-channel-list">
+                    <template v-for="item in filteredShopItems" :key="item.id">
+                        <div class="admin-channel-item">
+                            <div class="admin-icon-preview" style="width:28px;height:28px">
+                                <NuxtImg v-if="item.icon" :src="item.icon" class="admin-icon-preview-img" />
+                                <i v-else class="hgi hgi-stroke hgi-package"></i>
+                            </div>
+                            <span class="admin-ch-name">{{ item.name }}</span>
+                            <code class="admin-ch-path">{{ shopCategoryLabel(item.category) }} · {{ item.itemKey }} · {{ item.price }}{{ serverForm.currencyName || '코코아' }}</code>
+                            <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': item.active }">{{ item.active ? '판매중' : '비활성' }}</span>
+                            <div class="admin-ch-actions">
+                                <button class="admin-icon-btn" @click="toggleEditShopItem(item)" title="수정">
+                                    <i class="hgi hgi-stroke hgi-pencil-edit-01"></i>
+                                </button>
+                                <button class="admin-icon-btn danger" @click="shopDeleteTarget = item" title="삭제">
+                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 인라인 수정 폼 -->
+                        <div v-if="editingShopItemId === item.id" class="create-form shop-inline-edit">
+                            <input v-model="shopEditForm.name" placeholder="이름" class="post-input" />
+                            <textarea v-model="shopEditForm.description" placeholder="설명(선택)" class="post-textarea" style="min-height:50px"></textarea>
+                            <div class="admin-color-row">
+                                <input v-model.number="shopEditForm.price" type="number" min="0" class="post-input" style="max-width:120px" />
+                                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                                    <input type="checkbox" v-model="shopEditForm.active" /> 판매중
+                                </label>
+                            </div>
+
+                            <template v-if="item.category !== 'map_item'">
+                                <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
+                                <div class="admin-icon-row">
+                                    <div class="admin-icon-preview">
+                                        <NuxtImg v-if="shopEditForm.icon" :src="shopEditForm.icon" class="admin-icon-preview-img" />
+                                        <i v-else class="hgi hgi-stroke hgi-image-02"></i>
+                                    </div>
+                                    <input v-model="shopEditForm.icon" placeholder="https://example.com/icon.png" class="post-input" style="flex:1" />
+                                    <template v-if="objectStorageEnabled">
+                                        <input type="file" :ref="(el) => shopEditIconFileInput.value = el" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleShopEditIconFile" />
+                                        <button class="admin-add-btn" style="margin-left:0" @click="shopEditIconFileInput?.click()" :disabled="shopEditIconUploading">
+                                            {{ shopEditIconUploading ? '업로드 중...' : '업로드' }}
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <label class="admin-label">레이어 6장 <span class="admin-label-hint">바꾸고 싶을 때만 — 6장 전부 새로 선택</span></label>
+                                <div class="admin-icon-row">
+                                    <div class="admin-icon-preview">
+                                        <NuxtImg v-if="shopEditForm.icon" :src="shopEditForm.icon" class="admin-icon-preview-img" />
+                                        <i v-else class="hgi hgi-stroke hgi-image-02"></i>
+                                    </div>
+                                    <template v-if="objectStorageEnabled">
+                                        <input type="file" :ref="(el) => shopEditLayersFileInput.value = el" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none" @change="handleShopEditLayersFile" />
+                                        <button class="admin-add-btn" style="margin-left:0" @click="shopEditLayersFileInput?.click()" :disabled="shopEditLayersUploading">
+                                            {{ shopEditLayersUploading ? '업로드·합성 중...' : '6장 새로 선택' }}
+                                        </button>
+                                    </template>
+                                    <p v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 레이어를 못 바꿔요.</p>
+                                </div>
+                            </template>
+
+                            <p v-if="shopEditError" class="admin-error">{{ shopEditError }}</p>
+                            <div style="display:flex;gap:8px">
+                                <button class="submit-btn" @click="submitEditShopItem(item)" :disabled="shopEditSaving">
+                                    {{ shopEditSaving ? '저장 중...' : '저장' }}
+                                </button>
+                                <button class="admin-add-btn" style="margin-left:0" @click="editingShopItemId = null">취소</button>
+                            </div>
+                        </div>
+                    </template>
+                    <div v-if="!filteredShopItems.length" class="empty" style="padding:14px 0">등록된 아이템이 없습니다.</div>
+                </div>
+
+                <!-- 새 아이템 추가 -->
+                <label class="admin-label" style="margin-top:16px">새 아이템 추가</label>
+                <select v-model="newShopItem.category" class="admin-select">
+                    <option value="" disabled>카테고리 선택</option>
+                    <optgroup label="아바타">
+                        <option v-for="c in shopAvatarCategories" :key="c.id" :value="c.id">{{ c.label }}</option>
+                    </optgroup>
+                    <optgroup label="아이템">
+                        <option v-for="c in shopItemCategories" :key="c.id" :value="c.id">{{ c.label }}</option>
+                    </optgroup>
+                </select>
+
+                <template v-if="newShopItem.category && newShopItem.category !== 'map_item'">
+                    <label class="admin-label">itemKey <span class="admin-label-hint">아바타=파츠 variant 번호, 지형=타일셋 파일 번호, 기능/소모품=자유 문자열</span></label>
+                    <input v-model="newShopItem.itemKey" placeholder="예: 2" class="post-input" />
+                </template>
+                <p v-else-if="newShopItem.category === 'map_item'" class="admin-label-hint">map_item은 itemKey를 저장할 때 자동으로 지정해요.</p>
+
+                <label class="admin-label">이름</label>
+                <input v-model="newShopItem.name" placeholder="상점에 보일 이름" class="post-input" />
+                <label class="admin-label">설명 <span class="admin-label-hint">선택</span></label>
+                <textarea v-model="newShopItem.description" placeholder="설명..." class="post-textarea" style="min-height:50px"></textarea>
+
+                <label class="admin-label">가격</label>
+                <div class="admin-color-row">
+                    <input v-model.number="newShopItem.price" type="number" min="0" class="post-input" style="max-width:120px" />
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                        <input type="checkbox" v-model="newShopItem.active" /> 등록하자마자 판매
+                    </label>
+                </div>
+
+                <template v-if="newShopItem.category && newShopItem.category !== 'map_item'">
+                    <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
+                    <div class="admin-icon-row">
+                        <div class="admin-icon-preview">
+                            <NuxtImg v-if="newShopItem.icon" :src="newShopItem.icon" class="admin-icon-preview-img" />
+                            <i v-else class="hgi hgi-stroke hgi-image-02"></i>
+                        </div>
+                        <input v-model="newShopItem.icon" placeholder="https://example.com/icon.png" class="post-input" style="flex:1" />
+                        <template v-if="objectStorageEnabled">
+                            <input type="file" ref="newShopIconFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleNewShopIconFile" />
+                            <button class="admin-add-btn" style="margin-left:0" @click="newShopIconFileInput?.click()" :disabled="newShopIconUploading">
+                                {{ newShopIconUploading ? '업로드 중...' : '업로드' }}
+                            </button>
+                        </template>
+                    </div>
+                </template>
+
+                <template v-if="newShopItem.category === 'map_item'">
+                    <label class="admin-label">레이어 이미지 6장 <span class="admin-label-hint">1~6 순서로 한 번에 선택 — 실제 인게임처럼 겹친 아이콘을 자동으로 만들어요</span></label>
+                    <template v-if="objectStorageEnabled">
+                        <div class="admin-icon-row">
+                            <div v-if="newShopItem.icon" class="admin-icon-preview">
+                                <NuxtImg :src="newShopItem.icon" class="admin-icon-preview-img" />
+                            </div>
+                            <input type="file" ref="newMapLayersFileInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none" @change="handleNewMapLayersFile" />
+                            <button class="admin-add-btn" style="margin-left:0" @click="newMapLayersFileInput?.click()" :disabled="mapLayersUploading">
+                                {{ mapLayersUploading ? '업로드·합성 중...' : (newShopItem.layers.length ? '다시 선택' : '6장 선택') }}
+                            </button>
+                            <span v-if="newShopItem.layers.length" class="admin-label-hint">{{ newShopItem.layers.length }}장 업로드됨</span>
+                        </div>
+                    </template>
+                    <p v-else class="admin-label-hint">오브젝트 스토리지가 설정되지 않아 맵 아이템을 등록할 수 없어요.</p>
+                </template>
+
+                <p v-if="newShopItemError" class="admin-error">{{ newShopItemError }}</p>
+                <button class="submit-btn" style="margin-top:8px;align-self:flex-start" @click="submitNewShopItem" :disabled="newShopItemSaving">
+                    {{ newShopItemSaving ? '등록 중...' : '아이템 등록' }}
+                </button>
+            </div>
         </div>
 
         <!-- 새 채널 만들기 -->
@@ -474,6 +638,22 @@
                     <button class="back-btn-header" @click="banTarget = null">취소</button>
                     <button class="submit-btn danger-btn" @click="doBan" :disabled="memberActionBusy">
                         {{ memberActionBusy ? '처리 중...' : '영구정지' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상점 아이템 삭제 확인 모달 -->
+        <div v-if="shopDeleteTarget" class="admin-confirm-overlay" @click.self="shopDeleteTarget = null">
+            <div class="admin-confirm-box">
+                <p class="admin-confirm-msg">
+                    <strong>{{ shopDeleteTarget.name }}</strong> 아이템을 정말 삭제할까요?<br />
+                    <span style="font-size:0.82rem;opacity:0.55">이미 보유 중이거나 맵에 놓인 건 그대로 남고, 새로 살 수만 없게 돼요.</span>
+                </p>
+                <div class="admin-confirm-actions">
+                    <button class="back-btn-header" @click="shopDeleteTarget = null">취소</button>
+                    <button class="submit-btn danger-btn" @click="doDeleteShopItem" :disabled="shopDeleteSaving">
+                        {{ shopDeleteSaving ? '삭제 중...' : '삭제' }}
                     </button>
                 </div>
             </div>
@@ -793,6 +973,200 @@ async function sendTestEmail() {
     emailTesting.value = false
 }
 
+// 상점 아이템 관리
+const { avatarSubTabs: shopAvatarCategories, itemSubTabs: shopItemCategories, categoryLabel: shopCategoryLabel } = useShopCategories()
+const ALL_SHOP_CATEGORIES = [...shopAvatarCategories, ...shopItemCategories]
+const shopCategoryFilter = ref('all')
+
+const { data: shopItemsData, refresh: refreshShopItems } = await useAsyncData(
+    'admin-shop-items',
+    () => isLoggedIn.value
+        ? $fetch(`${apiBaseUrl}/api/admin/listShopItems`, { method: 'POST', body: { userid: userId.value } }).catch(() => [])
+        : [],
+)
+const shopItems = computed(() => shopItemsData.value ?? [])
+const filteredShopItems = computed(() =>
+    shopCategoryFilter.value === 'all' ? shopItems.value : shopItems.value.filter((i) => i.category === shopCategoryFilter.value)
+)
+
+// 새 아이템 등록
+function emptyShopForm() {
+    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, icon: '', layers: [] }
+}
+const newShopItem = reactive(emptyShopForm())
+const newShopItemError = ref('')
+const newShopItemSaving = ref(false)
+const newShopIconFileInput = ref(null)
+const newShopIconUploading = ref(false)
+const newMapLayersFileInput = ref(null)
+const mapLayersUploading = ref(false)
+
+async function handleNewShopIconFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    newShopIconUploading.value = true
+    newShopItemError.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('userid', String(userId.value))
+        formData.append('file', file)
+        const result = await $fetch(`${apiBaseUrl}/api/admin/uploadShopIcon`, { method: 'POST', body: formData })
+        newShopItem.icon = result.url
+    } catch (err) {
+        newShopItemError.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    newShopIconUploading.value = false
+    e.target.value = ''
+}
+
+async function uploadLayersFor(e, targetForm, errorRef, uploadingRef) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length !== 6) {
+        errorRef.value = `레이어는 정확히 6장이어야 해요 (선택함: ${files.length}장)`
+        e.target.value = ''
+        return
+    }
+    uploadingRef.value = true
+    errorRef.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('userid', String(userId.value))
+        files.forEach((file, i) => formData.append(`layer${i + 1}`, file))
+        const result = await $fetch(`${apiBaseUrl}/api/admin/uploadMapItemLayers`, { method: 'POST', body: formData })
+        targetForm.layers = result.layers
+        targetForm.icon = result.icon
+    } catch (err) {
+        errorRef.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    uploadingRef.value = false
+    e.target.value = ''
+}
+
+function handleNewMapLayersFile(e) {
+    return uploadLayersFor(e, newShopItem, newShopItemError, mapLayersUploading)
+}
+
+async function submitNewShopItem() {
+    newShopItemError.value = ''
+    if (!newShopItem.category) { newShopItemError.value = '카테고리를 선택해주세요'; return }
+    if (!newShopItem.name.trim()) { newShopItemError.value = '이름을 입력해주세요' ; return }
+    if (newShopItem.category !== 'map_item' && !newShopItem.itemKey.trim()) { newShopItemError.value = 'itemKey를 입력해주세요'; return }
+    if (newShopItem.category === 'map_item' && newShopItem.layers.length !== 6) { newShopItemError.value = '레이어 6장을 먼저 업로드해주세요'; return }
+
+    newShopItemSaving.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/createShopItem`, {
+            method: 'POST',
+            body: {
+                userid: userId.value,
+                category: newShopItem.category,
+                itemKey: newShopItem.itemKey.trim(),
+                name: newShopItem.name.trim(),
+                description: newShopItem.description.trim(),
+                price: newShopItem.price,
+                active: newShopItem.active,
+                icon: newShopItem.icon || null,
+                layers: newShopItem.category === 'map_item' ? newShopItem.layers : undefined,
+            },
+        })
+        Object.assign(newShopItem, emptyShopForm())
+        await refreshShopItems()
+    } catch (err) {
+        newShopItemError.value = err?.data?.message ?? '등록에 실패했습니다'
+    }
+    newShopItemSaving.value = false
+}
+
+// 인라인 수정
+const editingShopItemId = ref(null)
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, icon: '', layers: [] })
+const shopEditError = ref('')
+const shopEditSaving = ref(false)
+const shopEditIconFileInput = ref(null)
+const shopEditIconUploading = ref(false)
+const shopEditLayersFileInput = ref(null)
+const shopEditLayersUploading = ref(false)
+
+function toggleEditShopItem(item) {
+    if (editingShopItemId.value === item.id) { editingShopItemId.value = null; return }
+    editingShopItemId.value = item.id
+    shopEditError.value = ''
+    shopEditForm.name = item.name
+    shopEditForm.description = item.description ?? ''
+    shopEditForm.price = item.price
+    shopEditForm.active = item.active
+    shopEditForm.icon = item.icon ?? ''
+    shopEditForm.layers = [] // 새로 6장 올릴 때만 채워짐 — 비어있으면 update 쪽에서 기존 값 유지
+}
+
+async function handleShopEditIconFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    shopEditIconUploading.value = true
+    shopEditError.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('userid', String(userId.value))
+        formData.append('file', file)
+        const result = await $fetch(`${apiBaseUrl}/api/admin/uploadShopIcon`, { method: 'POST', body: formData })
+        shopEditForm.icon = result.url
+    } catch (err) {
+        shopEditError.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    shopEditIconUploading.value = false
+    e.target.value = ''
+}
+
+function handleShopEditLayersFile(e) {
+    return uploadLayersFor(e, shopEditForm, shopEditError, shopEditLayersUploading)
+}
+
+async function submitEditShopItem(item) {
+    shopEditError.value = ''
+    if (!shopEditForm.name.trim()) { shopEditError.value = '이름을 입력해주세요'; return }
+
+    shopEditSaving.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/updateShopItem`, {
+            method: 'POST',
+            body: {
+                userid: userId.value,
+                id: item.id,
+                name: shopEditForm.name.trim(),
+                description: shopEditForm.description.trim(),
+                price: shopEditForm.price,
+                active: shopEditForm.active,
+                icon: item.category === 'map_item' ? undefined : (shopEditForm.icon || null),
+                layers: item.category === 'map_item' && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
+            },
+        })
+        editingShopItemId.value = null
+        await refreshShopItems()
+    } catch (err) {
+        shopEditError.value = err?.data?.message ?? '저장에 실패했습니다'
+    }
+    shopEditSaving.value = false
+}
+
+// 삭제
+const shopDeleteTarget = ref(null)
+const shopDeleteSaving = ref(false)
+async function doDeleteShopItem() {
+    if (!shopDeleteTarget.value) return
+    shopDeleteSaving.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/deleteShopItem`, {
+            method: 'POST',
+            body: { userid: userId.value, id: shopDeleteTarget.value.id },
+        })
+        shopDeleteTarget.value = null
+        await refreshShopItems()
+    } catch (err) {
+        shopDeleteTarget.value = null
+    }
+    shopDeleteSaving.value = false
+}
+
 onMounted(() => {
     ensureCustomEmojisLoaded()
     ensureObjectStorageStatusLoaded()
@@ -858,6 +1232,7 @@ const tabs = computed(() => [
     { id: 'members', label: '멤버 관리', icon: 'hgi hgi-stroke hgi-user-list' },
     { id: 'pinned', label: '기본 페이지', icon: 'hgi hgi-stroke hgi-map-01' },
     { id: 'channels', label: '채널 목록', icon: 'hgi hgi-stroke hgi-grid' },
+    { id: 'shop', label: '상점 아이템', icon: 'hgi hgi-stroke hgi-shopping-bag-01' },
     { id: 'email', label: '이메일', icon: 'hgi hgi-stroke hgi-mail-01' },
 ])
 // 가입 승인 탭이 사라졌는데 거기 있던 상태였으면 서버 정보 탭으로 돌려보냄

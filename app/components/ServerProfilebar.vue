@@ -16,6 +16,9 @@
                     <div class="balance"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ balanceData?.balance ?? 0 }} {{ server?.currencyName ?? '코코아' }}</div>
                 </div>
             </NuxtLink>
+            <NuxtLink to="/shop" id="shop-wrapper" title="상점">
+                <i class="hgi hgi-stroke hgi-shopping-bag-01"></i>
+            </NuxtLink>
             <NuxtLink to="/preferences" id="preferences-wrapper" title="내 설정">
                 <i class="hgi hgi-stroke hgi-user-settings-01"></i>
             </NuxtLink>
@@ -169,7 +172,8 @@ async function logout() {
 }
 
 #settings-wrapper,
-#preferences-wrapper {
+#preferences-wrapper,
+#shop-wrapper {
     color: rgba(var(--fg-rgb),0.4);
     cursor: pointer;
     padding: 4px;
@@ -180,7 +184,8 @@ async function logout() {
 }
 
 #settings-wrapper:hover,
-#preferences-wrapper:hover {
+#preferences-wrapper:hover,
+#shop-wrapper:hover {
     color: rgba(var(--fg-rgb),0.9);
     background: rgba(var(--fg-rgb),0.08);
 }

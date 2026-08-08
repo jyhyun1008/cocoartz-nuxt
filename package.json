@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:add-voice-room": "npx tsx server/db/addVoiceRoom.ts",
-    "db:set-admin": "npx tsx server/db/setAdmin.ts"
+    "db:set-admin": "npx tsx server/db/setAdmin.ts",
+    "db:seed-shop-items": "npx tsx server/db/seedShopItems.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
@@ -29,6 +30,7 @@
     "nodemailer": "^9.0.5",
     "nuxt": "^4.2.1",
     "postgres": "^3.4.7",
+    "sharp": "^0.34.5",
     "vue": "^3.5.24",
     "vue-router": "^4.6.3"
   },

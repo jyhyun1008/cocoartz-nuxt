@@ -310,7 +310,7 @@ const editItems = ref([])
 // 'tile' | 'item' — 팔레트에서 뭘 골랐느냐에 따라 클릭했을 때 타일을 놓을지 아이템을 놓을지 결정
 const placementMode = ref('tile')
 const selectedTile = ref(1)
-const selectedItem = ref(ITEM_CATALOG[0]?.id ?? 1)
+const selectedItem = ref(ITEM_CATALOG.value[0]?.id ?? 1)
 const selectedZ = ref(0)
 // 다음에 놓을 아이템의 좌우반전 여부 — 이미 놓인 아이템 하나하나를 다시 클릭해서 뒤집는 기능은
 // 아니고(타일처럼 "지우고 다시 놓기" 방식), 팔레트에서 미리 켜두면 그 상태로 놓임

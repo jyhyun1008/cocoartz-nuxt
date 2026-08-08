@@ -68,6 +68,23 @@ const topLevelPosts = computed(() =>
 
 const joinDate = computed(() => formatDateOnly(userData.value?.createdAt))
 
+// 인벤토리 — 본인 프로필일 때만 조회(getMyInventory 자체가 본인 것만 내려줌)
+const { mainTabs: invMainTabs, avatarSubTabs: invAvatarSubTabs, itemSubTabs: invItemSubTabs } = useShopCategories()
+const invMainTab = ref('avatar')
+const invCurrentSubTabs = computed(() => invMainTab.value === 'avatar' ? invAvatarSubTabs : invItemSubTabs)
+const invSubTab = ref(invAvatarSubTabs[0]?.id ?? '')
+watch(invMainTab, () => { invSubTab.value = invCurrentSubTabs.value[0]?.id ?? '' })
+
+const { data: inventoryData } = await useAsyncData(
+    'my-inventory',
+    () => (isOwn.value && userId.value)
+        ? $fetch(`${apiBaseUrl}/api/getMyInventory`, { method: 'POST', body: { userid: userId.value } })
+        : [],
+    { watch: [isOwn] },
+)
+const inventory = computed(() => inventoryData.value ?? [])
+const visibleInventory = computed(() => inventory.value.filter(i => i.category === invSubTab.value))
+
 // 편집 모달
 const showEdit = ref(false)
 const editForm = reactive({ knownas: '', username: '', bio: '', avatar: '', banner: '' })
@@ -273,6 +290,44 @@ function switchFollowListTab(type) {
                         :own-user-id="userId ?? 0"
                         @map-saved="refresh"
                     />
+                </div>
+
+                <!-- 인벤토리 (본인만) -->
+                <div v-if="isOwn" class="profile-section">
+                    <div class="section-label">
+                        <i class="hgi hgi-stroke hgi-package"></i>
+                        인벤토리 <span class="section-count">{{ inventory.length }}</span>
+                        <NuxtLink to="/shop" class="inv-shop-link"><i class="hgi hgi-stroke hgi-shopping-bag-01"></i> 상점</NuxtLink>
+                    </div>
+
+                    <div class="admin-tabs">
+                        <button
+                            v-for="tab in invMainTabs" :key="tab.id" class="admin-tab-btn"
+                            :class="{ active: invMainTab === tab.id }" @click="invMainTab = tab.id"
+                        >
+                            <i :class="tab.icon"></i> {{ tab.label }}
+                        </button>
+                    </div>
+                    <div class="admin-tabs shop-subtabs">
+                        <button
+                            v-for="tab in invCurrentSubTabs" :key="tab.id" class="admin-tab-btn"
+                            :class="{ active: invSubTab === tab.id }" @click="invSubTab = tab.id"
+                        >
+                            {{ tab.label }}
+                        </button>
+                    </div>
+
+                    <div v-if="visibleInventory.length" class="shop-grid">
+                        <div v-for="item in visibleInventory" :key="item.itemid" class="shop-card">
+                            <div class="shop-card-icon">
+                                <NuxtImg v-if="item.icon" :src="item.icon" />
+                                <i v-else class="hgi hgi-stroke hgi-package" />
+                            </div>
+                            <div class="shop-card-name">{{ item.name }}</div>
+                            <div v-if="item.count >= 1" class="shop-owned-count">{{ item.count }}개 보유</div>
+                        </div>
+                    </div>
+                    <div v-else class="profile-empty">이 카테고리엔 보유한 아이템이 없습니다.</div>
                 </div>
 
                 <!-- 게시글 타임라인 -->
@@ -693,6 +748,19 @@ function switchFollowListTab(type) {
     padding: 1px 7px;
     font-size: 0.72rem;
 }
+
+.inv-shop-link {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+}
+.inv-shop-link:hover { text-decoration: underline; }
 
 /* 게시글 */
 .posts-list {

@@ -408,3 +408,44 @@ export const currencyBalances = pgTable('currency_balances', {
 }, (table) => [
     uniqueIndex('currency_balances_userid_serverid_idx').on(table.userid, table.serverid),
 ])
+
+// 상점에 올라갈 수 있는 아이템 마스터 카탈로그. 서버(커뮤니티)에 묶이지 않고 배포 전체에서 공유되는
+// 하나의 목록임 — 캐릭터 파츠(useCharacter.ts)/맵 아이템(useItemCatalog.ts)처럼 코드에 정의된
+// 에셋을 그대로 참조하는 거라, 어차피 하나의 배포는 하나의 코드베이스만 쓰기 때문. 재화 잔액만
+// currencyBalances처럼 serverid로 나뉨(구매 시 어느 커뮤니티 지갑에서 깎을지는 buyItem.ts에서 결정).
+export const items = pgTable('items', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // 'avatar_hair' | 'avatar_top' | 'avatar_bottom' | 'avatar_shoes' | 'avatar_face' | 'avatar_body'
+    // | 'terrain' | 'map_item' | 'functional' | 'consumable'
+    category: text().notNull(),
+    // 카테고리별로 다른 값을 가리킴 — avatar_*: useCharacter.ts CHARACTER_PARTS의 variant 번호,
+    // terrain: 타일셋 이미지 인덱스, map_item: useItemCatalog.ts ITEM_CATALOG의 id. functional/
+    // consumable은 아직 렌더링 코드가 없어서(농사 시스템에서 나중에 정의) 자유 형식 문자열로 둠
+    itemKey: text().notNull(),
+    name: text().notNull(),
+    description: text(),
+    // 상점 목록/인벤토리 썸네일 — 보통 캐릭터 파츠/타일/맵아이템 이미지 경로를 그대로 재사용
+    icon: text(),
+    price: integer().notNull(),
+    // functional/consumable 아이템이 실제로 하는 일(예: 농사 씨앗의 작물 종류·성장 시간) — JSON 문자열.
+    // 아직 아무 기능도 안 붙어서 전부 null이어도 됨
+    meta: text(),
+    // 상점 목록에서 숨기고 싶을 때(단종/시즌 한정) false로 — 이미 산 사람의 인벤토리·장착 상태는 안 건드림
+    active: boolean().default(true).notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('items_category_key_idx').on(table.category, table.itemKey),
+])
+
+// 유저별 아이템 보유 현황. 아바타 파츠/지형처럼 "있다/없다"만 필요한 아이템도 count=1로 통일해서
+// 다루고(0 또는 1), 소모품/일반 아이템은 count가 실제 개수 — 필드를 나누지 않아 다루기 단순함
+export const userItems = pgTable('user_items', {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer().notNull(),
+    itemid: integer().notNull(),
+    count: integer().default(1).notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('user_items_userid_itemid_idx').on(table.userid, table.itemid),
+])
