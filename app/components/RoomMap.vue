@@ -7,7 +7,7 @@
             <div class="kicked-box">
                 <i class="hgi hgi-stroke hgi-plug-01"></i>
                 <p>{{ kickedMessage }}</p>
-                <button class="submit-btn" @click="resumeConnection">이 탭에서 계속하기</button>
+                <button class="submit-btn" @click="handleResumeClick">이 탭에서 계속하기</button>
             </div>
         </div>
 
@@ -339,6 +339,15 @@ const kickedMessage = computed(() => {
     if (kickedReason.value === 'banned' || kickedReason.value === 'suspended') return '계정이 정지되어 연결이 끊겼어요.'
     return kickedReason.value ? '연결이 끊겼어요.' : null
 })
+
+// resumeConnection()은 소켓만 새로 여는 것까지만 하고 room join은 안 시켜줌(그건 room path/좌표를
+// 아는 이 컴포넌트 쪽 일) — join을 다시 안 보내면 서버가 이 연결을 그 방의 peer로 등록을 안 하니,
+// 반대쪽(원래 있던 탭)이 실제로는 안 쫓겨나고 이 탭도 다른 유저 눈엔 계속 없는 상태로 남는 문제가
+// 있었음. 그래서 재연결 직후 바로 다시 join까지 보냄(초기 마운트 때와 동일한 순서/인자)
+function handleResumeClick() {
+    resumeConnection()
+    joinRoom(props.path, userId.value, localPosition.value.x, localPosition.value.y, charZ.value)
+}
 
 // 캐시 키는 route.params.page가 아니라 실제 방 경로(props.path) 기준이어야 함.
 // noti.vue처럼 [page]/index.vue 라우트를 안 쓰는 정적 페이지들(index/settings/members/info/noti)은
