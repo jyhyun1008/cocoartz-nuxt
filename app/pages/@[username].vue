@@ -1,5 +1,6 @@
 <script setup>
 import { avatarPartFromCategory } from '../../lib/shopCategories'
+import { DEFAULT_CHARACTER } from '../composables/useCharacter'
 
 const route = useRoute()
 const config = useRuntimeConfig()
@@ -86,6 +87,42 @@ const { data: inventoryData } = await useAsyncData(
 )
 const inventory = computed(() => inventoryData.value ?? [])
 const visibleInventory = computed(() => inventory.value.filter(i => i.category === invSubTab.value))
+
+// 아바타 장착 — 인벤토리에서 보유한 아바타 아이템을 누르면 바로 장착됨(지금 장착 중인 건 accent
+// 테두리로 표시). 새 저장소 없이 이미 있던 users.character를 그대로 씀 — 가입 시 기본 파츠를
+// 전원이 이미 보유 상태로 지급받아둬서(server/db/seedShopItems.ts) 이행 문제가 따로 없음.
+const { userData: currentUserData, invalidate: invalidateCurrentUserData, ensureLoaded: ensureCurrentUserDataLoaded } = useCurrentUserData()
+ensureCurrentUserDataLoaded()
+
+const equippedConfig = computed(() => {
+    let cfg = { ...DEFAULT_CHARACTER }
+    try {
+        if (currentUserData.value?.character) cfg = { ...cfg, ...JSON.parse(currentUserData.value.character) }
+    } catch {}
+    return cfg
+})
+function isEquipped(item) {
+    const part = avatarPartFromCategory(item.category)
+    return !!part && equippedConfig.value[part] === Number(item.itemKey)
+}
+const equippingId = ref(null)
+async function equipItem(item) {
+    const part = avatarPartFromCategory(item.category)
+    if (!part || equippingId.value || isEquipped(item)) return
+    equippingId.value = item.itemid
+    try {
+        await $fetch(`${apiBaseUrl}/api/equipAvatarItem`, {
+            method: 'POST',
+            body: { userid: userId.value, category: item.category, itemKey: item.itemKey },
+        })
+        invalidateCurrentUserData()
+        await ensureCurrentUserDataLoaded()
+    } catch (err) {
+        alert(err?.data?.message ?? '장착에 실패했습니다')
+    } finally {
+        equippingId.value = null
+    }
+}
 
 // 편집 모달
 const showEdit = ref(false)
@@ -320,14 +357,22 @@ function switchFollowListTab(type) {
                     </div>
 
                     <div v-if="visibleInventory.length" class="shop-grid">
-                        <div v-for="item in visibleInventory" :key="item.itemid" class="shop-card">
+                        <div
+                            v-for="item in visibleInventory" :key="item.itemid" class="shop-card"
+                            :class="{ 'shop-card-clickable': avatarPartFromCategory(item.category), 'shop-card-equipped': isEquipped(item) }"
+                            :title="avatarPartFromCategory(item.category) ? (isEquipped(item) ? '장착 중' : '눌러서 장착') : ''"
+                            @click="avatarPartFromCategory(item.category) && equipItem(item)"
+                        >
                             <div class="shop-card-icon">
                                 <AvatarPartIcon v-if="avatarPartFromCategory(item.category)" :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="56" />
                                 <NuxtImg v-else-if="item.icon" :src="item.icon" />
                                 <i v-else class="hgi hgi-stroke hgi-package" />
                             </div>
                             <div class="shop-card-name">{{ item.name }}</div>
-                            <div v-if="item.count >= 1" class="shop-owned-count">{{ item.count }}개 보유</div>
+                            <div v-if="isEquipped(item)" class="shop-owned-count shop-equipped-label">
+                                <i class="hgi hgi-stroke hgi-checkmark-circle-01"></i> 장착 중
+                            </div>
+                            <div v-else-if="item.count >= 1" class="shop-owned-count">{{ item.count }}개 보유</div>
                         </div>
                     </div>
                     <div v-else class="profile-empty">이 카테고리엔 보유한 아이템이 없습니다.</div>

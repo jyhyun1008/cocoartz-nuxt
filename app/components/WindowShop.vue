@@ -196,6 +196,26 @@ async function buy(item) {
     background: rgba(var(--fg-rgb),0.04);
     border: 1px solid rgba(var(--fg-rgb),0.06);
     text-align: center;
+    transition: border-color 0.1s, background 0.1s;
+}
+
+/* 인벤토리에서 장착 가능한(아바타) 카드만 클릭해서 바로 장착 — 나머지(맵 아이템 등)는 그냥 진열용 */
+.shop-card-clickable {
+    cursor: pointer;
+}
+.shop-card-clickable:hover {
+    background: rgba(var(--fg-rgb),0.08);
+}
+.shop-card-equipped {
+    border-color: var(--accent);
+    background: var(--bgaccent);
+}
+.shop-equipped-label {
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
 }
 
 .shop-card-icon {
