@@ -1,0 +1,1 @@
+ALTER TABLE "items" ADD COLUMN "isDefault" boolean DEFAULT false NOT NULL;

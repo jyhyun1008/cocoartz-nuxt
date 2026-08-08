@@ -14,7 +14,7 @@ async function checkAdmin(userid: number) {
 // 먼저 호출해서(관리자 페이지가 파일 선택 즉시 호출) 그 결과 URL을 여기로 넘겨받는 구조
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { userid, category, name, description, price, active, icon } = body
+    const { userid, category, name, description, price, active, icon, isDefault } = body
     await checkAdmin(userid)
 
     if (!isValidCategory(category)) throw createError({ statusCode: 400, message: '올바르지 않은 카테고리입니다' })
@@ -25,6 +25,8 @@ export default eventHandler(async (event) => {
     const finalDescription = String(description ?? '').trim() || null
     const finalPrice = Math.max(0, Math.floor(Number(price) || 0))
     const finalActive = active !== false
+    // 가입 시 자동 지급 여부 — server/api/auth/register.ts가 이 플래그를 보고 신규 유저에게 지급함
+    const finalIsDefault = isDefault === true
 
     if (category === 'map_item') {
         const layers = body.layers
@@ -36,7 +38,7 @@ export default eventHandler(async (event) => {
         // 카탈로그의 1·2와 절대 안 겹치게 하기 위함). 유니크 인덱스 충돌 방지용 임시값을 먼저 넣음
         const [created] = await db.insert(items).values({
             category, itemKey: `tmp-${createId()}`, name: trimmedName, description: finalDescription,
-            icon: icon || null, price: finalPrice, active: finalActive, meta: JSON.stringify({ layers }),
+            icon: icon || null, price: finalPrice, active: finalActive, isDefault: finalIsDefault, meta: JSON.stringify({ layers }),
         }).returning()
 
         const [final] = await db.update(items)
@@ -53,7 +55,8 @@ export default eventHandler(async (event) => {
     if (existing) throw createError({ statusCode: 400, message: '이미 등록된 category/itemKey 조합입니다' })
 
     const [created] = await db.insert(items).values({
-        category, itemKey, name: trimmedName, description: finalDescription, icon: icon || null, price: finalPrice, active: finalActive,
+        category, itemKey, name: trimmedName, description: finalDescription, icon: icon || null,
+        price: finalPrice, active: finalActive, isDefault: finalIsDefault,
     }).returning()
     return created
 })

@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
 import { items, userItems, users } from './schema'
-import { inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 // 상점/인벤토리 UI를 빈 화면 없이 바로 확인해볼 수 있게, 이미 리포에 들어있는 에셋(맵 아이템
 // 카탈로그·타일셋·캐릭터 파츠)을 그대로 참조하는 샘플 아이템을 등록함. 진짜 상품 구성은 이 파일을
@@ -24,7 +24,7 @@ const STARTER_AVATAR_ITEMS = [
     { category: 'avatar_shoes', itemKey: '1', name: '기본 신발', icon: '/character/icon/shoes-1.png' },
     { category: 'avatar_face', itemKey: '1', name: '기본 얼굴', icon: '/character/icon/face-1.png' },
     { category: 'avatar_body', itemKey: '1', name: '기본 바디', icon: '/character/icon/body-1.png' },
-].map(i => ({ ...i, price: 0, description: '가입하면 기본으로 지급되는 기본 파츠예요.' }))
+].map(i => ({ ...i, price: 0, description: '가입하면 기본으로 지급되는 기본 파츠예요.', isDefault: true }))
 
 const SAMPLE_ITEMS = [
     ...STARTER_AVATAR_ITEMS,
@@ -53,16 +53,17 @@ async function run() {
         console.log(row ? `✅ 등록: ${item.name}` : `⚠️  이미 존재해서 스킵: ${item.category}/${item.itemKey}`)
     }
 
-    // 기본 아바타 세트는 상점 도입 이전부터 전원이 쓰고 있던 것이므로, 기존 유저 전원에게도
-    // 인벤토리로 소급 지급함(안 그러면 인벤토리엔 안 뜨는데 캐릭터엔 이미 장착된 이상한 상태가 됨)
-    const starterItemRows = await db.select({ id: items.id }).from(items)
-        .where(inArray(items.category, STARTER_AVATAR_ITEMS.map(i => i.category)))
+    // isDefault로 표시된 아이템(지금은 기본 아바타 세트)은 상점 도입 이전부터 전원이 쓰고 있던
+    // 것이므로, 기존 유저 전원에게도 인벤토리로 소급 지급함(안 그러면 인벤토리엔 안 뜨는데 캐릭터엔
+    // 이미 장착된 이상한 상태가 됨). 관리자 페이지에서 새로 isDefault를 켠 아이템이 있으면 이 스크립트를
+    // 다시 돌려서 기존 유저들한테도 소급 지급할 수 있음(이미 가진 사람은 onConflictDoNothing으로 스킵)
+    const starterItemRows = await db.select({ id: items.id }).from(items).where(eq(items.isDefault, true))
     const allUsers = await db.select({ id: users.id }).from(users)
 
     if (starterItemRows.length && allUsers.length) {
         const grants = allUsers.flatMap(u => starterItemRows.map(i => ({ userid: u.id, itemid: i.id, count: 1 })))
         await db.insert(userItems).values(grants).onConflictDoNothing({ target: [userItems.userid, userItems.itemid] })
-        console.log(`✅ 기존 유저 ${allUsers.length}명에게 기본 아바타 ${starterItemRows.length}종 소급 지급`)
+        console.log(`✅ 기존 유저 ${allUsers.length}명에게 기본 지급 아이템 ${starterItemRows.length}종 소급 지급`)
     }
 
     await client.end()

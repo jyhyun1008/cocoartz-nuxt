@@ -388,6 +388,7 @@
                             </div>
                             <span class="admin-ch-name">{{ item.name }}</span>
                             <code class="admin-ch-path">{{ shopCategoryLabel(item.category) }} · {{ item.itemKey }} · {{ item.price }}{{ serverForm.currencyName || '코코아' }}</code>
+                            <span v-if="item.isDefault" class="admin-ch-type-badge admin-ch-federated-badge">가입 시 기본 지급</span>
                             <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': item.active }">{{ item.active ? '판매중' : '비활성' }}</span>
                             <div class="admin-ch-actions">
                                 <button class="admin-icon-btn" @click="toggleEditShopItem(item)" title="수정">
@@ -408,6 +409,9 @@
                                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
                                     <input type="checkbox" v-model="shopEditForm.active" /> 판매중
                                 </label>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                                    <input type="checkbox" v-model="shopEditForm.isDefault" /> 가입 시 기본 지급
+                                </label>
                             </div>
 
                             <template v-if="item.category !== 'map_item'">
@@ -425,6 +429,15 @@
                                         </button>
                                     </template>
                                 </div>
+                            </template>
+                            <template v-else-if="isLegacyMapItem(item)">
+                                <label class="admin-label">레이어 6장</label>
+                                <p class="admin-label-hint">
+                                    코드에 내장된 레거시 아이템(itemKey={{ item.itemKey }})과 연결된 상점 등록이라 레이어는 못 바꿔요 —
+                                    이름/가격/설명/판매여부만 수정 가능해요. 이 아이템 자체를 새 그림으로 바꾸고 싶으면
+                                    삭제하지 말고 아래 "새 아이템 추가"로 따로 등록해주세요(itemKey가 겹치면 코드에 내장된
+                                    그림과 충돌해서 화면이 꼬여요).
+                                </p>
                             </template>
                             <template v-else>
                                 <label class="admin-label">레이어 6장 <span class="admin-label-hint">바꾸고 싶을 때만 — 6장 전부 새로 선택</span></label>
@@ -484,7 +497,11 @@
                     <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
                         <input type="checkbox" v-model="newShopItem.active" /> 등록하자마자 판매
                     </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                        <input type="checkbox" v-model="newShopItem.isDefault" /> 가입 시 기본 지급
+                    </label>
                 </div>
+                <p v-if="newShopItem.isDefault" class="admin-label-hint">앞으로 가입하는 유저에게 자동으로 인벤토리로 지급돼요. 기존 유저한테도 주려면 저장 후 <code>npm run db:seed-shop-items</code>를 다시 돌리세요.</p>
 
                 <template v-if="newShopItem.category && newShopItem.category !== 'map_item'">
                     <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
@@ -991,7 +1008,7 @@ const filteredShopItems = computed(() =>
 
 // 새 아이템 등록
 function emptyShopForm() {
-    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, icon: '', layers: [] }
+    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, icon: '', layers: [] }
 }
 const newShopItem = reactive(emptyShopForm())
 const newShopItemError = ref('')
@@ -1065,6 +1082,7 @@ async function submitNewShopItem() {
                 description: newShopItem.description.trim(),
                 price: newShopItem.price,
                 active: newShopItem.active,
+                isDefault: newShopItem.isDefault,
                 icon: newShopItem.icon || null,
                 layers: newShopItem.category === 'map_item' ? newShopItem.layers : undefined,
             },
@@ -1079,13 +1097,21 @@ async function submitNewShopItem() {
 
 // 인라인 수정
 const editingShopItemId = ref(null)
-const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, icon: '', layers: [] })
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, icon: '', layers: [] })
 const shopEditError = ref('')
 const shopEditSaving = ref(false)
 const shopEditIconFileInput = ref(null)
 const shopEditIconUploading = ref(false)
 const shopEditLayersFileInput = ref(null)
 const shopEditLayersUploading = ref(false)
+
+// 새로 등록한 맵 아이템은 항상 itemKey가 자기 DB id 문자열과 같음(createShopItem.ts). 그게 안
+// 맞으면 코드에 내장된 레거시 카탈로그(useItemCatalog.ts STATIC_ITEM_CATALOG)를 가리키는 것만을
+// 위한 "상점 등록용" 행이라는 뜻 — 여기에 레이어를 새로 올리면 그 itemKey 자리를 가로채서
+// 레거시 그림과 충돌하니(예: 무지개 기둥 자리에 다른 그림이 겹쳐 보임) 레이어 교체를 막아둠
+function isLegacyMapItem(item) {
+    return item.category === 'map_item' && String(item.id) !== item.itemKey
+}
 
 function toggleEditShopItem(item) {
     if (editingShopItemId.value === item.id) { editingShopItemId.value = null; return }
@@ -1095,6 +1121,7 @@ function toggleEditShopItem(item) {
     shopEditForm.description = item.description ?? ''
     shopEditForm.price = item.price
     shopEditForm.active = item.active
+    shopEditForm.isDefault = item.isDefault
     shopEditForm.icon = item.icon ?? ''
     shopEditForm.layers = [] // 새로 6장 올릴 때만 채워짐 — 비어있으면 update 쪽에서 기존 값 유지
 }
@@ -1136,6 +1163,7 @@ async function submitEditShopItem(item) {
                 description: shopEditForm.description.trim(),
                 price: shopEditForm.price,
                 active: shopEditForm.active,
+                isDefault: shopEditForm.isDefault,
                 icon: item.category === 'map_item' ? undefined : (shopEditForm.icon || null),
                 layers: item.category === 'map_item' && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
             },

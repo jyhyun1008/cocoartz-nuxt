@@ -13,7 +13,7 @@ async function checkAdmin(userid: number) {
 // icon/layers도 uploadShopIcon.ts / uploadMapItemLayers.ts로 먼저 업로드한 URL만 받음(createShopItem.ts와 동일)
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { userid, id, name, description, price, active, icon, layers } = body
+    const { userid, id, name, description, price, active, icon, layers, isDefault } = body
     await checkAdmin(userid)
 
     if (!id) throw createError({ statusCode: 400, message: 'id가 필요합니다' })
@@ -28,6 +28,7 @@ export default eventHandler(async (event) => {
         description: String(description ?? '').trim() || null,
         price: Math.max(0, Math.floor(Number(price) || 0)),
         active: active !== false,
+        isDefault: isDefault === true,
     }
 
     if (existing.category === 'map_item') {

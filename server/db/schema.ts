@@ -432,6 +432,9 @@ export const items = pgTable('items', {
     meta: text(),
     // 상점 목록에서 숨기고 싶을 때(단종/시즌 한정) false로 — 이미 산 사람의 인벤토리·장착 상태는 안 건드림
     active: boolean().default(true).notNull(),
+    // true면 가입 시점에 인벤토리로 자동 지급(server/api/auth/register.ts) — 카테고리 전체가 아니라
+    // 아이템 단위로 관리자가 직접 고름(예: 헤어 스타일을 새로 추가해도 이 값이 false면 공짜로 안 나감)
+    isDefault: boolean().default(false).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('items_category_key_idx').on(table.category, table.itemKey),
