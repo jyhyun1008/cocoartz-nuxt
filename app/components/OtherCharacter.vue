@@ -158,20 +158,34 @@ let animInterval = null
 // 멈췄을 때(direction이 null) 기본값(아래를 보는 row 0)으로 되돌리는 대신, 마지막으로 걷던
 // 방향을 그대로 보고 서 있게 하기 위해 따로 기억해둠 — CharacterMoving.vue(내 캐릭터)와 동일한 처리
 let lastRow = 0
+// 방에 이미 들어와 있던(멈춰 서 있는) 유저를 나중에 합류해서 처음 보는 경우 — props.direction이
+// mount 시점부터 이미 값을 갖고 있는데, watch는 기본적으로 "이후에 바뀔 때"만 반응하고 처음
+// 값에는 반응하지 않아서 이 방향을 놓치고 계속 기본 자세(아래)로 보였음. immediate:true로 첫
+// 값도 반영하되, 첫 실행에는 "지금 막 걷기 시작한 것"처럼 걷기 애니메이션을 새로 트는 대신
+// 정지 자세로만 세팅함 — 실제로 걷는 중이면 뒤이어 곧 오는 실시간 position이 자연스럽게
+// 걷는 애니메이션으로 바꿔줌
+let firstRun = true
 
 watch(() => props.direction, (dir) => {
     if (animInterval) { clearInterval(animInterval); animInterval = null }
+    if (dir && FRAMES[dir]) lastRow = FRAMES[dir][0].row
+
+    if (firstRun) {
+        firstRun = false
+        frame.value = { row: lastRow, col: 1 }
+        return
+    }
+
     if (!dir || !FRAMES[dir]) {
         frame.value = { row: lastRow, col: 1 }
         return
     }
-    lastRow = FRAMES[dir][0].row
     let idx = 0
     animInterval = setInterval(() => {
         frame.value = FRAMES[dir][idx]
         idx = (idx + 1) % 4
     }, 150)
-})
+}, { immediate: true })
 
 onUnmounted(() => {
     if (animInterval) clearInterval(animInterval)

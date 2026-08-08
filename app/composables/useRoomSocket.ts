@@ -55,7 +55,9 @@ export function useRoomSocket() {
       presenceByRoom.value = data.presence
 
     } else if (data.type === 'room_state') {
-      otherUsersInRoom.value = data.users.map((u: any) => ({ ...u, z: u.z ?? 0, dir: null }))
+      // dir을 여기서 null로 덮어쓰면 이미 멈춰서 서 있는 유저까지 전부 기본 방향(아래)으로
+      // 보였음 — 서버가 내려주는 마지막 실제 방향(u.dir)을 그대로 씀
+      otherUsersInRoom.value = data.users.map((u: any) => ({ ...u, z: u.z ?? 0, dir: u.dir ?? null }))
 
     } else if (data.type === 'user_joined') {
       const exists = otherUsersInRoom.value.some(u => u.userId === data.userId)

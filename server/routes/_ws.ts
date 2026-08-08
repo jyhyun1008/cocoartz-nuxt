@@ -11,6 +11,10 @@ interface PeerInfo {
   x: number
   y: number
   z: number
+  // 마지막으로 "실제로 움직이던" 방향(멈추면 오는 null은 반영 안 하고 이전 값을 유지) — 이게
+  // 없으면 이미 멈춰서 서 있는 유저 방에 새로 들어온 사람에게는 이 유저의 방향을 알려줄 방법이
+  // 없어서(room_state 시점엔 position 이벤트가 다시 안 옴) 항상 기본 방향(아래)으로 보였음
+  dir: string | null
 }
 
 // roomPath -> peerId -> PeerInfo
@@ -116,16 +120,17 @@ export default defineWebSocketHandler({
         return
       }
 
-      const info: PeerInfo = { peer, userId, user: user ?? null, roomPath, x, y, z }
+      const info: PeerInfo = { peer, userId, user: user ?? null, roomPath, x, y, z, dir: null }
 
       if (!rooms.has(roomPath)) rooms.set(roomPath, new Map())
       rooms.get(roomPath)!.set(peer.id, info)
       peerMap.set(peer.id, info)
 
-      // Send room state (other users) to the new joiner
+      // Send room state (other users) to the new joiner — dir을 같이 내려줘야 이미 멈춰서
+      // 서 있는 유저도 마지막으로 보던 방향 그대로 보임(안 그러면 항상 기본 방향인 아래로 보임)
       const others = [...rooms.get(roomPath)!.values()]
         .filter(p => p.peer.id !== peer.id)
-        .map(p => ({ userId: p.userId, user: p.user, x: p.x, y: p.y, z: p.z }))
+        .map(p => ({ userId: p.userId, user: p.user, x: p.x, y: p.y, z: p.z, dir: p.dir }))
       sendTo(peer, { type: 'room_state', users: others })
 
       // Notify room members a new user joined
@@ -142,6 +147,9 @@ export default defineWebSocketHandler({
       info.x = data.x
       info.y = data.y
       if (typeof data.z === 'number') info.z = data.z
+      // 멈췄다는 신호(dir: null)는 저장하지 않고 마지막 실제 방향을 그대로 유지 — 나중에 이 방에
+      // 들어오는 사람에게 room_state로 알려줄 때 쓰기 위함(위 join 핸들러 주석 참고)
+      if (data.dir) info.dir = data.dir
       broadcastToRoom(info.roomPath, {
         type: 'position', userId: info.userId, x: data.x, y: data.y, z: info.z, dir: data.dir ?? null, jumping: !!data.jumping,
       }, peer.id)
