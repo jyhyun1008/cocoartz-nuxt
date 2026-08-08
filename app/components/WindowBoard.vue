@@ -1617,6 +1617,22 @@ onMounted(() => {
     margin: 6px 0;
 }
 
+/* 위 규칙(.post-content img 등)이 twemoji.client.ts가 유니코드 이모지 자리에 넣는 img.twemoji까지
+   싹 걸어서 display:block으로 만들어버리는 바람에, 문장 중간의 이모지가 앞뒤 텍스트와 분리돼
+   자기 혼자 한 줄을 차지해버리는 버그가 있었음 — 선택자 특이도를 올려서(3파트 vs 2파트) 다시
+   인라인으로 되돌림. app.vue의 전역 img.twemoji 크기값과 동일하게 맞춤 */
+.post-content img.twemoji,
+.comment-body img.twemoji,
+.quote-embed-body img.twemoji {
+    display: inline;
+    width: 1em;
+    height: 1em;
+    max-width: none;
+    border-radius: 0;
+    margin: 0 0.05em 0 0.1em;
+    vertical-align: -0.1em;
+}
+
 /* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로.
    제목/CW 줄(.post-card-title)에도 나오므로 특정 부모 클래스에 안 묶고 전역으로 잡음 */
 img.custom-emoji {

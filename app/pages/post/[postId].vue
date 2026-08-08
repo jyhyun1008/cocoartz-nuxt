@@ -874,6 +874,20 @@ onMounted(() => {
     margin: 6px 0;
 }
 
+/* 위 규칙이 twemoji.client.ts가 유니코드 이모지 자리에 넣는 img.twemoji까지 걸어서
+   display:block으로 만들어버리는 바람에, 문장 중간의 이모지가 앞뒤 텍스트와 분리돼
+   혼자 한 줄을 차지하는 버그가 있었음 — 선택자를 3파트로 늘려 특이도를 올려서 되돌림 */
+.pd-content :deep(img.twemoji),
+.pd-comment-body :deep(img.twemoji) {
+    display: inline;
+    width: 1em;
+    height: 1em;
+    max-width: none;
+    border-radius: 0;
+    margin: 0 0.05em 0 0.1em;
+    vertical-align: -0.1em;
+}
+
 /* 리모트 커스텀 이모지(:shortcode:) — 본문 사진과 달리 글자 크기에 맞춰 인라인으로 */
 .pd-content :deep(img.custom-emoji),
 .pd-comment-body :deep(img.custom-emoji) {
