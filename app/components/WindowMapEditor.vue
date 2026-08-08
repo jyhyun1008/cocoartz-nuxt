@@ -93,7 +93,7 @@
                     :class="{ active: placementMode === 'tile' && !isErasing && selectedTile === tid }"
                     @click="placementMode = 'tile'; isErasing = false; selectedTile = tid"
                 >
-                    <img :src="`/tileset/${tid}.png`" />
+                    <img :src="getFilePath({ itemid: tid })" />
                 </div>
                 <div
                     class="palette-tile-btn erase-btn"

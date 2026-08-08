@@ -261,7 +261,9 @@ const tilesScaleStyle = computed(() => {
 // 통일했음. 예전엔 여기만 우클릭 드래그로도 맵을 움직일 수 있었는데, 그러면서 캐릭터가 실제
 // 서 있는 자리랑 화면에 보이는 자리가 어긋나 보이는 문제가 있었음)
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
-const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character))
+// 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
+const { getAvatarPartImage } = useAvatarPartCatalog()
+const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage))
 
 const position = { x: 0, y: 0 }
 

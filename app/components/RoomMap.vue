@@ -77,7 +77,7 @@
                     <OtherCharacter
                         v-for="other in otherUsersInRoom"
                         :key="other.userId"
-                        :layers="getCharacterLayers(other.user?.character)"
+                        :layers="getCharacterLayers(other.user?.character, getAvatarPartImage)"
                         :top-ratio="topRatio"
                         :local-x="other.x"
                         :local-y="other.y"
@@ -318,7 +318,9 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
-const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character))
+// 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
+const { getAvatarPartImage } = useAvatarPartCatalog()
+const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage))
 
 // 재화(코인 수집) — 재화 이름(server.currencyName)을 토스트 라벨에 씀
 const { server } = await useServer()

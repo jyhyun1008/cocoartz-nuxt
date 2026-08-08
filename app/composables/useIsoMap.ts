@@ -6,15 +6,6 @@
 export const TILE_W = 128
 export const TILE_IMG_H = 128
 
-// getFilePath는 여기서 top-level export로 안 둠 — composables/ 안의 top-level export는 Nuxt가
-// 이름 그대로 전역 auto-import 대상으로 잡는데, 그러면 각 컴포넌트에서
-// `const { getFilePath } = useIsoTiles(topRatio)`로 로컬 구조분해할 때 auto-import가 주입한
-// 동명의 import랑 부딪혀서 "Identifier 'getFilePath' has already been declared" 컴파일 에러가 남.
-// useIsoTiles()가 돌려주는 객체 프로퍼티로만 노출해서 그 문제를 피함.
-function getFilePath(tile) {
-    return `/tileset/${tile.itemid}.png`
-}
-
 // 줌 레벨(0.3~2.5 정도) → topRatio(1/3~0.9, 타일이 "위에서 내려다보는" 정도). 값 자체는 여러 튜닝을
 // 거친 결과라 그대로 유지 — 줌인할수록 topRatio가 작아져서(=옆면이 더 보여서) 정면에 가까워지고,
 // 줌아웃할수록 topRatio가 커져서(=윗면이 더 보여서) 위에서 내려다보는 것에 가까워짐
@@ -29,6 +20,19 @@ export function useTopRatioFromZoom(zoomLevel) {
 // topRatio(보통 computed ref)를 받아서 그 값에 맞는 타일 렌더링 스타일 함수/computed 묶음을 돌려줌.
 // 컴포넌트마다 한 번씩만 호출해서 쓸 것 — 내부 computed들이 넘겨준 topRatio를 그대로 추적함.
 export function useIsoTiles(topRatio) {
+    // getFilePath는 여기(useIsoTiles 내부)에서만 선언함 — composables/ 안의 top-level export는
+    // Nuxt가 이름 그대로 전역 auto-import 대상으로 잡는데, 그러면 각 컴포넌트에서
+    // `const { getFilePath } = useIsoTiles(topRatio)`로 로컬 구조분해할 때 auto-import가 주입한
+    // 동명의 import랑 부딪혀서 "Identifier 'getFilePath' has already been declared" 컴파일 에러가 남.
+    // useIsoTiles()가 돌려주는 객체 프로퍼티로만 노출해서 그 문제를 피함.
+    // 실제 타일 이미지는 지형 카탈로그(useTerrainCatalog.ts)에서 가져옴 — 관리자가 상점 페이지에서
+    // 올린 이미지(items.icon)를 그대로 씀. 카탈로그에 없는 itemid(오래된 맵 등)는 예전 그대로
+    // `/tileset/N.png` 관례로 폴백함(getTerrainImage 내부에서 처리).
+    const { getTerrainImage } = useTerrainCatalog()
+    function getFilePath(tile) {
+        return getTerrainImage(tile.itemid)
+    }
+
     // 타일 컨테이너 위치/스케일/깊이(z-index) — 캐릭터·아이템(MapItem.vue의 defaultZIndex)과
     // 반드시 같은 "4n+k" 스케일을 써야 함(n=x+y, k=z). 다른 스케일을 쓰면 같은 화면 깊이에 있는
     // 타일/아이템/캐릭터끼리 가려지는 순서가 뒤섞임 — 예전에 이것 때문에 겪은 버그가 있어서

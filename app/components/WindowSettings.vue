@@ -416,9 +416,19 @@
                             </div>
 
                             <template v-if="avatarPartFromCategory(item.category)">
-                                <label class="admin-label">아이콘 <span class="admin-label-hint">itemKey는 등록 후 못 바꾸니 원본 이미지에서 자동으로 잘려 나와요</span></label>
+                                <label class="admin-label">파츠 이미지 <span class="admin-label-hint">itemKey(파츠 variant 번호)는 등록 후 못 바꿔요 — 이미지만 다시 올릴 수 있어요</span></label>
                                 <div class="admin-icon-row">
-                                    <AvatarPartIcon :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="56" />
+                                    <AvatarPartIcon
+                                        :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="56"
+                                        :src-override="shopEditForm.icon"
+                                    />
+                                    <template v-if="objectStorageEnabled">
+                                        <input type="file" :ref="(el) => shopEditIconFileInput.value = el" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleShopEditIconFile" />
+                                        <button class="admin-add-btn" style="margin-left:0" @click="shopEditIconFileInput?.click()" :disabled="shopEditIconUploading">
+                                            {{ shopEditIconUploading ? '업로드 중...' : '다시 올리기' }}
+                                        </button>
+                                    </template>
+                                    <span v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 이미지를 못 바꿔요.</span>
                                 </div>
                             </template>
                             <template v-else-if="item.category !== 'map_item'">
@@ -488,7 +498,7 @@
                 </select>
 
                 <template v-if="newShopItem.category && newShopItem.category !== 'map_item'">
-                    <label class="admin-label">itemKey <span class="admin-label-hint">아바타=파츠 variant 번호, 지형=타일셋 파일 번호, 기능/소모품=자유 문자열</span></label>
+                    <label class="admin-label">itemKey <span class="admin-label-hint">아바타/지형=이미지를 새로 올릴 거면 안 쓰는 번호로(겹치는 번호가 있으면 등록이 막혀요), 기능/소모품=자유 문자열</span></label>
                     <input v-model="newShopItem.itemKey" placeholder="예: 2" class="post-input" />
                 </template>
                 <p v-else-if="newShopItem.category === 'map_item'" class="admin-label-hint">map_item은 itemKey를 저장할 때 자동으로 지정해요.</p>
@@ -511,14 +521,22 @@
                 <p v-if="newShopItem.isDefault" class="admin-label-hint">앞으로 가입하는 유저에게 자동으로 인벤토리로 지급돼요. 기존 유저한테도 주려면 저장 후 <code>npm run db:seed-shop-items</code>를 다시 돌리세요.</p>
 
                 <template v-if="avatarPartFromCategory(newShopItem.category)">
-                    <label class="admin-label">아이콘 <span class="admin-label-hint">itemKey(캐릭터 파츠 variant 번호)로 원본 이미지를 자동으로 잘라 보여줘서 따로 안 올려도 됨</span></label>
+                    <label class="admin-label">파츠 이미지 <span class="admin-label-hint">768×1024, 정면·측면·후면 3열×4행 프레임시트(캐릭터 시트와 같은 형식)</span></label>
                     <div class="admin-icon-row">
                         <AvatarPartIcon
                             v-if="newShopItem.itemKey"
                             :part="avatarPartFromCategory(newShopItem.category)" :variant="newShopItem.itemKey" :size="56"
+                            :src-override="newShopItem.icon"
                         />
                         <div v-else class="admin-icon-preview"><i class="hgi hgi-stroke hgi-image-02"></i></div>
-                        <span class="admin-label-hint">itemKey를 입력하면 미리보기가 떠요 — /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 파일이 미리 있어야 함</span>
+                        <template v-if="objectStorageEnabled">
+                            <input type="file" ref="newShopIconFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleNewShopIconFile" />
+                            <button class="admin-add-btn" style="margin-left:0" @click="newShopIconFileInput?.click()" :disabled="newShopIconUploading">
+                                {{ newShopIconUploading ? '업로드 중...' : (newShopItem.icon ? '다시 선택' : '업로드') }}
+                            </button>
+                            <span v-if="!newShopItem.icon" class="admin-label-hint">업로드 안 하면 itemKey로 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로를 그대로 씀(이미 그 파일이 배포돼있을 때만)</span>
+                        </template>
+                        <span v-else class="admin-label-hint">오브젝트 스토리지 미설정 — itemKey로 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로를 그대로 씀(이미 그 파일이 배포돼있어야 함)</span>
                     </div>
                 </template>
                 <template v-else-if="newShopItem.category && newShopItem.category !== 'map_item'">

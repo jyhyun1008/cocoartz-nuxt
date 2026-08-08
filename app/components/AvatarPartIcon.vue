@@ -2,20 +2,28 @@
     <div class="avatar-part-icon" :style="wrapperStyle">
         <!-- body 파트 자체를 보여줄 땐 바디 한 장만, 나머지 파츠는 기본 바디 위에 그 파츠를 겹쳐서
              "실제로 착용했을 때" 느낌으로 보여줌(파츠 혼자면 허공에 뜬 조각처럼 보여서 뭔지 알아보기 어려움) -->
-        <img v-if="part !== 'body'" src="/character/body/1.png" class="avatar-part-icon-layer" :style="layerStyle" />
-        <img :src="`/character/${part}/${variant}.png`" class="avatar-part-icon-layer" :style="layerStyle" />
+        <img v-if="part !== 'body'" :src="getAvatarPartImage('body', 1)" class="avatar-part-icon-layer" :style="layerStyle" />
+        <img :src="targetSrc" class="avatar-part-icon-layer" :style="layerStyle" />
     </div>
 </template>
 
 <script setup>
 // 캐릭터 파츠 원본 PNG(768x1024, 정면·측면·후면 3열×4행 프레임시트)에서 정면 대기 프레임만
 // CSS로 크롭해서 보여줌 — CharacterMoving.vue의 기본 프레임(row:0, col:1)과 정확히 같은 셀.
-// 서버에서 미리 잘라둔 별도 아이콘 파일이 필요 없어서, 새 variant를 추가해도 아이콘이 자동으로 생김.
+// 원본 이미지는 관리자가 상점 페이지에서 올린 것(useAvatarPartCatalog.ts)이 있으면 그걸, 없으면
+// `/character/{part}/{variant}.png` 관례 경로를 씀 — 어느 쪽이든 서버에서 미리 잘라둔 별도
+// 아이콘 파일이 필요 없어서, 새 variant를 추가해도 아이콘이 자동으로 생김.
 const props = defineProps({
     part: { type: String, required: true }, // 'hair' | 'top' | 'bottom' | 'shoes' | 'face' | 'body'
     variant: { type: [String, Number], required: true },
     size: { type: Number, default: 56 },
+    // 관리자 페이지에서 "아직 저장 안 한(=카탈로그에 없는) 새 아이템"을 업로드 직후 미리보기로
+    // 보여줄 때만 씀 — 있으면 카탈로그/관례 경로 조회 없이 이 URL을 그대로 씀
+    srcOverride: { type: String, default: '' },
 })
+
+const { getAvatarPartImage } = useAvatarPartCatalog()
+const targetSrc = computed(() => props.srcOverride || getAvatarPartImage(props.part, props.variant))
 
 const SPRITE_W = 768
 const SPRITE_H = 1024
