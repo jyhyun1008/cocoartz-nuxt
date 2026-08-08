@@ -106,6 +106,23 @@ export function buildCreateActivity(domain: string, username: string, note: {
     }
 }
 
+// 로컬 유저가 프로필(이름/소개/아바타)을 바꿨을 때 팔로워들에게 보내는 Update 액티비티.
+// object는 buildActorObject로 만든 최신 Person 객체를 그대로 실어보냄 — 마스토돈 등이
+// 프로필 수정 시 하는 것과 동일한 형태(actor 자체를 object로 감싼 Update)
+export function buildUpdateActivity(domain: string, username: string, actorObject: Record<string, unknown>) {
+    const base = actorUrl(domain, username)
+    return {
+        '@context': AS_CONTEXT,
+        id: `${base}#updates/${Date.now()}`,
+        type: 'Update',
+        actor: base,
+        published: new Date().toISOString(),
+        to: [AS_PUBLIC],
+        cc: [`${base}/followers`],
+        object: actorObject,
+    }
+}
+
 export function buildAcceptActivity(domain: string, username: string, followActivity: unknown) {
     const base = actorUrl(domain, username)
     return {
