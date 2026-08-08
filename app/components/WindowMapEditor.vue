@@ -10,6 +10,11 @@
         @contextmenu.prevent
     >
 
+        <!-- 모바일 전용 안내 문구 — 데스크톱은 우클릭+드래그로 패닝하는데 모바일엔 그 방법이 없어서
+             한 손가락 드래그(=패닝)/두 손가락 핀치(=줌)로 조작이 다르다는 걸 안내함. CSS 미디어쿼리로
+             모바일에서만 보이게 함(#wme-mobile-hint). -->
+        <div id="wme-mobile-hint">한 손가락 드래그로 화면 이동 · 두 손가락으로 확대/축소</div>
+
         <!-- 통합 레이어: 타일(z 무관) + 아이템 → 전부 같은 스태킹 컨텍스트에서 z-index 하나로 깊이 결정.
              예전엔 z=0/z≥1을 #wme-map/#wme-map-front 두 개로 쪼개서 렌더했는데, 이 둘이 서로 다른(뒤/앞
              고정) 스태킹 컨텍스트라 z≥1 쪽이 내부 z-index값과 무관하게 항상 z=0 쪽 위에 그려졌음 —
@@ -565,6 +570,79 @@ onMounted(() => {
         const delta = e.deltaY > 0 ? -0.1 : 0.1
         zoomLevel.value = Math.max(0.3, Math.min(2.5, zoomLevel.value + delta))
     }, { passive: false })
+
+    // ─── 모바일: 터치 패닝/핀치줌 ───────────────────────────────────────────
+    // 데스크톱은 우클릭+드래그로 패닝하는데(onPanStart, e.button===2 체크) 모바일엔 우클릭이
+    // 없어서 그 방법 자체가 막혀있었음. 그렇다고 한 손가락 드래그를 곧바로 패닝으로 처리하면
+    // 칸을 탭해서 타일을 놓는(handleCellClick) 기존 동작과 부딪히니, 손가락이 일정 거리
+    // (TOUCH_DRAG_THRESHOLD) 이상 움직였을 때만 "드래그로 확정"해서 패닝으로 전환하고, 그 이하로만
+    // 움직이다 뗐으면 그냥 탭으로 보고 원래 클릭 로직이 그대로 타게 둠(preventDefault 안 함).
+    // 드래그로 확정된 뒤 손을 떼면 touchend에서 preventDefault로 뒤이어 나오는 합성 click을
+    // 죽여서, 패닝 끝난 자리에 타일이 잘못 찍히는 걸 막음.
+    const TOUCH_DRAG_THRESHOLD = 8
+    let touchStartPos = null
+    let touchLastPos = null
+    let touchDragged = false
+    let pinchStartDist = null
+
+    function touchDistance(touches) {
+        const [a, b] = touches
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+    }
+
+    function onWmeTouchStart(e) {
+        if (e.target.closest('#wme-palette')) return  // 팔레트 안 터치는 그 자체 스크롤/버튼에 맡김
+        if (e.touches.length === 2) {
+            pinchStartDist = touchDistance(e.touches)
+            touchStartPos = null
+            touchLastPos = null
+        } else if (e.touches.length === 1) {
+            const t = e.touches[0]
+            touchStartPos = { x: t.clientX, y: t.clientY }
+            touchLastPos = { ...touchStartPos }
+            touchDragged = false
+            pinchStartDist = null
+        }
+    }
+
+    function onWmeTouchMove(e) {
+        if (e.target.closest('#wme-palette')) return
+        if (e.touches.length === 2 && pinchStartDist !== null) {
+            e.preventDefault()
+            const dist = touchDistance(e.touches)
+            const delta = (dist - pinchStartDist) * 0.004
+            if (Math.abs(delta) > 0.003) {
+                zoomLevel.value = Math.max(0.3, Math.min(2.5, zoomLevel.value + delta))
+                pinchStartDist = dist
+            }
+            return
+        }
+        if (e.touches.length === 1 && touchLastPos) {
+            const t = e.touches[0]
+            if (!touchDragged) {
+                const totalDist = Math.hypot(t.clientX - touchStartPos.x, t.clientY - touchStartPos.y)
+                if (totalDist < TOUCH_DRAG_THRESHOLD) return  // 아직 탭 범위 — 드래그로 확정 안 함
+                touchDragged = true
+            }
+            e.preventDefault()
+            panX.value += t.clientX - touchLastPos.x
+            panY.value += t.clientY - touchLastPos.y
+            touchLastPos = { x: t.clientX, y: t.clientY }
+        }
+    }
+
+    function onWmeTouchEnd(e) {
+        if (touchDragged) e.preventDefault()  // 방금 패닝이었으면 이어질 합성 click을 죽여서 오타일방지
+        touchStartPos = null
+        touchLastPos = null
+        touchDragged = false
+        pinchStartDist = null
+    }
+
+    containerRef.value?.addEventListener('touchstart', onWmeTouchStart, { passive: true })
+    containerRef.value?.addEventListener('touchmove', onWmeTouchMove, { passive: false })
+    containerRef.value?.addEventListener('touchend', onWmeTouchEnd, { passive: false })
+    containerRef.value?.addEventListener('touchcancel', onWmeTouchEnd, { passive: true })
 })
 </script>
 
@@ -586,6 +664,10 @@ onMounted(() => {
     --char-width: 100%;
     --char-height: 100%;
     user-select: none;
+    /* RoomMap.vue의 #map-wrapper와 같은 방식: 기본은 브라우저 네이티브 팬/줌을 허용해두고(그래야
+       #wme-palette의 자체 스크롤이 안 깨짐), 실제로 지도 위에서 팬/핀치줌으로 판단되는 제스처만
+       JS(onWmeTouchMove)에서 개별적으로 preventDefault해서 가로챔 */
+    touch-action: pan-x pan-y;
 }
 
 #wme-map-front {
@@ -926,5 +1008,28 @@ onMounted(() => {
         max-height: 48%;
         box-sizing: border-box;
     }
+
+    #wme-mobile-hint {
+        display: block;
+    }
+}
+
+/* 데스크톱에선 숨김 — 위 미디어쿼리 안에서만 보이게 함 */
+#wme-mobile-hint {
+    display: none;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 60000;
+    background: rgba(20, 20, 28, 0.8);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.72rem;
+    text-align: center;
+    pointer-events: none;
 }
 </style>
