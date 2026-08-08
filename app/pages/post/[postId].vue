@@ -359,7 +359,7 @@ onMounted(() => {
                             </div>
                             <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                             <div v-else class="pd-comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
-                            <button class="cw-hide-btn" @click="revealedMuted[`comment-${comment.id}`] = false">
+                            <button v-if="comment.muted === 'soft'" class="cw-hide-btn" @click="revealedMuted[`comment-${comment.id}`] = false">
                                 <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
                             </button>
                         </template>

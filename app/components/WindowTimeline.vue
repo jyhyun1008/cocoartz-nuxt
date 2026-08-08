@@ -260,7 +260,7 @@
                                     <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
                                 </button>
                             </template>
-                            <button class="cw-hide-btn" @click="revealedMuted[`reply-${comment.id}`] = false">
+                            <button v-if="comment.muted === 'soft'" class="cw-hide-btn" @click="revealedMuted[`reply-${comment.id}`] = false">
                                 <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
                             </button>
                         </template>

@@ -62,7 +62,7 @@
                             </div>
                         </div>
                         <div v-else class="msg" v-html="renderMd(chat.content)"></div>
-                        <button class="cw-hide-btn" @click="revealedMutedChats[chat.id] = false">
+                        <button v-if="chat.muted === 'soft'" class="cw-hide-btn" @click="revealedMutedChats[chat.id] = false">
                             <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
                         </button>
                     </template>
