@@ -264,7 +264,7 @@
             <i class="hgi hgi-stroke hgi-user-settings-01"></i> 내 설정 열기
         </div>
 
-        <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) -->
+        <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) — 왼쪽에 배치 -->
         <div
             v-show="!controlsBlocked"
             id="mobile-joystick"
@@ -272,6 +272,16 @@
             :class="{ 'joystick-above-chat': isRoomPage && showChatPanel && chatSize === 'little' }"
         >
             <div id="joystick-knob" :style="joystickKnobStyle"></div>
+        </div>
+
+        <!-- 모바일 전용 점프 버튼(스페이스바 대응) — 조이스틱 반대쪽(오른쪽)에 배치 -->
+        <div
+            v-show="!controlsBlocked"
+            id="mobile-jump-btn"
+            ref="jumpBtnRef"
+            :class="{ 'jump-btn-above-chat': isRoomPage && showChatPanel && chatSize === 'little' }"
+        >
+            <span class="jump-btn-bar"></span>
         </div>
 
         <!-- 코인 획득 피드백 -->
@@ -603,6 +613,7 @@ const controlsBlocked = computed(() => {
 
 // 모바일 조이스틱 노브 시각 위치
 const joystickBase = ref(null)
+const jumpBtnRef = ref(null)
 const joystickKnobOffset = ref({ x: 0, y: 0 })
 const joystickKnobStyle = computed(() => ({
     transform: `translate(${joystickKnobOffset.value.x}px, ${joystickKnobOffset.value.y}px)`,
@@ -1353,6 +1364,21 @@ onMounted(() => {
     joyEl?.addEventListener('touchend', onJoystickTouchEnd, { passive: true })
     joyEl?.addEventListener('touchcancel', onJoystickTouchEnd, { passive: true })
 
+    // 모바일 점프 버튼 — 스페이스바 keydown/keyup과 완전히 같은 jumpHeld/triggerJumpAnim을 그대로 씀
+    function onJumpBtnTouchStart(e) {
+        e.preventDefault()
+        if (controlsBlocked.value) return
+        jumpHeld = true
+        triggerJumpAnim()
+    }
+    function onJumpBtnTouchEnd() {
+        jumpHeld = false
+    }
+    const jumpBtnEl = jumpBtnRef.value
+    jumpBtnEl?.addEventListener('touchstart', onJumpBtnTouchStart, { passive: false })
+    jumpBtnEl?.addEventListener('touchend', onJumpBtnTouchEnd, { passive: true })
+    jumpBtnEl?.addEventListener('touchcancel', onJumpBtnTouchEnd, { passive: true })
+
     onUnmounted(() => {
         window.removeEventListener('keydown', onKeydown)
         window.removeEventListener('keyup', onKeyup)
@@ -1365,6 +1391,9 @@ onMounted(() => {
         joyEl?.removeEventListener('touchmove', onJoystickTouchMove)
         joyEl?.removeEventListener('touchend', onJoystickTouchEnd)
         joyEl?.removeEventListener('touchcancel', onJoystickTouchEnd)
+        jumpBtnEl?.removeEventListener('touchstart', onJumpBtnTouchStart)
+        jumpBtnEl?.removeEventListener('touchend', onJumpBtnTouchEnd)
+        jumpBtnEl?.removeEventListener('touchcancel', onJumpBtnTouchEnd)
         clearInterval(joyInterval)
         clearInterval(moveRepeatInterval)
         clearTimeout(jumpAnimTimer)
@@ -1411,11 +1440,12 @@ onMounted(() => {
     100% { opacity: 0; }
 }
 
-/* 모바일 전용 이동 조이스틱: 기본 숨김, 768px 이하에서만 노출 */
+/* 모바일 전용 이동 조이스틱: 기본 숨김, 768px 이하에서만 노출. 점프 버튼(오른쪽)과 반대쪽인
+   왼쪽에 둠 — 오른손 엄지로 점프, 왼손 엄지로 이동하는 일반적인 모바일 게임 배치 */
 #mobile-joystick {
     display: none;
     position: absolute;
-    right: 20px;
+    left: 20px;
     bottom: 20px;
     width: 110px;
     height: 110px;
@@ -1439,6 +1469,36 @@ onMounted(() => {
     transition: transform 0.05s linear;
 }
 
+/* 모바일 전용 점프 버튼 — 조이스틱과 같은 톤, 스페이스바 키를 본뜬 가로 막대 아이콘 */
+#mobile-jump-btn {
+    display: none;
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--surface-1-blur);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(var(--fg-rgb),0.15);
+    z-index: 150;
+    touch-action: none;
+    align-items: center;
+    justify-content: center;
+}
+
+#mobile-jump-btn:active {
+    background: rgba(var(--fg-rgb),0.12);
+}
+
+.jump-btn-bar {
+    display: block;
+    width: 34px;
+    height: 12px;
+    border-radius: 4px;
+    background: rgba(var(--fg-rgb),0.55);
+}
+
 @media (max-width: 768px) {
     #map-wrapper {
         width: 100vw;
@@ -1448,8 +1508,15 @@ onMounted(() => {
         display: block;
     }
 
-    /* 채팅 작은창이 떠 있을 땐 창을 옆이 아니라 최대한 넓게 쓰고, 조이스틱을 그 위로 올림 */
+    #mobile-jump-btn {
+        display: flex;
+    }
+
+    /* 채팅 작은창이 떠 있을 땐 창을 옆이 아니라 최대한 넓게 쓰고, 조이스틱/점프 버튼을 그 위로 올림 */
     #mobile-joystick.joystick-above-chat {
+        bottom: 244px;
+    }
+    #mobile-jump-btn.jump-btn-above-chat {
         bottom: 244px;
     }
 }

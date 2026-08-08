@@ -40,6 +40,7 @@
             @mouseenter="isHovered = true"
             @mouseleave="isHovered = false"
             @click="handleClick"
+            @touchend="handleTouchEnd"
         >
             <div v-if="isLinkClickable && props.title && isHovered" class="map-item-tooltip">{{ props.title }}</div>
         </div>
@@ -177,6 +178,41 @@ function handleClick() {
     if (props.link.startsWith('/')) navigateTo(props.link)
     else window.open(props.link, '_blank', 'noopener,noreferrer')
 }
+
+// 모바일 터치 — 데스크톱은 마우스가 이미 hover 상태를 알려주지만(mouseenter), 터치는 탭하는 순간
+// hover와 click이 동시에 합성돼서 미리보기 없이 바로 열려버림. 그래서 touchend에서 직접 2단계로
+// 처리: 아직 안 보인 상태면 hover만 켜고(제목/하이라이트 노출) preventDefault로 뒤이어 오는 합성
+// click을 막아 이동은 안 함 — 이미 보인 상태(=같은 아이템 두 번째 탭)일 때만 진짜 이동시킴.
+// 한 번 열어보고 다른 데로 넘어가면(다른 아이템 탭 등) 일정 시간 뒤 자동으로 다시 숨김
+let revealTimer = null
+function clearRevealTimer() {
+    if (revealTimer) {
+        clearTimeout(revealTimer)
+        revealTimer = null
+    }
+}
+function handleTouchEnd(e) {
+    if (props.editable) {
+        e.preventDefault()
+        emit('select')
+        return
+    }
+    if (!isLinkClickable.value) return
+    e.preventDefault()
+    if (!isHovered.value) {
+        isHovered.value = true
+        clearRevealTimer()
+        revealTimer = setTimeout(() => { isHovered.value = false }, 3000)
+        return
+    }
+    clearRevealTimer()
+    isHovered.value = false
+    if (props.link.startsWith('/')) navigateTo(props.link)
+    else window.open(props.link, '_blank', 'noopener,noreferrer')
+}
+onUnmounted(() => {
+    clearRevealTimer()
+})
 
 const TILE_W = 128
 
