@@ -37,6 +37,9 @@
                             </NuxtLink>
                             <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
                         </div>
+                        <button v-if="entry.post.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = false">
+                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                        </button>
                     </div>
                     <!-- 연합 팔로잉 피드(외부) 글 -->
                     <div
@@ -71,6 +74,9 @@
                                 </span>
                                 <span class="datetime">{{ formatDate(entry.post.published) }}</span>
                             </div>
+                            <button v-if="entry.post.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                         </div>
                         <a
                             class="remote-server-badge"
@@ -264,6 +270,9 @@
                                     <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
                                 </button>
                             </template>
+                            <button class="cw-hide-btn" @click="revealedMuted[`comment-${comment.id}`] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                         </template>
                     </div>
                     <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
@@ -430,6 +439,9 @@
                                     <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
                                 </button>
                             </template>
+                            <button class="cw-hide-btn" @click="revealedMuted[`reply-${comment.id}`] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                         </template>
                     </div>
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>

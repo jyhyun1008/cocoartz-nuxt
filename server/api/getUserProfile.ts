@@ -26,8 +26,15 @@ export default defineEventHandler(async (event) => {
         createdAt: posts.createdAt,
         roomid: posts.roomid,
     }).from(posts)
-        // remoteParentObjectId가 있는 글은 개인 타임라인에서 원격 글에 단 답글 스텁이라 프로필엔 안 보여야 함
-        .where(and(eq(posts.userid, user.id), isNull(posts.remoteParentObjectId)))
+        // remoteParentObjectId가 있는 글(원격 글에 단 답글 스텁)과 마찬가지로, replyto가 있는
+        // 글(게시판/연합 게시판에 댓글로 단 글)도 "글"이 아니라 "댓글"이라 프로필엔 안 보여야 함.
+        // 예전엔 프론트(@[username].vue)의 topLevelPosts가 이 필터를 맡고 있었는데, 정작 여기서
+        // replyto 필드 자체를 안 내려주고 있어서 그 필터가 항상 무력화돼 있었음(값이 늘 undefined
+        // 라 !p.replyto가 항상 true) — 게다가 그 필터링은 LIMIT 20으로 잘라온 "뒤"에 프론트에서
+        // 걸러내는 방식이라, SQL 단에서 걸러야 할 걸 나중에 거르면 댓글을 많이 단 유저는 최근 20개
+        // 안에 진짜 글이 거의 안 남을 수도 있었음 — 그래서 remoteParentObjectId처럼 아예 SQL
+        // where절로 옮김
+        .where(and(eq(posts.userid, user.id), isNull(posts.remoteParentObjectId), isNull(posts.replyto)))
         .orderBy(desc(posts.createdAt))
         .limit(20)
 

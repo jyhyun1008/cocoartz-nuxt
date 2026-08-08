@@ -359,6 +359,9 @@ onMounted(() => {
                             </div>
                             <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                             <div v-else class="pd-comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
+                            <button class="cw-hide-btn" @click="revealedMuted[`comment-${comment.id}`] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                         </template>
                     </div>
 
@@ -632,6 +635,22 @@ onMounted(() => {
     font-weight: 600;
     color: #ffb454;
 }
+
+.cw-hide-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: 0.78rem;
+    font-family: inherit;
+    color: #ffb454;
+    cursor: pointer;
+    opacity: 0.8;
+}
+.cw-hide-btn:hover { opacity: 1; text-decoration: underline; }
 
 /* 수정 폼 */
 .create-form {

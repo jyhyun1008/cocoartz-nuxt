@@ -146,6 +146,9 @@
                                 </div>
                             </div>
                             <div v-else class="msg" v-html="renderMd(chat.content)"></div>
+                            <button class="cw-hide-btn" @click="revealedMutedChats[chat.id] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                             <div class="reactions-row chat-reactions-row">
                                 <button
                                     v-for="r in getChatReactions(chat)"

@@ -34,6 +34,9 @@
                                 </NuxtLink>
                                 <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                             </div>
+                            <button v-if="p.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[p.id] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                         </div>
                         <!-- 원격 글: 미리보기 카드, 클릭하면 상세보기 -->
                         <div
@@ -68,6 +71,9 @@
                                     </span>
                                     <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                                 </div>
+                                <button v-if="p.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[p.id] = false">
+                                    <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                                </button>
                             </div>
                             <a
                                 class="remote-server-badge"
@@ -254,6 +260,9 @@
                                     <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
                                 </button>
                             </template>
+                            <button class="cw-hide-btn" @click="revealedMuted[`reply-${comment.id}`] = false">
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            </button>
                         </template>
                     </div>
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
