@@ -306,7 +306,8 @@ onUnmounted(() => {
     overflow: hidden;
 }
 
-/* 작은 상태 - 일반 채팅과 동일한 위치/크기, 항상 어두운 배경이라 흰 글자 고정 */
+/* 작은 상태 - 일반 채팅(#chatroom-wrapper.little)과 동일한 위치/크기 + 테마 변수 사용.
+   예전엔 여기만 배경/글자색이 하드코딩된 어두운 값이라 라이트 모드에서도 항상 다크로 보였음 */
 #voice-wrapper.little {
     width: calc(100% - 340px);
     max-width: 560px;
@@ -315,11 +316,11 @@ onUnmounted(() => {
     z-index: 99;
     bottom: 14px;
     left: 14px;
-    background-color: rgba(20,20,28,0.75);
+    background-color: var(--surface-1-blur);
     backdrop-filter: blur(8px);
     border-radius: 12px;
     border: 1px solid rgba(var(--fg-rgb),0.08);
-    color: white;
+    color: rgba(var(--fg-rgb),0.85);
 }
 
 /* 큰 상태 */
