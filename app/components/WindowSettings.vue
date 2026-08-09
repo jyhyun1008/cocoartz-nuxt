@@ -781,6 +781,11 @@ const { data: pendingUsersData, refresh: refreshPendingUsers } = await useAsyncD
         method: 'POST',
         body: { userid: userId.value },
     }).then(res => Array.isArray(res) ? res : []).catch(() => []),
+    // SSR 중엔 일반 $fetch가 브라우저 쿠키를 안 실어 보내서 requireUserId가 401을 던지고
+    // 그게 위 .catch(() => [])에 삼켜져 "승인 대기 없음"으로 영구히 고정돼버림(하이드레이션 후에도
+    // 재요청 안 함) — 설정 페이지로 직접 진입/새로고침할 때(모바일에서 흔함) 특히 잘 터짐.
+    // server:false로 SSR을 건너뛰고 클라이언트(쿠키 있는 상태)에서만 fetch하게 함
+    { server: false },
 )
 const pendingUsers = computed(() => pendingUsersData.value ?? [])
 const pendingError = ref('')
@@ -818,6 +823,8 @@ const { data: membersForAdminData, refresh: refreshMembersForAdmin } = await use
         method: 'POST',
         body: { userid: userId.value },
     }).then(res => Array.isArray(res) ? res : []).catch(() => []),
+    // pending-users와 같은 SSR 쿠키 유실 문제 — server:false로 회피
+    { server: false },
 )
 const membersForAdmin = computed(() => membersForAdminData.value ?? [])
 const memberSearch = ref('')
@@ -1058,6 +1065,8 @@ const { data: shopItemsData, refresh: refreshShopItems } = await useAsyncData(
     () => isLoggedIn.value
         ? $fetch(`${apiBaseUrl}/api/admin/listShopItems`, { method: 'POST', body: { userid: userId.value } }).catch(() => [])
         : [],
+    // pending-users와 같은 SSR 쿠키 유실 문제 — server:false로 회피
+    { server: false },
 )
 const shopItems = computed(() => shopItemsData.value ?? [])
 const filteredShopItems = computed(() =>
