@@ -7,6 +7,10 @@ import { getUserIdFromCookieHeader } from '../utils/session'
 interface PeerInfo {
   peer: any
   userId: number
+  // true면 세션 쿠키로 검증된 진짜 계정. false면 로그인 안 한 손님(구경만) — userId는 아래
+  // nextGuestId()가 찍어주는 음수 합성 id라 실제 계정(양수, serial PK)과 절대 안 겹침.
+  // 채팅 전송/수정/삭제, 중복 세션 강퇴처럼 "계정에 종속된" 동작은 반드시 이 값을 확인해야 함.
+  authenticated: boolean
   user: any
   roomPath: string
   x: number
@@ -16,6 +20,15 @@ interface PeerInfo {
   // 없으면 이미 멈춰서 서 있는 유저 방에 새로 들어온 사람에게는 이 유저의 방향을 알려줄 방법이
   // 없어서(room_state 시점엔 position 이벤트가 다시 안 옴) 항상 기본 방향(아래)으로 보였음
   dir: string | null
+}
+
+// 로그인 안 한 손님(구경) 연결에게 부여하는 임시 id. 실제 계정 id(1부터 증가하는 양수 serial
+// PK)와 절대 안 겹치게 항상 음수를 씀 — 클라이언트가 다른 유저를 userId로 구분/렌더링하는데,
+// 손님이 여러 명 동시에 있을 때 전부 같은 값(예: 0나 null)이면 서로 같은 사람으로 겹쳐 보임.
+let _guestIdSeq = 0
+function nextGuestId(): number {
+  _guestIdSeq -= 1
+  return _guestIdSeq
 }
 
 // roomPath -> peerId -> PeerInfo
@@ -94,24 +107,27 @@ export default defineWebSocketHandler({
       // ⚠️ 예전엔 위에서 그냥 data.userId(클라이언트가 자유롭게 조작 가능)를 그대로 믿었음 —
       // 로그인 없이도(혹은 남의 id를 실어서) 그 사람 행세로 이동/채팅이 가능한 완전한 인증
       // 우회였음. 이제 업그레이드 요청에 실려온 쿠키에서 서버만 복호화 가능한 세션을 검증해서
-      // 얻은 id만 신뢰함(server/utils/session.ts) — 세션이 없으면 접속 자체를 거절함.
-      const userId = await getUserIdFromCookieHeader(peer.request.headers.get('cookie'))
-      if (!userId) {
-        sendTo(peer, { type: 'join_rejected', reason: 'unauthenticated' })
-        peer.close?.()
-        return
-      }
+      // 얻은 id만 신뢰함(server/utils/session.ts). 다만 로그인 자체를 안 한 손님은 원래부터
+      // 방을 구경할 수 있었던 동작이라(다른 유저를 보고, 다른 유저 화면에도 보임) 접속을
+      // 거절하지 않고 authenticated=false로 게스트 id를 발급해 그대로 들여보냄 — 계정에
+      // 종속된 동작(채팅, 중복 세션 강퇴)만 아래에서 authenticated로 따로 막음.
+      const sessionUserId = await getUserIdFromCookieHeader(peer.request.headers.get('cookie'))
+      const authenticated = sessionUserId != null
+      const userId = sessionUserId ?? nextGuestId()
 
       // 같은 계정으로 다른 기기/탭에서 이미 접속돼 있으면 그 연결을 끊음(단순 새로고침으로
       // 옛 소켓이 아직 안 닫힌 경우도 포함) — 계정당 연결을 하나로 강제하는 이유는, 맵 위
       // 코인 수집(collectCoin)이 클라이언트 주도(로컬 타이머로 코인을 띄우고 밟으면 호출)라서
       // 두 클라이언트를 동시에 띄워두면 서버 쿨다운 체크의 select→update 사이 틈을 타 거의
-      // 동시에 호출해 쿨다운 안에 중복 수령할 여지가 있었음(투 배럭 방지)
-      for (const [staleId, staleInfo] of peerMap) {
-        if (staleInfo.userId === userId && staleId !== peer.id) {
-          sendTo(staleInfo.peer, { type: 'kicked', reason: 'duplicate_session' })
-          try { staleInfo.peer.close?.() } catch {}
-          removePeer(staleId)
+      // 동시에 호출해 쿨다운 안에 중복 수령할 여지가 있었음(투 배럭 방지). 게스트는 계정이
+      // 없어 이 문제 자체가 없고, 게스트끼리는 id가 매번 달라 애초에 겹칠 일도 없음.
+      if (authenticated) {
+        for (const [staleId, staleInfo] of peerMap) {
+          if (staleInfo.userId === userId && staleId !== peer.id) {
+            sendTo(staleInfo.peer, { type: 'kicked', reason: 'duplicate_session' })
+            try { staleInfo.peer.close?.() } catch {}
+            removePeer(staleId)
+          }
         }
       }
 
@@ -122,17 +138,20 @@ export default defineWebSocketHandler({
         rooms.get(existing.roomPath)?.delete(peer.id)
       }
 
-      const [user] = await db.select().from(users).where(eq(users.id, userId))
+      let user: any = null
+      if (authenticated) {
+        ;[user] = await db.select().from(users).where(eq(users.id, userId))
 
-      // 정지/영구정지된 계정은 실시간 이동/채팅에도 못 들어오게 막음(HTTP 쪽 미들웨어는 이
-      // 웹소켓 업그레이드 경로를 안 거치므로 여기서 따로 체크해야 함)
-      if (user && getUserBlockStatus(user).blocked) {
-        sendTo(peer, { type: 'join_rejected', reason: 'banned' })
-        peer.close?.()
-        return
+        // 정지/영구정지된 계정은 실시간 이동/채팅에도 못 들어오게 막음(HTTP 쪽 미들웨어는 이
+        // 웹소켓 업그레이드 경로를 안 거치므로 여기서 따로 체크해야 함)
+        if (user && getUserBlockStatus(user).blocked) {
+          sendTo(peer, { type: 'join_rejected', reason: 'banned' })
+          peer.close?.()
+          return
+        }
       }
 
-      const info: PeerInfo = { peer, userId, user: user ?? null, roomPath, x, y, z, dir: null }
+      const info: PeerInfo = { peer, userId, authenticated, user: user ?? null, roomPath, x, y, z, dir: null }
 
       if (!rooms.has(roomPath)) rooms.set(roomPath, new Map())
       rooms.get(roomPath)!.set(peer.id, info)
@@ -173,7 +192,7 @@ export default defineWebSocketHandler({
 
     } else if (data.type === 'chat') {
       const info = peerMap.get(peer.id)
-      if (!info) return
+      if (!info || !info.authenticated) return
       const { serverid, roomid, content } = data
       const [chat] = await db.insert(chats).values({
         serverid, roomid, userid: info.userId, content,
@@ -185,7 +204,7 @@ export default defineWebSocketHandler({
 
     } else if (data.type === 'chat_edit') {
       const info = peerMap.get(peer.id)
-      if (!info) return
+      if (!info || !info.authenticated) return
       const { chatid } = data
       const content = String(data.content ?? '').trim()
       if (!chatid || !content) return
@@ -200,7 +219,7 @@ export default defineWebSocketHandler({
 
     } else if (data.type === 'chat_delete') {
       const info = peerMap.get(peer.id)
-      if (!info) return
+      if (!info || !info.authenticated) return
       const { chatid } = data
       if (!chatid) return
 
