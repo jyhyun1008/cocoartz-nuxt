@@ -96,6 +96,24 @@ export function kickUserConnections(userId: number, reason: string = 'banned') {
   }
 }
 
+// 아바타 장착(equipAvatarItem.ts)/프로필 수정(updateProfile.ts) 등으로 users 테이블이 바뀐
+// 직후 호출됨 — 이미 방에 접속해 있는 이 유저의 PeerInfo.user 캐시를 새 값으로 갈아끼우고,
+// 같은 방에 있는 다른 사람들에게도 즉시 알려줌. PeerInfo.user는 원래 join 시점에 한 번만
+// 채워지고 그 뒤로는 절대 안 갱신됐어서, 마을에 있다가 프로필에서 옷/닉네임을 바꾸고 돌아와도
+// 본인 화면만 바뀌고 같은 방에 있던 다른 유저들 눈엔 그 사람이 다시 join하기 전까지(=방을
+// 새로고침하거나 나갔다 들어오기 전까지) 예전 모습 그대로 보이는 문제가 있었음
+export function broadcastUserUpdate(userId: number, user: any) {
+  const notifiedRooms = new Set<string>()
+  for (const [, info] of peerMap) {
+    if (info.userId !== userId) continue
+    info.user = user
+    if (!notifiedRooms.has(info.roomPath)) {
+      notifiedRooms.add(info.roomPath)
+      broadcastToRoom(info.roomPath, { type: 'user_updated', userId, user })
+    }
+  }
+}
+
 export default defineWebSocketHandler({
   async message(peer, message) {
     let data: any

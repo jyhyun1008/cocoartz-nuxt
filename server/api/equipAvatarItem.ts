@@ -2,6 +2,7 @@ import { db } from '../utils/db'
 import { users, items, userItems } from '../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { requireUserId } from '../utils/session'
+import { broadcastUserUpdate } from '../routes/_ws'
 
 // users.character(JSON, useCharacter.ts DEFAULT_CHARACTER 형식)의 해당 파트 슬롯만 갈아끼움 —
 // 새 필드/테이블 없이 이미 있던 "지금 장착 중" 저장소를 그대로 씀. 가입 시 기본 파츠(variant 1)를
@@ -27,6 +28,13 @@ export default eventHandler(async (event) => {
     try { config = user?.character ? JSON.parse(user.character) : {} } catch { config = {} }
     config[part] = Number(itemKey)
 
-    await db.update(users).set({ character: JSON.stringify(config) }).where(eq(users.id, userid))
+    const [updatedUser] = await db.update(users).set({ character: JSON.stringify(config) })
+        .where(eq(users.id, userid))
+        .returning()
+
+    // 마을에 있는 채로 옷을 갈아입고 돌아온 경우에도 같은 방에 있던 다른 유저들 화면에 즉시
+    // 반영되도록(server/routes/_ws.ts의 broadcastUserUpdate 참고)
+    broadcastUserUpdate(userid, updatedUser)
+
     return { ok: true, character: config }
 })

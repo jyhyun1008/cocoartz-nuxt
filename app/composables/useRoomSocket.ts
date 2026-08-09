@@ -71,6 +71,14 @@ export function useRoomSocket() {
     } else if (data.type === 'user_left') {
       otherUsersInRoom.value = otherUsersInRoom.value.filter(u => u.userId !== data.userId)
 
+    // 서버가 broadcastUserUpdate(_ws.ts)로 보내주는 갱신 — 아바타 장착/프로필 수정 등으로 이미
+    // 방에 같이 있던 유저의 옷차림/닉네임/프로필사진이 바뀌었을 때 옴. 위치는 그대로 두고 user
+    // 필드만 새로 갈아끼움
+    } else if (data.type === 'user_updated') {
+      otherUsersInRoom.value = otherUsersInRoom.value.map(u =>
+        u.userId === data.userId ? { ...u, user: data.user } : u,
+      )
+
     } else if (data.type === 'position') {
       otherUsersInRoom.value = otherUsersInRoom.value.map(u =>
         u.userId === data.userId ? { ...u, x: data.x, y: data.y, z: data.z ?? u.z, dir: data.dir ?? null } : u,
