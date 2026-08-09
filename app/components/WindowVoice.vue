@@ -13,6 +13,9 @@
             <button class="window-close-btn" @click="$emit('close')">✕</button>
         </div>
         <div id="voice-chats-wrapper" ref="chatsWrapper">
+            <button v-if="hasMoreOlderChats" class="load-more-btn load-more-chats-btn" :disabled="loadingMoreChats" @click="loadOlderChats">
+                {{ loadingMoreChats ? '불러오는 중...' : '이전 메시지 더보기' }}
+            </button>
             <div v-for="chat in chatList" :key="chat.id" class="chat-wrapper">
                 <NuxtLink :to="chat.user?.username ? `/@${chat.user.username}` : '#'" class="userprofile user-avatar-link">
                     <NuxtImg v-if="chat.user?.avatar" class="avatar" :src="chat.user.avatar" />
@@ -249,18 +252,45 @@ onMounted(() => {
     })
 })
 
+const hasMoreOlderChats = ref(false)
+const loadingMoreChats = ref(false)
+
 async function loadChatHistory() {
     if (!props.ids.roomid) return
-    const initial = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
+    const page = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
         method: 'POST',
         body: { ...props.ids, userid: userId.value },
-    }).catch(() => [])
-    chatHistory.value = Array.isArray(initial) ? initial : []
+    }).catch(() => ({ chats: [], hasMore: false }))
+    chatHistory.value = page?.chats ?? []
+    hasMoreOlderChats.value = page?.hasMore ?? false
     scrollToBottom()
 }
 
 // roomid는 roomData 비동기 로딩 후 채워지므로 watch로 대기
 watch(() => props.ids.roomid, loadChatHistory, { immediate: true })
+
+// "이전 메시지 더보기" — RoomMap.vue와 동일 패턴(offset은 이미 불러온 개수, 끼워넣은 뒤 스크롤
+// 위치를 보정해서 지금 보던 메시지가 화면에서 밀리지 않게 함)
+async function loadOlderChats() {
+    if (loadingMoreChats.value || !hasMoreOlderChats.value) return
+    loadingMoreChats.value = true
+    const wrapper = chatsWrapper.value
+    const prevScrollHeight = wrapper?.scrollHeight ?? 0
+    const prevScrollTop = wrapper?.scrollTop ?? 0
+    try {
+        const page = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
+            method: 'POST',
+            body: { ...props.ids, userid: userId.value, offset: chatHistory.value.length },
+        })
+        chatHistory.value = [...(page?.chats ?? []), ...chatHistory.value]
+        hasMoreOlderChats.value = page?.hasMore ?? false
+        await nextTick()
+        if (wrapper) wrapper.scrollTop = wrapper.scrollHeight - prevScrollHeight + prevScrollTop
+    } catch {
+        // 실패해도 조용히 무시 — 버튼이 그대로 남아있으니 다시 누르면 재시도됨
+    }
+    loadingMoreChats.value = false
+}
 
 onUnmounted(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {

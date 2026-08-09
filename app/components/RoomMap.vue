@@ -108,6 +108,9 @@
                 <button class="window-close-btn" @click.stop="closeChatPanel">✕</button>
             </div>
             <div id="chats-wrapper" ref="chatsWrapper">
+                <button v-if="hasMoreOlderChats" class="load-more-btn load-more-chats-btn" :disabled="loadingMoreChats" @click="loadOlderChats">
+                    {{ loadingMoreChats ? '불러오는 중...' : '이전 메시지 더보기' }}
+                </button>
                 <div v-for="chat in chats" :key="chat.id" class="chat-wrapper">
                     <NuxtLink :to="chat.user?.username ? `/@${chat.user.username}` : '#'" class="userprofile user-avatar-link">
                         <NuxtImg v-if="chat.user?.avatar" class="avatar" :src="chat.user.avatar" />
@@ -381,15 +384,51 @@ const serverAndRoomId = computed(() => ({
 
 const { userId, isLoggedIn } = useCurrentUser()
 
-const { data: chatData, refresh: refreshChatData } = await useAsyncData(
+const { data: chatPage, refresh: refreshChatData } = await useAsyncData(
     chatKey,
     () => $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...serverAndRoomId.value, userid: userId.value }),
-    }).then(res => (Array.isArray(res) && res.length > 0 ? res : null)),
+    }).catch(() => ({ chats: [], hasMore: false })),
     { watch: [() => props.path] }
 )
+
+// HTTP로 불러온 채팅(최초 페이지 + "이전 메시지 더보기"로 이어붙인 과거 페이지들)을 담는 별도
+// ref — chatPage(useAsyncData)는 방을 옮기거나 뮤트 직후 refreshChatData()를 부를 때마다 "최신
+// 1페이지"로 통째로 갈아끼워지는데, 그때 이미 눌러서 불러온 과거 메시지까지 같이 날아가면 안 되니
+// 분리해둠. 페이지네이션(loadOlderChats)은 이 ref 앞에 직접 이어붙임(prepend).
+const chatData = ref([])
+const hasMoreOlderChats = ref(false)
+const loadingMoreChats = ref(false)
+watch(chatPage, (page) => {
+    chatData.value = page?.chats ?? []
+    hasMoreOlderChats.value = page?.hasMore ?? false
+}, { immediate: true })
+
+async function loadOlderChats() {
+    if (loadingMoreChats.value || !hasMoreOlderChats.value) return
+    loadingMoreChats.value = true
+    // 과거 메시지를 앞에 끼워넣으면 스크롤 위치가 위로 밀려버려서, 끼워넣은 높이만큼 scrollTop을
+    // 보정해 지금 보고 있던 메시지가 화면에서 그대로 유지되게 함
+    const wrapper = chatsWrapper.value
+    const prevScrollHeight = wrapper?.scrollHeight ?? 0
+    const prevScrollTop = wrapper?.scrollTop ?? 0
+    try {
+        const page = await $fetch(`${apiBaseUrl}/api/getChatsByRoomId`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...serverAndRoomId.value, userid: userId.value, offset: chatData.value.length }),
+        })
+        chatData.value = [...(page?.chats ?? []), ...chatData.value]
+        hasMoreOlderChats.value = page?.hasMore ?? false
+        await nextTick()
+        if (wrapper) wrapper.scrollTop = wrapper.scrollHeight - prevScrollHeight + prevScrollTop
+    } catch {
+        // 실패해도 조용히 무시 — 버튼이 그대로 남아있으니 다시 누르면 재시도됨
+    }
+    loadingMoreChats.value = false
+}
 
 // 뮤트 — 초기 채팅 목록(chatData)은 서버(getChatsByRoomId)가 이미 걸러서 내려주지만, 웹소켓으로
 // 실시간으로 들어오는 새 메시지는 브로드캐스트 단계에서 뮤트를 모르므로 여기서 로컬(내 뮤트 목록)
@@ -1647,6 +1686,13 @@ onMounted(() => {
     gap: 20px;
     flex-grow: 1;
     overflow-y: auto;
+}
+
+/* #chats-wrapper가 이미 flex gap:20px로 아래 메시지와 간격을 주니, .load-more-btn 자체의
+   margin(위/아래)까지 더해지면 맨 위에 공백이 과하게 남음 — 좌우 중앙 정렬만 남기고 비움 */
+.load-more-chats-btn {
+    margin: 0 auto;
+    flex-shrink: 0;
 }
 
 .chat-wrapper {

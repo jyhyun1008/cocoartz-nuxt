@@ -4,16 +4,19 @@ import { eq, and, inArray, desc } from 'drizzle-orm'
 import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup, filterMutedReactions } from '../utils/mutes'
 
 // 방 하나에 몇 달치 채팅이 쌓이면 매번 그 방을 열 때마다 전체 이력을 통째로(정렬 기준도 없이!)
-// 다시 내려주고 있었음 — 서버 쿼리 비용도 크고, 클라이언트가 그 전체를 메모리에 들고 있어야
-// 해서 자산이 컸음. 최근 N개만 내려주는 걸로 바꿈(과거 메시지를 더 불러오는 UI는 아직 없어서,
-// 그 이전 메시지는 지금은 아예 안 보임 — 필요하면 나중에 "이전 메시지 더보기"를 따로 추가할 것)
-const CHAT_HISTORY_LIMIT = 200
+// 다시 내려주고 있었음 — 서버 쿼리 비용도 크고, 클라이언트가 그 전체를 메모리에 들고 있어야 해서
+// 부담이 컸음. getPostsByRoomId.ts와 같은 offset 페이지네이션으로 바꿈(RoomMap.vue/WindowVoice.vue의
+// "이전 메시지 더보기" 버튼이 offset을 늘려가며 호출).
+const PAGE_SIZE = 50
 
 export default eventHandler(async (event) => {
-    const { serverid, roomid, userid } = await readBody(event)
-    let results = await db.select().from(chats).where(
+    const { serverid, roomid, userid, offset } = await readBody(event)
+    const rows = await db.select().from(chats).where(
         and(eq(chats.serverid, serverid), eq(chats.roomid, roomid))
-    ).orderBy(desc(chats.createdAt)).limit(CHAT_HISTORY_LIMIT)
+    ).orderBy(desc(chats.createdAt)).limit(PAGE_SIZE + 1).offset(offset ?? 0)
+
+    const hasMore = rows.length > PAGE_SIZE
+    let results = rows.slice(0, PAGE_SIZE)
     results.reverse()  // 화면엔 과거→최신 순으로 보여야 하니 다시 뒤집음
 
     const muteLookup = await getMuteLookup(userid)
@@ -53,5 +56,5 @@ export default eventHandler(async (event) => {
         }
     }
 
-    return results
+    return { chats: results, hasMore }
 })
