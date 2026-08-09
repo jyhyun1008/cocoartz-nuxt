@@ -3,19 +3,24 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 
-const page = route.params.page as string
-const path = computed(() => `/${page}`)
+// ⚠️ computed로 둬야 함 — 같은 페이지 컴포넌트로 매핑되는 라우트끼리(예: /free → /notice)는
+// Vue Router가 컴포넌트 인스턴스를 재사용하고 <script setup>을 다시 안 돌림. 예전엔 이걸 그냥
+// const로 route.params.page를 한 번만 읽어서, 사이드바에서 다른 채널로 넘어가도(주소창은
+// 바뀌지만) path/roomData가 계속 처음 들어왔을 때의 채널로 고정돼있는 버그가 있었음
+// (@[username].vue에도 완전히 같은 버그가 있어서 같이 고침).
+const page = computed(() => route.params.page as string)
+const path = computed(() => `/${page.value}`)
 
 const { server, slug, accent, bgaccent, accentFgRgb } = await useServer()
 
 const { data: roomData } = await useAsyncData(
-    `room-data-${page}`,
+    'room-data',
     () => $fetch<any[]>(`${apiBaseUrl}/api/getRoomByPath`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `/${page}` }),
+        body: JSON.stringify({ path: path.value }),
     }).then(res => (Array.isArray(res) && res.length > 0 ? res[0] : null)),
-    { watch: [() => route.params.page] }
+    { watch: [page] }
 )
 
 const roomType = computed(() => roomData.value?.type ?? 'room')

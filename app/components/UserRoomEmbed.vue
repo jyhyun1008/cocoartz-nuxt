@@ -300,10 +300,12 @@ const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrent
 const { getAvatarPartImage } = useAvatarPartCatalog()
 const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage))
 
-// 방 주인 아바타(!isOwn일 때만 렌더) — 스폰 지점에서 대각선으로 0.5칸 띄워서 방문자 스폰
-// 위치랑 겹치지 않게 함. 정지 상태라 topZAt/충돌판정 없이 스폰 지점의 층(z)을 그대로 씀
+// 방 주인 아바타(!isOwn일 때만 렌더) — 스폰 지점에서 대각선으로 0.5칸(타일 좌표 기준) 띄워서
+// 방문자 스폰 위치랑 겹치지 않게 함. 정지 상태라 topZAt/충돌판정 없이 스폰 지점의 층(z)을 그대로 씀.
+// ⚠️ mapSpawn은 타일 좌표라서(useIsoMap.ts의 tileToLocal 주석 참고) 그대로 캐릭터 위치(로컬
+// 좌표)에 못 씀 — 오프셋을 타일 좌표 기준으로 먼저 더하고 나서 변환해야 함
 const ownerCharLayers = computed(() => getCharacterLayers(props.ownerCharacter, getAvatarPartImage))
-const ownerPosition = computed(() => ({ x: mapSpawn.value.x + 0.5, y: mapSpawn.value.y - 0.5 }))
+const ownerPosition = computed(() => tileToLocal(mapSpawn.value.x + 0.5, mapSpawn.value.y - 0.5))
 const ownerCharZ = computed(() => mapSpawn.value.z)
 const ownerCharZIndex = computed(() => -4 * Math.round(ownerPosition.value.y) + 4 + 4 * ownerCharZ.value)
 
@@ -321,6 +323,10 @@ const position = { x: 0, y: 0 }
 // 보장되니, localStorage를 만지는 로직을 통째로 여기로 옮겨서 이 문제 자체를 없앰.
 function restorePosition(username) {
     if (!username) return
+    // ⚠️ mapSpawn(스폰 지점)은 타일 좌표라서 캐릭터 위치(로컬 좌표)에 그대로 못 씀 — 반드시
+    // tileToLocal로 변환해야 함(localStorage에 저장된 값은 이미 로컬 좌표라 변환이 필요 없음).
+    // 예전엔 이 변환이 빠져있어서, 원점이 아닌 자리에 스폰을 찍으면 캐릭터가 그리드랑 동떨어진
+    // 엉뚱한 자리에 나타났음(RoomMap.vue의 getSpawnPoint가 이미 겪었던 것과 같은 버그).
     try {
         const stored = localStorage.getItem(`ur-pos-${username}`)
         if (stored) {
@@ -328,12 +334,10 @@ function restorePosition(username) {
             position.x = parsed.x ?? 0
             position.y = parsed.y ?? 0
         } else {
-            position.x = mapSpawn.value.x
-            position.y = mapSpawn.value.y
+            Object.assign(position, tileToLocal(mapSpawn.value.x, mapSpawn.value.y))
         }
     } catch {
-        position.x = mapSpawn.value.x
-        position.y = mapSpawn.value.y
+        Object.assign(position, tileToLocal(mapSpawn.value.x, mapSpawn.value.y))
     }
     localPosition.value = { ...position }
     charDepth.value = -position.y + 2

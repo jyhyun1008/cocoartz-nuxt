@@ -7,15 +7,21 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
 
-const username = route.params.username
+// ⚠️ computed로 둬야 함 — 같은 페이지 컴포넌트로 매핑되는 라우트끼리(예: /@alice → /@bob)는
+// Vue Router가 컴포넌트 인스턴스를 재사용하고 <script setup>을 다시 안 돌림. 예전엔 이걸 그냥
+// const로 route.params.username을 한 번만 읽어서, 프로필 링크를 타고 다른 유저 프로필로
+// 넘어가도(주소창은 바뀌지만) useAsyncData의 키/body가 계속 처음 들어왔을 때의 username을
+// 써서 실제로는 항상 같은(맨 처음 봤던) 프로필 데이터만 다시 불러오는 버그가 있었음 —
+// 그래서 남의 프로필 URL인데 내 방이 그대로 보이고 편집(꾸미기)까지 가능해 보였음.
+const username = computed(() => route.params.username)
 
 const { data: userData, refresh } = await useAsyncData(
-    `user-profile-${username}`,
+    'user-profile',
     () => $fetch(`${apiBaseUrl}/api/getUserProfile`, {
         method: 'POST',
-        body: { username, viewerUserId: userId.value },
+        body: { username: username.value, viewerUserId: userId.value },
     }),
-    { watch: [() => route.params.username] }
+    { watch: [username] }
 )
 
 if (!userData.value) {
@@ -34,7 +40,7 @@ async function toggleFollow() {
         const endpoint = (userData.value?.isFollowing || userData.value?.isFollowRequested) ? 'unfollowUser' : 'followUser'
         await $fetch(`${apiBaseUrl}/api/${endpoint}`, {
             method: 'POST',
-            body: { userid: userId.value, targetUsername: username },
+            body: { userid: userId.value, targetUsername: username.value },
         })
         await refresh()
     } finally {
@@ -225,7 +231,7 @@ async function loadFollowList() {
     try {
         followListItems.value = await $fetch(`${apiBaseUrl}/api/getFollowList`, {
             method: 'POST',
-            body: { username, type: followListType.value },
+            body: { username: username.value, type: followListType.value },
         })
     } finally {
         followListLoading.value = false

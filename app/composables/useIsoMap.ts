@@ -6,6 +6,20 @@
 export const TILE_W = 128
 export const TILE_IMG_H = 128
 
+// 스폰 지점처럼 "타일 좌표"(tx,ty — WindowMapEditor.vue 그리드의 정수 인덱스, mapInfo[2]에
+// 저장되는 값)로 저장된 값을, 캐릭터가 실제로 쓰는 "로컬 좌표"(RoomMap.vue의 position.x/y,
+// CharacterMoving.vue/OtherCharacter.vue의 localX/localY)로 바꿔주는 변환식.
+//   타일 화면 위치: screenX=(tx-ty)*TILE_W/2, screenY=(tx+ty)*dynH/2
+//   캐릭터 화면 위치: screenX=localX*TILE_W/4, screenY=-localY*dynH/2
+// 두 식이 같은 화면 좌표를 가리키도록 풀면 localX=2*(tx-ty), localY=-(tx+ty) — 두 좌표계가
+// 스케일도 부호도 달라서(예: 타일 (3,3)은 로컬 (0,-6)) 절대 그대로 대입하면 안 됨.
+// RoomMap.vue에만 이 변환(옛 getSpawnPoint)이 있고 UserRoomEmbed.vue는 스폰 좌표를 그대로
+// 캐릭터 위치에 대입해서, 개인 방 스폰 지점을 원점이 아닌 곳으로 찍으면 캐릭터가 그리드랑
+// 동떨어진 엉뚱한 자리에 나타나는 버그가 있었음 — 이제 한 군데서만 계산해서 그 문제를 막음.
+export function tileToLocal(tx, ty) {
+    return { x: 2 * (tx - ty), y: -(tx + ty) }
+}
+
 // 줌 레벨(0.3~2.5 정도) → topRatio(1/3~0.9, 타일이 "위에서 내려다보는" 정도). 값 자체는 여러 튜닝을
 // 거친 결과라 그대로 유지 — 줌인할수록 topRatio가 작아져서(=옆면이 더 보여서) 정면에 가까워지고,
 // 줌아웃할수록 topRatio가 커져서(=윗면이 더 보여서) 위에서 내려다보는 것에 가까워짐

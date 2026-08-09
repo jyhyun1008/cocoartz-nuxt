@@ -3,19 +3,22 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 
-const page = route.params.page as string
+// ⚠️ computed로 둬야 함 — [page]/index.vue와 같은 이유(같은 페이지 컴포넌트로 매핑되는 라우트끼리는
+// Vue Router가 인스턴스를 재사용해서 <script setup>이 다시 안 돎 — 그쪽 주석 참고)
+const page = computed(() => route.params.page as string)
 const wikiSlug = computed(() => (route.params.slug as string) ?? '')
-const path = computed(() => `/${page}`)
+const path = computed(() => `/${page.value}`)
 
 const { server, slug, accent, bgaccent, accentFgRgb } = await useServer()
 
 const { data: roomData } = await useAsyncData(
-    `room-data-${page}`,
+    'room-data',
     () => $fetch<any[]>(`${apiBaseUrl}/api/getRoomByPath`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `/${page}` }),
+        body: JSON.stringify({ path: path.value }),
     }).then(res => (Array.isArray(res) && res.length > 0 ? res[0] : null)),
+    { watch: [page] },
 )
 
 const roomType = computed(() => roomData.value?.type ?? 'wiki')
