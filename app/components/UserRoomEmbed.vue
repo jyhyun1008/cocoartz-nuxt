@@ -2,6 +2,7 @@
     <div
         id="ure-container"
         :class="{ 'edit-active': isEditMode }"
+        :style="mapBgStyle"
         ref="containerRef"
     >
         <!-- 맵 편집기(WindowMapEditor.vue)는 채널 맵 편집이랑 완전히 같은 컴포넌트를 그대로 씀 —
@@ -226,6 +227,9 @@ const mapInfo = computed(() => {
 const displayTiles = computed(() => mapInfo.value?.[0] ?? [])
 // 예전 개인 방 맵은 [tiles] 1칸짜리라 mapInfo[1]이 없을 수 있음 — 그럴 땐 그냥 빈 배열(아이템 없음)
 const mapItems = computed(() => mapInfo.value?.[1] ?? [])
+// 개인 방 배경 — RoomMap.vue와 같은 방식(mapInfo[3]을 실제 이미지로 풀어서 #ure-container에 씀)
+const { getMapBackgroundImage } = useMapBackgroundCatalog()
+const mapBgStyle = computed(() => ({ backgroundImage: `url(${getMapBackgroundImage(mapInfo.value?.[3])})` }))
 // 방 주인이 WindowMapEditor.vue에서 지정한 스폰 지점 — [tiles, items] 2칸짜리(스폰 지점 개념
 // 추가 전에 저장된 개인 방 맵)까지 하위호환으로 없으면 원점(0,0)으로
 const mapSpawn = computed(() => {
@@ -570,6 +574,9 @@ onMounted(() => {
     border-radius: 12px;
     overflow: hidden;
     background-color: var(--mapbg, #888);
+    /* 실제 이미지는 mapBgStyle(:style 바인딩)에서 결정 — 여기선 폴백 바탕색과 cover 방식만 고정 */
+    background-size: cover;
+    background-position: center;
     --char-width: 100%;
     --char-height: 300px;
 }

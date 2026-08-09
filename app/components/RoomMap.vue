@@ -1,5 +1,5 @@
 <template>
-    <div id="map-wrapper">
+    <div id="map-wrapper" :style="mapBgStyle">
         <!-- 다른 기기/탭에서 새로 접속했거나 관리자 조치로 연결이 끊겼을 때 — 그냥 조용히
              멈춰있으면 왜 안 움직이는지 알 수 없으니 이유를 알려주고, 원하면 이 탭에서 다시
              이어갈 수 있게 버튼을 둠(이 경우 반대로 다른 쪽이 밀려남) -->
@@ -468,6 +468,15 @@ const mapInfo = computed(() => {
     const rawMap = roomData.value?.map
     if (!rawMap) return null
     return isJSON(rawMap) ? JSON.parse(rawMap) : rawMap
+})
+
+// 맵 전체에 까는 배경 — mapInfo[3]에 저장된 배경 아이템 itemKey를 실제 이미지로 풀어서
+// #map-wrapper의 background-image로 씀(고른 적 없으면 카탈로그 쪽에서 기본 mapbg.png로 폴백).
+// 문자열 타입(레거시) 맵은 그 자체가 배경 이미지라 여기 관여 안 함
+const { getMapBackgroundImage } = useMapBackgroundCatalog()
+const mapBgStyle = computed(() => {
+    if (mapType.value === 'string') return {}
+    return { backgroundImage: `url(${getMapBackgroundImage(mapInfo.value?.[3])})` }
 })
 
 // 방에 처음 들어올 때 서는 위치 — 맵 편집기(WindowMapEditor.vue)에서 지정한 스폰 지점
@@ -1403,6 +1412,10 @@ onMounted(() => {
     right: 0;
     overflow: hidden;
     background-color: var(--mapbg);
+    /* 실제 이미지 URL은 mapBgStyle(:style 바인딩)에서 결정 — 여기선 이미지가 로딩되기 전/실패
+       했을 때의 바탕색과 cover 방식만 고정 CSS로 둠 */
+    background-size: cover;
+    background-position: center;
     touch-action: pan-x pan-y;
 }
 

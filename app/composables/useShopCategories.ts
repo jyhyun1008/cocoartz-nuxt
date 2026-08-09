@@ -13,6 +13,7 @@ export function useShopCategories() {
     const itemSubTabs = [
         { id: 'terrain', label: '지형' },
         { id: 'map_item', label: '맵 아이템' },
+        { id: 'map_background', label: '맵 배경' },
         { id: 'functional', label: '기능 아이템' },
         { id: 'consumable', label: '소모품' },
     ]

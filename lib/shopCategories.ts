@@ -5,9 +5,11 @@
 // Could not resolve ".../shared/utils/shopCategories.ts") — 그래서 auto-import 스캔 대상이 아닌
 // 이 위치(프로젝트 루트 lib/)로 옮기고 항상 명시적으로 import하는 쪽으로 정리함.
 //
-// 아바타 파츠(avatar_*)와 terrain은 "있다/없다"만 의미가 있어서 제외 — 캐릭터에 장착하거나 맵
-// 한 칸에 심는 지형이라 여러 개 들고 있을 이유가 없음. 나머지(map_item/functional/consumable)는
-// 여러 개 놓거나(맵 아이템), 여러 번 쓰거나(기능/소모품) 할 수 있어서 개수를 세야 함
+// 아바타 파츠(avatar_*)와 terrain, map_background는 "있다/없다"만 의미가 있어서 제외 — 캐릭터에
+// 장착하거나 맵 한 칸에 심는 지형, 맵 전체에 까는 배경이라 여러 개 들고 있을 이유가 없음(방 하나엔
+// 배경이 하나만 적용됨 — terrain과 완전히 같은 "소유하면 골라 쓸 수 있는" 성격). 나머지(map_item/
+// functional/consumable)는 여러 개 놓거나(맵 아이템), 여러 번 쓰거나(기능/소모품) 할 수 있어서
+// 개수를 세야 함
 export const STACKABLE_CATEGORIES = ['map_item', 'functional', 'consumable']
 
 export function isStackableCategory(category: string): boolean {
@@ -18,7 +20,7 @@ export function isStackableCategory(category: string): boolean {
 // app/composables/useCharacter.ts CHARACTER_PARTS와 값이 같아야 함(그쪽은 앱 전용 composable이라
 // 여기 서버에서 직접 import를 못 해서 이름만 그대로 다시 나열함 — 파츠 종류가 바뀌면 둘 다 손볼 것)
 export const AVATAR_CATEGORIES = ['avatar_body', 'avatar_shoes', 'avatar_bottom', 'avatar_top', 'avatar_face', 'avatar_hair']
-export const ITEM_CATEGORIES = ['terrain', 'map_item', 'functional', 'consumable']
+export const ITEM_CATEGORIES = ['terrain', 'map_item', 'functional', 'consumable', 'map_background']
 export const ALL_CATEGORIES = [...AVATAR_CATEGORIES, ...ITEM_CATEGORIES]
 
 export function isValidCategory(category: string): boolean {

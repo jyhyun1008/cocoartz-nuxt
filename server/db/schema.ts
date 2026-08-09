@@ -448,11 +448,12 @@ export const currencyBalances = pgTable('currency_balances', {
 export const items = pgTable('items', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     // 'avatar_hair' | 'avatar_top' | 'avatar_bottom' | 'avatar_shoes' | 'avatar_face' | 'avatar_body'
-    // | 'terrain' | 'map_item' | 'functional' | 'consumable'
+    // | 'terrain' | 'map_item' | 'functional' | 'consumable' | 'map_background'
     category: text().notNull(),
     // 카테고리별로 다른 값을 가리킴 — avatar_*: useCharacter.ts CHARACTER_PARTS의 variant 번호,
-    // terrain: 타일셋 이미지 인덱스, map_item: useItemCatalog.ts ITEM_CATALOG의 id. functional/
-    // consumable은 아직 렌더링 코드가 없어서(농사 시스템에서 나중에 정의) 자유 형식 문자열로 둠
+    // terrain: 타일셋 이미지 인덱스, map_item: useItemCatalog.ts ITEM_CATALOG의 id, map_background:
+    // useMapBackgroundCatalog.ts가 참조하는 자유 문자열 키. functional/consumable은 아직 렌더링
+    // 코드가 없어서(농사 시스템에서 나중에 정의) 자유 형식 문자열로 둠
     itemKey: text().notNull(),
     name: text().notNull(),
     description: text(),

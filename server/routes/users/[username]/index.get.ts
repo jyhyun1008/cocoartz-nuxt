@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
         name: user.knownas || user.username,
         summary: user.bio,
         avatar: user.avatar,
+        banner: user.banner,
         publicKey: actor.publicKey,
     })
 })

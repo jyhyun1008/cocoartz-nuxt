@@ -29,6 +29,7 @@ export async function publishProfileUpdate(userid: number, domain: string) {
         name: author.knownas || author.username,
         summary: author.bio,
         avatar: author.avatar,
+        banner: author.banner,
         publicKey: actor.publicKey,
     })
     const activity = buildUpdateActivity(domain, author.username, actorObject)

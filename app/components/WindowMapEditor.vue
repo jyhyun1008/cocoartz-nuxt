@@ -2,7 +2,7 @@
     <div
         id="wme-container"
         ref="containerRef"
-        :style="{ cursor: isDragging ? 'grabbing' : 'default' }"
+        :style="{ cursor: isDragging ? 'grabbing' : 'default', ...wmeBgStyle }"
         @mousedown="onPanStart"
         @mousemove="onPanMove"
         @mouseup="onPanEnd"
@@ -231,6 +231,32 @@
                 </template>
             </template>
 
+            <!-- 맵 전체 배경 — 타일/아이템처럼 지도를 클릭해서 놓는 게 아니라 방 하나에 하나만
+                 적용되는 값이라, placementMode와 무관하게 항상 보이는 자리에 따로 둠. 클릭하는
+                 즉시(저장 전에도) #wme-container 미리보기에 바로 반영됨(wmeBgStyle 참고) -->
+            <div class="palette-label">배경</div>
+            <div class="palette-tiles-row">
+                <div
+                    class="palette-tile-btn"
+                    :class="{ active: !editBackground }"
+                    title="기본 배경"
+                    @click="editBackground = null"
+                ><i class="hgi hgi-stroke hgi-image-02"></i></div>
+                <div
+                    v-for="bg in paletteBackgrounds"
+                    :key="bg.itemKey"
+                    class="palette-tile-btn"
+                    :class="{ active: editBackground === bg.itemKey }"
+                    :title="bg.name"
+                    @click="editBackground = bg.itemKey"
+                >
+                    <img :src="bg.icon" />
+                </div>
+            </div>
+            <p v-if="isUserMode && !paletteBackgrounds.length" class="palette-hint">
+                보유한 맵 배경이 없어요 — 상점에서 사면 여기 떠요.
+            </p>
+
             <div class="palette-actions">
                 <button class="palette-cancel-btn" @click="$emit('cancel')">취소</button>
                 <button class="palette-save-btn" :disabled="isSaving" @click="saveMap">
@@ -340,6 +366,16 @@ const paletteTileIds = computed(() => {
         .filter(Number.isFinite)
 })
 
+// 맵 전체 배경도 지형/맵 아이템과 완전히 같은 원리 — 방(관리자)은 등록된 전체, 개인 방은 보유한
+// 것만, defaultTemplate은 기본 지급만 팔레트에 보여줌. terrain과 달리 itemKey가 자유 문자열이라
+// Number() 변환 없이 그대로 씀
+const paletteBackgrounds = computed(() => {
+    const rows = (shopCatalogData.value ?? []).filter(r => r.category === 'map_background')
+    return rows
+        .filter(r => props.defaultTemplate ? r.isDefault : (isUserMode.value ? r.owned > 0 : true))
+        .map(r => ({ itemKey: r.itemKey, name: r.name, icon: r.icon }))
+})
+
 // 아이템 팔레트 썸네일: layers[0] 한 장만 보여주면 실제로 배치했을 때 모양(6장 겹친 스택)이랑
 // 달라 보여서 헷갈리니까, 작은 버튼 안에서도 대충 같은 방향으로 살짝씩 겹쳐 쌓아 미리보기를 만듦.
 // MapItem.vue처럼 줌에 따른 정밀한 squash/gap 계산은 필요 없음(아이콘이 작아서 티도 안 남) —
@@ -425,6 +461,13 @@ const containerRef = ref(null)
 // 하드코딩 기본값과 동일해서 이 필드가 없는 옛날 맵도 그대로 이전과 똑같이 동작함)
 const editSpawn = ref({ x: 0, y: 0, z: 0 })
 
+// 맵 전체 배경 아이템의 itemKey — mapInfo(JSON)의 [tiles, items, spawn, background] 중 네 번째
+// 자리에 저장. null이면 useMapBackgroundCatalog.ts가 기본값(public/mapbg.png)으로 풀어줌
+const editBackground = ref(null)
+const { getMapBackgroundImage } = useMapBackgroundCatalog()
+// 저장하기 전에도 지금 고른 배경이 바로 보이도록 라이브 프리뷰(#wme-container에 바인딩)
+const wmeBgStyle = computed(() => ({ backgroundImage: `url(${getMapBackgroundImage(editBackground.value)})` }))
+
 // ─── 배치된 아이템 선택/편집 ('select' 모드에서만 동작, 타일에는 영향 없음) ──────
 const selectedEditIndex = ref(null)
 const movePending = ref(false)
@@ -503,11 +546,10 @@ function handleCellClick(x, y) {
 async function saveMap() {
     isSaving.value = true
     try {
-        // 스폰 지점은 방/개인 방 둘 다 씀(누군가 이 공간에 처음 들어올 때 서는 자리라는 의미는
-        // 똑같음) — 항상 3칸([tiles, items, spawn])으로 저장. saveUserMap.ts는 예전에 [tiles] 1칸,
-        // 그다음 [tiles, items] 2칸짜리로 저장돼있던 개인 방도 없는 자리를 그냥 기본값으로 채워서
-        // 읽으니 하위호환 걱정 없음.
-        const mapJson = JSON.stringify([editTiles.value, editItems.value, editSpawn.value])
+        // 스폰 지점/배경은 방/개인 방 둘 다 씀 — 항상 4칸([tiles, items, spawn, background])으로
+        // 저장. saveUserMap.ts는 예전에 [tiles] 1칸, [tiles, items] 2칸, [tiles, items, spawn] 3칸
+        // 짜리로 저장돼있던 개인 방도 없는 자리를 그냥 기본값으로 채워서 읽으니 하위호환 걱정 없음.
+        const mapJson = JSON.stringify([editTiles.value, editItems.value, editSpawn.value, editBackground.value])
 
         if (props.roomId != null) {
             await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
@@ -578,6 +620,7 @@ onMounted(() => {
     editSpawn.value = savedSpawn && typeof savedSpawn.x === 'number' && typeof savedSpawn.y === 'number'
         ? { x: savedSpawn.x, y: savedSpawn.y, z: savedSpawn.z ?? 0 }
         : { x: 0, y: 0, z: 0 }
+    editBackground.value = mapInfo.value?.[3] ?? null
 
     // 초기 panY: 그리드 중앙이 화면 중앙에 오도록 계산
     // tile (cx,cy) 중심 screen_y = panY + H/2 + screenY*z  (screenY = (cx+cy)*(dynH/2))
@@ -685,6 +728,10 @@ onMounted(() => {
     border-radius: 10px;
     overflow: hidden;
     background-color: var(--mapbg, #888);
+    /* 실제 이미지는 wmeBgStyle(:style 바인딩, editBackground 라이브 미리보기)에서 결정 — 여기선
+       폴백 바탕색과 cover 방식만 고정 */
+    background-size: cover;
+    background-position: center;
     --char-width: 100%;
     --char-height: 100%;
     user-select: none;

@@ -42,6 +42,9 @@ export function buildActorObject(domain: string, actor: {
     name: string
     summary?: string | null
     avatar?: string | null
+    // 프로필 배너/헤더 이미지 — AP Person 객체의 image 필드(icon=아바타와 별개). 예전엔 이
+    // 필드 자체가 없어서 배너를 올려도 다른 서버(마스토돈 등)에는 전혀 안 나갔음
+    banner?: string | null
     publicKey: string
     type?: 'Person' | 'Service'
 }) {
@@ -58,6 +61,7 @@ export function buildActorObject(domain: string, actor: {
         outbox: `${base}/outbox`,
         followers: `${base}/followers`,
         ...(actor.avatar ? { icon: { type: 'Image', url: actor.avatar } } : {}),
+        ...(actor.banner ? { image: { type: 'Image', url: actor.banner } } : {}),
         publicKey: {
             id: `${base}#main-key`,
             owner: base,
