@@ -299,27 +299,43 @@ function availableCount(id) {
     return (ownedCounts.value.get(id) ?? 0) - (placedCounts.value.get(id) ?? 0)
 }
 
-// 팔레트에 실제로 보여줄 아이템 — 개인 방은 하나라도 가진 것만, 방은 카탈로그 전체
+// defaultTemplate 모드(관리자가 꾸미는 "가입 시 기본 방")는 카탈로그 전체가 아니라 '가입 시 기본
+// 지급'(items.isDefault) 아이템/지형으로만 팔레트를 제한함 — 그 외 아이템을 여기 놓아두면, 그
+// 아이템을 실제로 가진 적 없는 신규 유저가 자기 방을 조금이라도 고쳐 저장하려는 순간
+// saveUserMap.ts의 보유 개수 검증에 걸려 저장 자체가 거부돼버림(관리자 눈엔 멀쩡해 보이는데
+// 유저는 방을 못 고치는 상황이 됨)
+const { data: shopCatalogData } = await useAsyncData(
+    // roomId 모드/다른 userId/defaultTemplate 사이를 오갈 때 캐시가 안 섞이게 대상을 키에 포함시킴
+    `map-editor-shop-catalog-${props.userId ?? (props.defaultTemplate ? 'default-template' : 'room')}`,
+    () => $fetch(`${apiBaseUrl}/api/getShopCatalog`, { method: 'POST', body: { userid: props.userId ?? undefined } })
+        .catch(() => []),
+)
+
+// 팔레트에 실제로 보여줄 아이템 — 개인 방은 하나라도 가진 것만, defaultTemplate은 기본 지급만,
+// 방(관리자, roomId 모드)은 카탈로그 전체
 const paletteItems = computed(() => {
+    if (props.defaultTemplate) {
+        const defaultIds = new Set(
+            (shopCatalogData.value ?? [])
+                .filter(r => r.category === 'map_item' && r.isDefault)
+                .map(r => Number(r.itemKey))
+                .filter(Number.isFinite),
+        )
+        return ITEM_CATALOG.value.filter(def => defaultIds.has(def.id))
+    }
     if (!isUserMode.value) return ITEM_CATALOG.value
     return ITEM_CATALOG.value.filter(def => (ownedCounts.value.get(def.id) ?? 0) > 0)
 })
 
 // 지형(타일)도 맵 아이템이랑 같은 원리 — 아바타 기본 파츠처럼 기본 지형 5종도 전부 items 테이블에
 // isDefault:true로 등록돼있어서(server/db/seedShopItems.ts) 하드코딩된 목록이 따로 없음. 개인 방은
-// 상점(getShopCatalog)에서 보유한 지형만, 방(관리자)은 등록된 전체를 팔레트에 보여줌 — 그래서 새
-// 기본/특수 지형을 추가하고 싶으면 코드를 안 고치고 관리자 페이지에서 등록하기만 하면 됨. 지형은
-// 아바타 파츠처럼 "있다/없다"만 의미가 있어서 개수 배지는 따로 안 둠.
-const { data: terrainCatalogData } = await useAsyncData(
-    `map-editor-terrain-catalog-${props.userId ?? 'room'}`,
-    () => $fetch(`${apiBaseUrl}/api/getShopCatalog`, { method: 'POST', body: { userid: props.userId ?? undefined } })
-        .then(rows => rows.filter(r => r.category === 'terrain'))
-        .catch(() => []),
-)
+// 보유한 지형만, defaultTemplate은 기본 지급 지형만, 방(관리자)은 등록된 전체를 팔레트에 보여줌 —
+// 그래서 새 기본/특수 지형을 추가하고 싶으면 코드를 안 고치고 관리자 페이지에서 등록하기만 하면 됨.
+// 지형은 아바타 파츠처럼 "있다/없다"만 의미가 있어서 개수 배지는 따로 안 둠.
 const paletteTileIds = computed(() => {
-    const terrainRows = terrainCatalogData.value ?? []
+    const terrainRows = (shopCatalogData.value ?? []).filter(r => r.category === 'terrain')
     return terrainRows
-        .filter(r => isUserMode.value ? r.owned > 0 : true)
+        .filter(r => props.defaultTemplate ? r.isDefault : (isUserMode.value ? r.owned > 0 : true))
         .map(r => Number(r.itemKey))
         .filter(Number.isFinite)
 })
