@@ -3,7 +3,7 @@
         <Transition name="bubble-fade">
             <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
-        <div class="oc-body" :style="bodyStyle">
+        <div class="oc-body" :style="bodyStyle" @click.stop="$emit('avatar-click')">
             <div class="oc-slice-top">
                 <img
                     v-for="layer in layers"
@@ -23,7 +23,7 @@
                 />
             </div>
         </div>
-        <span class="other-user-name">{{ name }}</span>
+        <span class="other-user-name" @click.stop="$emit('avatar-click')">{{ name }}</span>
     </div>
 </template>
 
@@ -53,6 +53,10 @@ const props = defineProps({
     // jumping(boolean)과 달리 계속 켜져있는 상태가 아니라 "한 번 튀는" 신호라 이 방식으로 받음
     jumpPulse: { type: Number, default: null },
 })
+
+// 아바타 몸통/닉네임을 클릭하면 부모(RoomMap.vue)에 알려서 프로필 카드를 띄우게 함 — userId만
+// 갖고 있어서(전체 유저 데이터는 부모 쪽 otherUsersInRoom에 있음) 실제 카드 오픈은 부모가 처리
+defineEmits(['avatar-click'])
 
 const { bubbles } = useSpeechBubbles()
 const bubbleText = computed(() => props.userId != null ? bubbles.value[props.userId]?.text : null)
@@ -202,6 +206,10 @@ onUnmounted(() => {
     width: 128px;
     display: flex;
     flex-direction: column;
+    /* .oc-wrapper가 pointer-events:none이라(맵 클릭을 가리지 않으려고) 기본적으로는 자손도 다
+       클릭이 안 먹음 — 프로필 카드를 띄우는 몸통/닉네임만 명시적으로 다시 켜줌 */
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 /* @keyframes jump-hop은 CharacterMoving.vue에 정의돼 있음 — 이 파일도 전역 스타일로 번들되니

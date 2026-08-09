@@ -9,7 +9,7 @@
                     <span>{{ homeRoomName }}</span>
                 </div>
                 <div v-if="roomPresence(fullPath).length" class="side-presence">
-                    <div v-for="u in roomPresence(fullPath)" :key="u.userId" class="presence-user">
+                    <div v-for="u in roomPresence(fullPath)" :key="u.userId" class="presence-user" @click.stop.prevent="openProfileCard(u.user)">
                         <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
                         <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
                         <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
@@ -22,7 +22,7 @@
                     <span>{{ notiRoomName }}</span>
                 </div>
                 <div v-if="roomPresence(notiPath).length" class="side-presence">
-                    <div v-for="u in roomPresence(notiPath)" :key="u.userId" class="presence-user">
+                    <div v-for="u in roomPresence(notiPath)" :key="u.userId" class="presence-user" @click.stop.prevent="openProfileCard(u.user)">
                         <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
                         <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
                         <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
@@ -56,6 +56,7 @@
                             v-for="u in roomPresence(pageitem.path)"
                             :key="u.userId"
                             class="presence-user"
+                            @click.stop.prevent="openProfileCard(u.user)"
                         >
                             <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
                             <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
@@ -66,6 +67,12 @@
             </template>
         </div>
     </div>
+
+    <!-- 접속중인 유저 클릭 시 뜨는 프로필 카드 — RoomMap.vue(맵 위 다른 유저 아바타)도 같은
+         useProfileCard() 상태를 공유해서 열 수 있음. 이 컴포넌트가 항상 같이 뜨는
+         ([page]/index.vue, [page]/[slug].vue 둘 다 ServerSidebar+RoomMap을 나란히 렌더함) 자리라
+         여기 한 군데에만 마운트해서 팝업이 중복으로 안 뜨게 함 -->
+    <UserProfileCard />
 </template>
 
 <script setup lang="ts">
@@ -80,6 +87,7 @@ const props = defineProps({
 
 const { presenceByRoom } = useRoomSocket()
 const { isOpen, close } = useMobileNav()
+const { openProfileCard } = useProfileCard()
 // 개인 타임라인은 settings.vue처럼 마을(path='/')을 배경으로 재사용해서 props.path만으로는
 // 구분이 안 됨 — 실제 주소(route.path)로 현재 페이지인지 판단해야 함
 const route = useRoute()
@@ -198,7 +206,9 @@ const notiPath = '/noti'
     display: flex;
     align-items: center;
     gap: 6px;
+    cursor: pointer;
 }
+.presence-user:hover .presence-name { text-decoration: underline; }
 
 .presence-avatar {
     width: 20px;

@@ -87,6 +87,7 @@
                         :name="other.user?.knownas ?? other.user?.username ?? '?'"
                         :user-id="other.userId"
                         :jump-pulse="jumpPulses[other.userId]"
+                        @avatar-click="openProfileCard(other.user)"
                     />
                 </div>
             </div>
@@ -344,6 +345,9 @@ const props = defineProps({
 })
 
 const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditChat, deleteChat: wsDeleteChat, otherUsersInRoom, realtimeChats, jumpPulses, kickedReason, resumeConnection } = useRoomSocket()
+// 맵 위 다른 유저 아바타/닉네임을 클릭했을 때 뜨는 프로필 카드 — 실제 팝업은 ServerSidebar.vue에
+// 한 번만 마운트돼 있고 여긴 그 상태를 공유해서 열기만 함(useProfileCard.ts 참고)
+const { openProfileCard } = useProfileCard()
 
 const kickedMessage = computed(() => {
     if (kickedReason.value === 'duplicate_session') return '다른 기기나 탭에서 새로 접속해서 이 연결은 끊겼어요.'
@@ -1668,6 +1672,10 @@ onMounted(() => {
        이라 여전히 가려질 수 있음 — 말풍선(z-index:10001)과 같은 높이로 맞춰서 항상 앞에 오게 함 */
     position: relative;
     z-index: 10001;
+    /* .oc-wrapper가 pointer-events:none이라 기본적으로는 클릭이 안 먹음 — 프로필 카드를
+       띄우는 클릭 대상이라 명시적으로 다시 켜줌(OtherCharacter.vue의 .oc-body와 동일한 이유) */
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 /* 채팅 패널 - 작은 상태 */
