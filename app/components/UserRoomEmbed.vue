@@ -10,7 +10,7 @@
              아이템도 개인 방에 그대로 놓을 수 있음 — 예전엔 타일만 되던 부분이 이걸로 해결됨. -->
         <WindowMapEditor
             v-if="isEditMode"
-            :map-data="props.mapData"
+            :map-data="effectiveMapData"
             :user-id="props.ownUserId"
             @saved="onEditorSaved"
             @cancel="isEditMode = false"
@@ -122,6 +122,13 @@ const emit = defineEmits(['map-saved'])
 
 const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 
+// 이 유저가 자기 방을 한 번도 안 꾸며서 props.mapData가 null이면, 코드에 하드코딩된 6x6 기본 맵
+// 대신 관리자가 설정한 "가입 시 기본 방" 템플릿(관리자 설정 > 서버 정보 > 기본 개인 방)을 먼저
+// 씀 — 그 템플릿도 없으면 그제서야 buildDefaultMap()으로 감. useServer()는 'server-data' 키로
+// 캐시되니 페이지에서 이미 한 번 불러온 서버 데이터를 여기서 다시 fetch하지 않고 그대로 재사용함.
+const { server } = await useServer()
+const effectiveMapData = computed(() => props.mapData ?? server?.defaultUserMap ?? null)
+
 // ─── 편집 모드 ────────────────────────────────
 // 실제 편집 UI(타일/아이템 배치, 저장)는 전부 WindowMapEditor.vue로 위임함 — 여긴 그 결과를 받아서
 // 프로필 페이지 쪽에 그대로 다시 흘려보내는(map-saved) 역할만 함
@@ -212,8 +219,8 @@ function buildDefaultMap() {
 }
 
 const mapInfo = computed(() => {
-    if (!props.mapData) return buildDefaultMap()
-    try { return JSON.parse(props.mapData) } catch { return buildDefaultMap() }
+    if (!effectiveMapData.value) return buildDefaultMap()
+    try { return JSON.parse(effectiveMapData.value) } catch { return buildDefaultMap() }
 })
 
 const displayTiles = computed(() => mapInfo.value?.[0] ?? [])

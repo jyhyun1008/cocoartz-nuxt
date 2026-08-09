@@ -53,6 +53,12 @@ export const servers = pgTable('servers', {
     currencyName: text().default('코코아'),
     // 가입 완료 시 자동으로 지급하는 재화(server/api/auth/register.ts) — 0이면 지급 안 함
     signupBonus: integer().default(100).notNull(),
+    // 새로 가입한(혹은 아직 자기 방을 한 번도 안 꾸며서 users.map이 null인) 유저의 개인 방
+    // 기본 모습. null이면 UserRoomEmbed.vue/WindowMapEditor.vue에 하드코딩된 6x6 기본 맵을
+    // 대신 씀. 관리자 설정(WindowSettings.vue "서버 정보")에서 맵 편집기로 직접 꾸밀 수 있음 —
+    // saveDefaultUserMap.ts로 저장. 유저가 자기 방을 한 번이라도 저장하면 그 뒤로는 이 템플릿과
+    // 무관하게 본인 맵(users.map)을 씀.
+    defaultUserMap: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 

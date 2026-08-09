@@ -5,6 +5,7 @@
             <span v-if="view === 'list'">서버 설정 / 채널 관리</span>
             <span v-else-if="view === 'create'">새 채널 만들기</span>
             <span v-else-if="view === 'edit'">채널 편집</span>
+            <span v-else-if="view === 'map-edit' && defaultMapEdit">기본 개인 방 맵 편집</span>
             <span v-else-if="view === 'map-edit'">채널 맵 편집</span>
             <button v-if="view !== 'list'" class="back-btn-header" @click="view === 'map-edit' ? closeMapEdit() : (view = 'list')">← 뒤로</button>
             <button class="window-close-btn" @click="$emit('close')">✕</button>
@@ -75,6 +76,11 @@
                     <option value="approval">승인제 가입</option>
                     <option value="closed">가입 차단</option>
                 </select>
+
+                <label class="admin-label">기본 개인 방 <span class="admin-label-hint">가입 직후(혹은 아직 방을 한 번도 안 꾸민 유저)에게 보이는 방 모습</span></label>
+                <button class="admin-add-btn" style="margin-left:0;align-self:flex-start" @click="openDefaultMapEdit">
+                    <i class="hgi hgi-stroke hgi-map-01"></i> 맵 편집
+                </button>
 
                 <p v-if="serverError" class="admin-error">{{ serverError }}</p>
                 <button class="submit-btn" style="margin-top:8px;align-self:flex-start" @click="submitServerInfo" :disabled="serverSaving">
@@ -683,6 +689,16 @@
             />
         </div>
 
+        <!-- 기본 개인 방 템플릿 편집 -->
+        <div v-else-if="view === 'map-edit' && defaultMapEdit" id="settings-content">
+            <WindowMapEditor
+                :map-data="serverForm.defaultUserMap"
+                default-template
+                @saved="onMapSaved"
+                @cancel="closeMapEdit"
+            />
+        </div>
+
         <!-- 삭제 확인 모달 -->
         <div v-if="deleteTarget" class="admin-confirm-overlay" @click.self="deleteTarget = null">
             <div class="admin-confirm-box">
@@ -756,7 +772,7 @@ const { data: serverData, refresh: refreshServer } = await useAsyncData(
 )
 
 // 서버 정보 편집
-const serverForm = reactive({ title: '', themecolor: '#D21F3C', currencyName: '코코아', signupBonus: 100, info: '', avatar: '', registrationMode: 'open' })
+const serverForm = reactive({ title: '', themecolor: '#D21F3C', currencyName: '코코아', signupBonus: 100, info: '', avatar: '', registrationMode: 'open', defaultUserMap: null })
 const serverSaving = ref(false)
 const serverSaveMsg = ref('')
 const serverError = ref('')
@@ -772,6 +788,7 @@ watch(serverData, (data) => {
     serverForm.info = data.info ?? ''
     serverForm.avatar = data.avatar ?? ''
     serverForm.registrationMode = data.registrationMode ?? 'open'
+    serverForm.defaultUserMap = data.defaultUserMap ?? null
 }, { immediate: true })
 
 // 승인 대기 중인 가입 신청
@@ -1354,6 +1371,10 @@ const pinnedEdit = ref(false)
 const pinnedLoading = ref('')
 const pinnedError = ref('')
 
+// 가입 시 기본 방 템플릿 편집 — 특정 채널(room)이 아니라 servers.defaultUserMap 자체를 편집하는
+// 거라 editTarget/pinnedEdit(둘 다 rooms 테이블 대상)이랑 별개 플래그로 관리함
+const defaultMapEdit = ref(false)
+
 // 고정 페이지의 실제 현재 이름 — roomsData(getRoomsBySlug)에 이미 다 들어있어서 따로 fetch 안 함
 function findPinnedRoom(path) {
     return (roomsData.value ?? []).find((r) => r.path === path)
@@ -1509,6 +1530,14 @@ async function submitCreate() {
 }
 
 function onMapSaved(mapJson) {
+    if (defaultMapEdit.value) {
+        serverForm.defaultUserMap = mapJson
+        view.value = 'list'
+        // 이건 특정 room 경로가 아니라 servers 테이블 자체라 RoomMap.vue 캐시랑 무관함 —
+        // 새로고침 없이 그냥 서버 데이터만 다시 불러오면 됨
+        refreshServer()
+        return
+    }
     editTarget.value = { ...editTarget.value, map: mapJson }
     view.value = pinnedEdit.value ? 'list' : 'edit'
     // 실제 맵 화면(RoomMap.vue)은 방 경로별로 따로 캐싱된 데이터를 쓰기 때문에 여기서
@@ -1517,12 +1546,24 @@ function onMapSaved(mapJson) {
 }
 
 function closeMapEdit() {
+    if (defaultMapEdit.value) {
+        view.value = 'list'
+        return
+    }
     view.value = pinnedEdit.value ? 'list' : 'edit'
+}
+
+// 가입 시 기본 방 템플릿 편집 열기
+function openDefaultMapEdit() {
+    pinnedEdit.value = false
+    defaultMapEdit.value = true
+    view.value = 'map-edit'
 }
 
 // 채널 편집 폼 열기
 function openEdit(room) {
     pinnedEdit.value = false
+    defaultMapEdit.value = false
     editTarget.value = room
     form.knownas = room.knownas
     form.path = room.path
@@ -1544,6 +1585,7 @@ async function openPinnedMapEdit(pinned) {
             body: { userid: userId.value, ...pinned },
         })
         pinnedEdit.value = true
+        defaultMapEdit.value = false
         editTarget.value = room
         view.value = 'map-edit'
     } catch (e) {

@@ -243,13 +243,16 @@
 </template>
 
 <script setup>
-// 채널(방) 맵 편집과 개인 방 맵 편집을 하나의 컴포넌트로 통일해서 씀 — roomId를 주면 방 맵
-// (관리자 전용, admin/saveRoomMap + 스폰 지점 지원), userId를 주면 개인 방 맵(saveUserMap,
-// 스폰 지점 없음)을 편집함. 둘 중 정확히 하나만 넘길 것.
+// 채널(방) 맵 편집과 개인 방 맵 편집, 신규 유저 기본 방 템플릿 편집을 하나의 컴포넌트로 통일해서
+// 씀 — roomId를 주면 방 맵(관리자 전용, admin/saveRoomMap), userId를 주면 개인 방 맵(saveUserMap),
+// defaultTemplate을 true로 주면 관리자가 정하는 "가입 시 기본 방" 템플릿(admin/saveDefaultUserMap,
+// 특정 room/user에 안 묶이고 서버 설정 자체에 저장됨)을 편집함. roomId/userId/defaultTemplate 중
+// 정확히 하나만 넘길 것 — defaultTemplate은 userId를 안 줘서 관리자 방 모드처럼 팔레트 제한이 없음.
 const props = defineProps({
     mapData: { type: String, default: null },
     roomId: { type: Number, default: null },
     userId: { type: Number, default: null },
+    defaultTemplate: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['saved', 'cancel'])
@@ -494,6 +497,11 @@ async function saveMap() {
             await $fetch(`${apiBaseUrl}/api/admin/saveRoomMap`, {
                 method: 'POST',
                 body: { userid: currentUserId.value, id: props.roomId, map: mapJson },
+            })
+        } else if (props.defaultTemplate) {
+            await $fetch(`${apiBaseUrl}/api/admin/saveDefaultUserMap`, {
+                method: 'POST',
+                body: { userid: currentUserId.value, map: mapJson },
             })
         } else {
             await $fetch(`${apiBaseUrl}/api/saveUserMap`, {

@@ -48,8 +48,11 @@ async function toggleFollow() {
     }
 }
 
-// 뮤트 — 소프트/하드 두 개 중 하나만 켜져 있을 수 있음(같은 버튼 다시 누르면 해제)
+// 뮤트 — 소프트/하드 두 개 중 하나만 켜져 있을 수 있음(같은 버튼 다시 누르면 해제).
+// 버튼 두 개를 항상 펼쳐두면 모바일에서 팔로우 버튼까지 셋이 줄줄이 붙어 너무 커 보여서,
+// "..." 버튼 뒤 드롭다운으로 접어둠(RoomMap.vue/post/[postId].vue의 채팅·게시물 뮤트 메뉴와 같은 패턴)
 const muteLoading = ref(false)
+const muteMenuOpen = ref(false)
 async function toggleMute(level) {
     if (!userId.value || muteLoading.value) return
     muteLoading.value = true
@@ -68,8 +71,15 @@ async function toggleMute(level) {
         await refresh()
     } finally {
         muteLoading.value = false
+        muteMenuOpen.value = false
     }
 }
+
+onMounted(() => {
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.mute-action-wrap')) muteMenuOpen.value = false
+    })
+})
 
 const topLevelPosts = computed(() =>
     (userData.value?.posts ?? []).filter(p => !p.replyto)
@@ -292,21 +302,29 @@ function switchFollowListTab(type) {
                         >
                             {{ userData?.isFollowRequested ? '요청됨' : (userData?.isFollowing ? '팔로잉' : '팔로우') }}
                         </button>
-                        <div id="mute-btn-group">
+                        <div class="mute-action-wrap">
                             <button
-                                class="mute-btn"
-                                :class="{ active: userData?.myMuteLevel === 'soft' }"
-                                :disabled="muteLoading"
-                                title="소프트 뮤트 — 뮤트된 게시물입니다 게이트로 가림"
-                                @click="toggleMute('soft')"
-                            >소프트 뮤트</button>
-                            <button
-                                class="mute-btn"
-                                :class="{ active: userData?.myMuteLevel === 'hard' }"
-                                :disabled="muteLoading"
-                                title="하드 뮤트 — 아예 안 보임"
-                                @click="toggleMute('hard')"
-                            >하드 뮤트</button>
+                                class="mute-more-btn"
+                                :class="{ 'active-mute': userData?.myMuteLevel }"
+                                title="뮤트"
+                                @click.stop="muteMenuOpen = !muteMenuOpen"
+                            >
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
+                            </button>
+                            <div v-if="muteMenuOpen" class="mute-menu" @click.stop>
+                                <button
+                                    :class="{ active: userData?.myMuteLevel === 'soft' }"
+                                    :disabled="muteLoading"
+                                    title="뮤트된 게시물입니다 게이트로 가림"
+                                    @click="toggleMute('soft')"
+                                >소프트 뮤트</button>
+                                <button
+                                    :class="{ active: userData?.myMuteLevel === 'hard' }"
+                                    :disabled="muteLoading"
+                                    title="아예 안 보임"
+                                    @click="toggleMute('hard')"
+                                >하드 뮤트</button>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -703,30 +721,61 @@ function switchFollowListTab(type) {
     color: #ff6b6b;
 }
 
-#mute-btn-group {
-    display: flex;
-    gap: 4px;
+.mute-action-wrap {
+    position: relative;
     margin-bottom: 4px;
 }
 
-.mute-btn {
+.mute-more-btn {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: 1px solid rgba(var(--fg-rgb),0.15);
     color: rgba(var(--fg-rgb),0.5);
-    border-radius: 20px;
-    padding: 6px 12px;
-    font-size: 0.78rem;
-    font-family: inherit;
+    border-radius: 50%;
+    font-size: 0.95rem;
     cursor: pointer;
     transition: all 0.15s;
 }
-.mute-btn:hover { border-color: rgba(var(--fg-rgb),0.35); color: rgba(var(--fg-rgb),0.85); }
-.mute-btn:disabled { opacity: 0.5; cursor: default; }
-.mute-btn.active {
+.mute-more-btn:hover { border-color: rgba(var(--fg-rgb),0.35); color: rgba(var(--fg-rgb),0.85); }
+.mute-more-btn.active-mute {
     background: rgba(255,107,107,0.12);
     border-color: #ff6b6b;
     color: #ff6b6b;
 }
+
+.mute-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--surface-2);
+    border: 1px solid rgba(var(--fg-rgb),0.12);
+    border-radius: 8px;
+    box-shadow: var(--modal-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 20;
+    white-space: nowrap;
+}
+.mute-menu button {
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    color: rgba(var(--fg-rgb),0.75);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+}
+.mute-menu button:hover { background: rgba(var(--fg-rgb),0.07); }
+.mute-menu button:disabled { opacity: 0.5; cursor: default; }
+.mute-menu button.active { color: #ff6b6b; font-weight: 600; }
 
 /* 프로필 정보 */
 #profile-info {
