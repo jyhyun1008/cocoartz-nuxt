@@ -12,6 +12,9 @@ export default eventHandler(async () => {
 
     return rows.flatMap((row) => {
         if (!row.icon) return []
-        return [{ itemKey: row.itemKey, name: row.name, image: row.icon }]
+        // isDefault(가입 시 기본 지급 여부)도 같이 내려줌 — useMapBackgroundCatalog.ts가 이 값으로
+        // "아무것도 안 고른 맵의 기본 배경"을 찾음(관리자가 오브젝트 스토리지에 올린 이미지를
+        // map_background 아이템으로 등록하고 isDefault 체크만 켜두면 그게 그대로 기본 배경이 됨)
+        return [{ itemKey: row.itemKey, name: row.name, image: row.icon, isDefault: row.isDefault }]
     })
 })
