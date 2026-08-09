@@ -23,6 +23,14 @@ const { data: roomData } = await useAsyncData(
     }).then(res => (Array.isArray(res) && res.length > 0 ? res[0] : null)),
 )
 
+// 존재하지 않는 슬러그(주소창에 임의 문자열 입력 등)로 들어오면 roomData가 null인 채로 그냥
+// 기본 room 타입으로 렌더링되고 있었음 — @[username].vue/post/[postId].vue와 동일하게
+// 404로 처리함(@[username].vue의 route.params 관련 주석 참고 — SPA 내 이동이 아니라 첫 진입
+// 시점 기준으로 판단하는 것과 동일한 한계를 그대로 공유함)
+if (!roomData.value) {
+    throw createError({ statusCode: 404, message: '페이지를 찾을 수 없습니다' })
+}
+
 const roomType = computed(() => roomData.value?.type ?? 'room')
 </script>
 

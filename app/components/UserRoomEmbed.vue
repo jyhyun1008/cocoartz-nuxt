@@ -596,12 +596,15 @@ onMounted(() => {
     pointer-events: none;
 }
 
-/* 방 꾸미기 버튼 */
+/* 방 꾸미기 버튼 — z-index가 60000이나 되던 바람에, 프로필 페이지 상단에 고정된 헤더바
+   (@[username].vue의 #profile-nav, z-index:9999)보다도 앞에 떠서 스크롤 시 헤더 위로
+   button이 삐져나와 보이는 문제가 있었음. 이 임베드 안의 다른 오버레이(조이스틱/점프 버튼,
+   z-index:200)보다만 앞에 있으면 되므로 훨씬 작은 값으로 낮춤 */
 #ure-edit-btn {
     position: absolute;
     bottom: 10px;
     right: 10px;
-    z-index: 60000;
+    z-index: 300;
     background: rgba(20, 20, 28, 0.85);
     backdrop-filter: blur(6px);
     border: 1px solid rgba(255, 255, 255, 0.15);

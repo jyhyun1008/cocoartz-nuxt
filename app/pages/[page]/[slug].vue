@@ -21,6 +21,11 @@ const { data: roomData } = await useAsyncData(
     }).then(res => (Array.isArray(res) && res.length > 0 ? res[0] : null)),
 )
 
+// [page]/index.vue와 동일한 이유로 존재하지 않는 채널이면 404 처리
+if (!roomData.value) {
+    throw createError({ statusCode: 404, message: '페이지를 찾을 수 없습니다' })
+}
+
 const roomType = computed(() => roomData.value?.type ?? 'wiki')
 </script>
 
