@@ -15,14 +15,18 @@ export interface ProfileCardUser {
 
 export function useProfileCard() {
     const profileCardTarget = useState<ProfileCardUser | null>('profile-card-target', () => null)
+    // 클릭한 지점 근처에 카드를 띄우기 위한 좌표 — 화면 좌표(clientX/clientY) 그대로 저장해두고
+    // UserProfileCard.vue가 화면 밖으로 안 나가게 clamp해서 씀
+    const profileCardPos = useState<{ x: number; y: number }>('profile-card-pos', () => ({ x: 0, y: 0 }))
 
-    function openProfileCard(user: ProfileCardUser | null | undefined) {
+    function openProfileCard(user: ProfileCardUser | null | undefined, event?: MouseEvent | null) {
         if (!user?.username) return  // 손님(게스트)은 계정이 없어 username이 없음 — 카드 자체를 안 띄움
         profileCardTarget.value = { username: user.username, knownas: user.knownas ?? null, avatar: user.avatar ?? null }
+        if (event) profileCardPos.value = { x: event.clientX, y: event.clientY }
     }
     function closeProfileCard() {
         profileCardTarget.value = null
     }
 
-    return { profileCardTarget, openProfileCard, closeProfileCard }
+    return { profileCardTarget, profileCardPos, openProfileCard, closeProfileCard }
 }

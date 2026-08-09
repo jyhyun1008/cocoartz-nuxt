@@ -9,7 +9,7 @@
                     <span>{{ homeRoomName }}</span>
                 </div>
                 <div v-if="roomPresence(fullPath).length" class="side-presence">
-                    <div v-for="u in roomPresence(fullPath)" :key="u.userId" class="presence-user" @click.stop.prevent="openProfileCard(u.user)">
+                    <div v-for="u in roomPresence(fullPath)" :key="u.userId" class="presence-user" @click.stop.prevent="openProfileCard(u.user, $event)">
                         <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
                         <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
                         <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
@@ -22,7 +22,7 @@
                     <span>{{ notiRoomName }}</span>
                 </div>
                 <div v-if="roomPresence(notiPath).length" class="side-presence">
-                    <div v-for="u in roomPresence(notiPath)" :key="u.userId" class="presence-user" @click.stop.prevent="openProfileCard(u.user)">
+                    <div v-for="u in roomPresence(notiPath)" :key="u.userId" class="presence-user" @click.stop.prevent="openProfileCard(u.user, $event)">
                         <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
                         <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>
                         <span class="presence-name">{{ u.user?.knownas ?? u.user?.username ?? '?' }}</span>
@@ -56,7 +56,7 @@
                             v-for="u in roomPresence(pageitem.path)"
                             :key="u.userId"
                             class="presence-user"
-                            @click.stop.prevent="openProfileCard(u.user)"
+                            @click.stop.prevent="openProfileCard(u.user, $event)"
                         >
                             <NuxtImg v-if="u.user?.avatar" :src="u.user.avatar" class="presence-avatar" />
                             <div v-else class="presence-avatar presence-avatar-empty">{{ (u.user?.knownas ?? u.user?.username ?? '?')[0] }}</div>

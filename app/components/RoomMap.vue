@@ -87,7 +87,7 @@
                         :name="other.user?.knownas ?? other.user?.username ?? '?'"
                         :user-id="other.userId"
                         :jump-pulse="jumpPulses[other.userId]"
-                        @avatar-click="openProfileCard(other.user)"
+                        @avatar-click="openProfileCard(other.user, $event)"
                     />
                 </div>
             </div>

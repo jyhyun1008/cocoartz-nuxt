@@ -3,7 +3,7 @@
         <Transition name="bubble-fade">
             <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
-        <div class="oc-body" :style="bodyStyle" @click.stop="$emit('avatar-click')">
+        <div class="oc-body" :style="bodyStyle" @click.stop="$emit('avatar-click', $event)">
             <div class="oc-slice-top">
                 <img
                     v-for="layer in layers"
@@ -23,7 +23,7 @@
                 />
             </div>
         </div>
-        <span class="other-user-name" @click.stop="$emit('avatar-click')">{{ name }}</span>
+        <span class="other-user-name" @click.stop="$emit('avatar-click', $event)">{{ name }}</span>
     </div>
 </template>
 
