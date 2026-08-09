@@ -207,10 +207,16 @@ async function shareWikiPage() {
 // 목록에서 방금 보던 페이지와 "같은" 제목을 다시 눌러도 navigateTo가 이미 그 URL이라 아무 일도
 // 안 하고 넘어가버려서(경로가 실제로 안 바뀌니 targetSlug watch가 안 켜짐) 본문으로 못 돌아오는
 // 버그가 있었음 — 목록으로 갈 때도 항상 URL을 채널 루트로 같이 옮겨서, 목록에서 아무 제목이나
-// 눌러도 항상 "진짜 경로 변경"이 되게 함
+// 눌러도 항상 "진짜 경로 변경"이 되게 함.
+//
+// ⚠️ 근데 채널 루트(슬러그 없음)는 [page]/index.vue가 매핑돼서(상세 보기는 [page]/[slug].vue) 이
+// 컴포넌트 자체가 새로 마운트됨 — 그러면 "슬러그 없이 들어왔을 때는 대문 페이지를 자동으로 보여줌"
+// 로직(아래 pages watch)이 같이 켜져서 목록 대신 대문 페이지가 뜨고, 거기서 목록을 한 번 더
+// 눌러야 하는 문제가 있었음. "슬러그가 그냥 없는 것"과 "목록을 명시적으로 요청한 것"을 구분해야
+// 해서 쿼리스트링(?view=list)을 붙임 — 대문 페이지 자동 표시 로직은 이게 있으면 건너뜀.
 function goToList() {
     currentView.value = 'list'
-    navigateTo(props.channelPath)
+    navigateTo({ path: props.channelPath, query: { view: 'list' } })
 }
 
 async function openPageBySlug(slug) {
@@ -234,9 +240,11 @@ watch(() => props.targetSlug, async (slug) => {
     try { await openPageBySlug(slug) } catch {}
 })
 
-// targetSlug 없을 때: 대문 페이지(첫 생성 페이지) 자동 표시
+// targetSlug 없을 때: 대문 페이지(첫 생성 페이지) 자동 표시 — 단, ?view=list로 명시적으로 목록을
+// 요청하고 들어온 경우(goToList 참고)는 건너뜀
 watch(pages, async (newPages) => {
     if (currentView.value !== 'list' || !newPages.length || props.targetSlug) return
+    if (route.query.view === 'list') return
     const frontId = [...newPages].sort((a, b) => a.id - b.id)[0].id
     try { await openPage(frontId) } catch { /* 목록 유지 */ }
 }, { immediate: true })
