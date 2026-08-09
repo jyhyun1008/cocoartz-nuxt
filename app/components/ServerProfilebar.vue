@@ -70,10 +70,13 @@ const i = iData
 
 // 재화 잔액 — RoomMap.vue와 같은 키('balance-data-{serverid}')로 useAsyncData를 불러서
 // 데이터를 공유함(RoomMap.vue에서 코인을 모으면 여기 표시도 같이 갱신됨)
+// RoomMap.vue와 같은 이유로 useRequestFetch() 사용 — SSR 중 평범한 $fetch로는 세션 쿠키가
+// 안 실려서 매번 401 → 잔액 0으로 보이는 문제가 있었음
+const authedFetch = useRequestFetch()
 const { data: balanceData } = await useAsyncData(
     `balance-data-${server?.id}`,
     () => (isLoggedIn.value && server?.id)
-        ? $fetch(`${apiBaseUrl}/api/getMyBalance`, {
+        ? authedFetch(`${apiBaseUrl}/api/getMyBalance`, {
             method: 'POST',
             body: { userid: userId.value, serverid: server.id },
         }).catch(() => ({ balance: 0 }))

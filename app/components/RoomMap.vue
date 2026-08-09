@@ -447,9 +447,16 @@ watch(userId, loadMyMutes)
 // 재화 잔액 — key를 'balance-data-{serverid}' 형태로 고정해서 ServerProfilebar.vue가 같은 키로
 // useAsyncData를 부르면 Nuxt가 데이터를 공유해줌(useServer()의 'server-data' 키랑 같은 요령) —
 // 그래서 여기서 코인을 모아 balanceData.value를 갱신하면 프로필바 잔액 표시도 같이 바뀜
+//
+// ⚠️ 이 useAsyncData는 SSR 시점에도 도는데, getMyBalance.ts는 세션(server/utils/session.ts)으로
+// 로그인을 확인함. 평범한 $fetch로 우리 서버 자신의 API를 SSR 중에 부르면 브라우저가 보낸 쿠키가
+// 자동으로 안 실려서(Nitro가 내부 호출로 처리하며 원 요청 헤더를 안 물려줌) 매번 401 → 아래
+// catch로 balance:0이 되는 문제가 있었음(분명 로그인은 돼 있는데 잔액만 계속 0으로 보임). 지금
+// 요청의 쿠키를 그대로 물려서 내부 호출하는 useRequestFetch()로 바꿔서 고침.
+const authedFetch = useRequestFetch()
 const { data: balanceData } = await useAsyncData(
     `balance-data-${props.id}`,
-    () => $fetch(`${apiBaseUrl}/api/getMyBalance`, {
+    () => authedFetch(`${apiBaseUrl}/api/getMyBalance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userid: userId.value, serverid: props.id }),
