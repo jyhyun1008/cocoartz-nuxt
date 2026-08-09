@@ -3,6 +3,7 @@ import { users, servers, currencyBalances, items, userItems } from '../../db/sch
 import { eq, or, count } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { sendMail } from '../../utils/mailer'
+import { createAuthSession } from '../../utils/session'
 
 export default eventHandler(async (event) => {
     const { username, email, password } = await readBody(event)
@@ -90,6 +91,7 @@ export default eventHandler(async (event) => {
         path: '/',
         sameSite: 'lax',
     })
+    await createAuthSession(event, newUser.id)
 
     return { id: newUser.id, username: newUser.username }
 })

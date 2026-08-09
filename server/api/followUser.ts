@@ -2,9 +2,11 @@ import { db } from '../utils/db'
 import { users, follows, notifications } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { actorUrl } from '../utils/ap/activitypub'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, targetUsername } = await readBody(event)
+    const { targetUsername } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     if (!targetUsername) throw createError({ statusCode: 400, message: '대상 유저가 필요합니다' })
 

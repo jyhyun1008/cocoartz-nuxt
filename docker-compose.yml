@@ -25,6 +25,10 @@ services:
       # DATABASE_URL은 서버 코드가 process.env를 직접 읽어서(nuxt runtimeConfig를 안 거침)
       # 컨테이너 실행 시점 값 그대로 반영됨 — 접두사 없이 그대로 사용
       DATABASE_URL: postgresql://cocoartz:cocoartz@db:5432/cocoartz
+      # 로그인 세션 쿠키 서명·암호화 키 — 32자 이상 랜덤 문자열로 꼭 바꿔서 쓰세요
+      # (예: openssl rand -base64 32). 안 바꾸면 컨테이너를 재시작할 때마다 전체 유저 로그인이
+      # 풀립니다. DATABASE_URL과 마찬가지로 접두사 없이 그대로 씀.
+      SESSION_SECRET: change-me-to-a-random-32-char-string-before-deploying
       # 아래는 전부 nuxt.config.ts의 runtimeConfig로 들어가는 값들이라 NUXT_ 접두사가 필수입니다.
       # (접두사 없이 DOMAIN=... 처럼만 주면 "docker build" 시점에 .env가 없어서 빈 값으로
       #  이미지에 굳어버리고, 여기 environment:로 아무리 값을 줘도 무시됨 — 실제로 겪었던

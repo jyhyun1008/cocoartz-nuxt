@@ -2,6 +2,7 @@ import { db } from '../../utils/db'
 import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { partString, uploadSingleImage } from '../../utils/shopItemAssets'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -13,7 +14,7 @@ async function checkAdmin(userid: number) {
 // 이 결과 URL을 문자열로만 받음(uploadAvatar.ts와 동일한 분리 방식)
 export default eventHandler(async (event) => {
     const parts = await readMultipartFormData(event)
-    const userid = Number(partString(parts, 'userid'))
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
 
     const url = await uploadSingleImage(parts, 'file', 'shop-items')

@@ -4,9 +4,11 @@ import { eq } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { actorUrl, buildFollowActivity, buildUndoActivity } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, id } = await readBody(event)
+    const { id } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
 
     const [follow] = await db.select().from(remoteFollows).where(eq(remoteFollows.id, id))

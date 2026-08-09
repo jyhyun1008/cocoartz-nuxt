@@ -1,6 +1,7 @@
 import { db } from '../../utils/db'
 import { users, items } from '../../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -13,7 +14,8 @@ async function checkAdmin(userid: number) {
 // 캐시해서 안 쓰니 카드가 사라지고, 맵 아이템은 getItemLayers가 빈 배열을 돌려줘서 그냥 안 그려짐).
 // 상점에서만 안 보이게 하고 기존 참조는 살리고 싶으면 삭제 대신 active=false로 끄는 걸 권장
 export default eventHandler(async (event) => {
-    const { userid, id } = await readBody(event)
+    const { id } = await readBody(event)
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
     if (!id) throw createError({ statusCode: 400, message: 'id가 필요합니다' })
 

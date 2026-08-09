@@ -2,10 +2,11 @@ import { db } from '../utils/db'
 import { posts, users, likes, reactions, boosts, rooms } from '../db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup, filterMutedReactions } from '../utils/mutes'
+import { getOptionalUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { postid, userid } = await readBody(event)
-
+    const { postid } = await readBody(event)
+    const userid = await getOptionalUserId(event)
     const [post] = await db.select().from(posts).where(eq(posts.id, postid))
     if (!post) return null
 

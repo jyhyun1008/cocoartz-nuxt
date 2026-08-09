@@ -1,9 +1,10 @@
 import { db } from '../utils/db'
 import { notifications, users } from '../db/schema'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
+import { getOptionalUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid } = await readBody(event)
+    const userid = await getOptionalUserId(event)
     if (!userid) return { notifications: [], unreadCount: 0 }
 
     const rows = await db.select().from(notifications)

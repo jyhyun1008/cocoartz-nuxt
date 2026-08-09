@@ -2,9 +2,11 @@ import { db } from '../utils/db'
 import { items, userItems, currencyBalances } from '../db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 import { isStackableCategory } from '../../lib/shopCategories'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, serverid, itemid, quantity } = await readBody(event)
+    const { serverid, itemid, quantity } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     if (!serverid || !itemid) throw createError({ statusCode: 400, message: 'serverid, itemid가 필요합니다' })
 

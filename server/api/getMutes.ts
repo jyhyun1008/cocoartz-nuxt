@@ -1,10 +1,11 @@
 import { db } from '../utils/db'
 import { mutes, users } from '../db/schema'
 import { eq, inArray, desc } from 'drizzle-orm'
+import { getOptionalUserId } from '../utils/session'
 
 // 뮤트 관리(해제) 목록용 — 로컬/원격 뮤트를 한 배열로 합쳐서 반환
 export default eventHandler(async (event) => {
-    const { userid } = await readBody(event)
+    const userid = await getOptionalUserId(event)
     if (!userid) return []
 
     const rows = await db.select().from(mutes).where(eq(mutes.userid, userid)).orderBy(desc(mutes.createdAt))

@@ -4,12 +4,14 @@ import { eq, and } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { actorUrl, buildLikeActivity, buildUndoActivity } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
+import { requireUserId } from '../utils/session'
 
 // 개인 팔로잉 피드(remoteFeedPosts)에 뜬 원격 글에 좋아요 — 마스토돈의 "즐겨찾기"에 해당하는
 // Like 액티비티를 원 작성자에게 보냄. (서버 공용 연합 게시판용 likeRemoteFeedPost.ts와는 별개 —
 // 그쪽은 remoteTimelinePosts 전용이고 이건 유저별 개인 피드 전용)
 export default eventHandler(async (event) => {
-    const { id, userid } = await readBody(event)
+    const { id } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
 
     const [feedPost] = await db.select().from(remoteFeedPosts).where(eq(remoteFeedPosts.id, id))

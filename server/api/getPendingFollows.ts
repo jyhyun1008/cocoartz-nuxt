@@ -1,10 +1,11 @@
 import { db } from '../utils/db'
 import { follows, users } from '../db/schema'
 import { eq, and, desc, inArray } from 'drizzle-orm'
+import { getOptionalUserId } from '../utils/session'
 
 // 팔로우 수동 승인 대기 목록(설정 여부 + 대기 중인 요청) — 로컬/원격 통합
 export default eventHandler(async (event) => {
-    const { userid } = await readBody(event)
+    const userid = await getOptionalUserId(event)
     if (!userid) return { requireFollowApproval: false, pending: [] }
 
     const [me] = await db.select({ requireFollowApproval: users.requireFollowApproval })

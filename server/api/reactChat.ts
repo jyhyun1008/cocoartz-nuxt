@@ -1,10 +1,11 @@
 import { db } from '../utils/db'
 import { chatReactions } from '../db/schema'
 import { eq, and } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { chatid, userid, emoji } = await readBody(event)
-
+    const { chatid, emoji } = await readBody(event)
+    const userid = await requireUserId(event)
     const existing = await db.select().from(chatReactions).where(
         and(eq(chatReactions.chatid, chatid), eq(chatReactions.userid, userid), eq(chatReactions.emoji, emoji))
     )

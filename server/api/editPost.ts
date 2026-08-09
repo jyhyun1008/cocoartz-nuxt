@@ -1,9 +1,11 @@
 import { db } from '../utils/db'
 import { posts, rooms } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { postid, userid, title, content } = await readBody(event)
+    const { postid, title, content } = await readBody(event)
+    const userid = await requireUserId(event)
     const [post] = await db.select().from(posts).where(eq(posts.id, postid))
     if (!post) throw createError({ statusCode: 404, message: '게시글을 찾을 수 없습니다' })
     if (!post.userid || post.userid !== userid) throw createError({ statusCode: 403, message: '본인 글만 수정할 수 있습니다' })

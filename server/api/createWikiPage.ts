@@ -1,13 +1,15 @@
 import { db } from '../utils/db'
 import { wikiPages, users } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 function toSlug(title: string) {
     return title.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w가-힣ㄱ-ㅎㅏ-ㅣ-]/g, '')
 }
 
 export default eventHandler(async (event) => {
-    const { serverid, roomid, userid, title, content } = await readBody(event)
+    const { serverid, roomid, title, content } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     const slug = toSlug(title)
     const [page] = await db.insert(wikiPages).values({

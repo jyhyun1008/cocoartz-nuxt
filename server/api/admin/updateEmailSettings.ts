@@ -1,6 +1,7 @@
 import { db } from '../../utils/db'
 import { users, emailSettings } from '../../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -9,7 +10,8 @@ async function checkAdmin(userid: number) {
 }
 
 export default eventHandler(async (event) => {
-    const { userid, smtpHost, smtpPort, smtpSecure, smtpUser, smtpPassword, fromAddress, fromName, enabled } = await readBody(event)
+    const { smtpHost, smtpPort, smtpSecure, smtpUser, smtpPassword, fromAddress, fromName, enabled } = await readBody(event)
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
 
     const [existing] = await db.select().from(emailSettings).limit(1)

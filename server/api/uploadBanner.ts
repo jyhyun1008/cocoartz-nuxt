@@ -1,4 +1,5 @@
 import { isObjectStorageConfigured, uploadImage, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../utils/objectStorage'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
     if (!isObjectStorageConfigured()) {
@@ -6,8 +7,7 @@ export default eventHandler(async (event) => {
     }
 
     const parts = await readMultipartFormData(event)
-    const userid = Number(parts?.find((p) => p.name === 'userid')?.data?.toString())
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
+    const userid = await requireUserId(event)
 
     const file = parts?.find((p) => p.name === 'file')
     if (!file?.data || !file.type) {

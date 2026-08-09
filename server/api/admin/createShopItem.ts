@@ -3,6 +3,7 @@ import { users, items } from '../../db/schema'
 import { eq, and } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
 import { isValidCategory } from '../../../lib/shopCategories'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -14,7 +15,8 @@ async function checkAdmin(userid: number) {
 // 먼저 호출해서(관리자 페이지가 파일 선택 즉시 호출) 그 결과 URL을 여기로 넘겨받는 구조
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { userid, category, name, description, price, active, icon, isDefault } = body
+    const { category, name, description, price, active, icon, isDefault } = body
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
 
     if (!isValidCategory(category)) throw createError({ statusCode: 400, message: '올바르지 않은 카테고리입니다' })

@@ -2,9 +2,11 @@ import { db } from '../utils/db'
 import { posts, users } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { publishPostIfFederated } from '../utils/ap/publishPost'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { serverid, roomid, userid, title, content, replyto } = await readBody(event)
+    const { serverid, roomid, title, content, replyto } = await readBody(event)
+    const userid = await requireUserId(event)
     const [post] = await db.insert(posts).values({
         serverid,
         roomid,

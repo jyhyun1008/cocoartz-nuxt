@@ -2,10 +2,11 @@ import { db } from '../utils/db'
 import { users } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { publishProfileUpdate } from '../utils/ap/publishProfileUpdate'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, knownas, bio, avatar, banner, requireFollowApproval } = await readBody(event)
-
+    const { knownas, bio, avatar, banner, requireFollowApproval } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 400, message: '로그인이 필요합니다' })
 
     const [updated] = await db.update(users).set({

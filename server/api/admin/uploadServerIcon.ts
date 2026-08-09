@@ -2,6 +2,7 @@ import { db } from '../../utils/db'
 import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { isObjectStorageConfigured, uploadImage, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../../utils/objectStorage'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -15,7 +16,7 @@ export default eventHandler(async (event) => {
     }
 
     const parts = await readMultipartFormData(event)
-    const userid = Number(parts?.find((p) => p.name === 'userid')?.data?.toString())
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
 
     const file = parts?.find((p) => p.name === 'file')

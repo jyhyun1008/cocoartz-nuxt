@@ -4,9 +4,11 @@ import { eq } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { resolveWebfinger, fetchActor, buildFollowActivity, actorUrl, buildActorDisplayInfo } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, handle } = await readBody(event)
+    const { handle } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
 
     const [user] = await db.select().from(users).where(eq(users.id, userid))

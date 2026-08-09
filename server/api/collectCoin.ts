@@ -1,6 +1,7 @@
 import { db } from '../utils/db'
 import { currencyBalances } from '../db/schema'
 import { sql } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 // 맵 위 "코인 말풍선"은 클라이언트가 임의로(로컬 랜덤 타이머로) 띄우는 연출이라, 서버는 "진짜
 // 코인이 그 자리에 있었는지"는 검증할 수 없음 — 대신 유저당 최소 간격(쿨다운)만 강제해서
@@ -11,7 +12,8 @@ const REWARD_MIN = 5
 const REWARD_MAX = 15
 
 export default eventHandler(async (event) => {
-    const { userid, serverid } = await readBody(event)
+    const { serverid } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     if (!serverid) throw createError({ statusCode: 400, message: 'serverid가 필요합니다' })
 

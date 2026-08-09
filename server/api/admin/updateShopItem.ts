@@ -1,6 +1,7 @@
 import { db } from '../../utils/db'
 import { users, items } from '../../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -13,7 +14,8 @@ async function checkAdmin(userid: number) {
 // icon/layers도 uploadShopIcon.ts / uploadMapItemLayers.ts로 먼저 업로드한 URL만 받음(createShopItem.ts와 동일)
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { userid, id, name, description, price, active, icon, layers, isDefault } = body
+    const { id, name, description, price, active, icon, layers, isDefault } = body
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
 
     if (!id) throw createError({ statusCode: 400, message: 'id가 필요합니다' })

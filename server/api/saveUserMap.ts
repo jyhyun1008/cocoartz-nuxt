@@ -1,6 +1,7 @@
 import { db } from '../utils/db'
 import { users, items, userItems } from '../db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 // 맵 아이템(mapInfo[1])은 상점에서 산 만큼만 놓을 수 있음 — WindowMapEditor.vue가 팔레트에서도
 // 막지만, 이 API를 직접 호출해서 우회하는 걸 막기 위해 저장 시점에 서버에서도 한 번 더 셈.
@@ -47,7 +48,8 @@ async function validateMapItems(userid: number, mapJson: string) {
 }
 
 export default eventHandler(async (event) => {
-    const { userid, map } = await readBody(event)
+    const { map } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 400, message: '로그인이 필요합니다' })
 
     await validateMapItems(Number(userid), map)

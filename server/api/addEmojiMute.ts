@@ -1,8 +1,10 @@
 import { db } from '../utils/db'
 import { emojiMutes } from '../db/schema'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, shortcode } = await readBody(event)
+    const { shortcode } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
 
     const trimmed = typeof shortcode === 'string' ? shortcode.trim().replace(/^:|:$/g, '') : ''

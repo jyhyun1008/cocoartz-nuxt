@@ -1,17 +1,37 @@
+import sanitizeHtmlLib from 'sanitize-html'
 import { isPublicUrl } from './urlUtils'
 
-const DANGEROUS_TAGS = /script|style|iframe|frame|object|embed|form|input|button|link|meta|base/i
+// 예전엔 정규식 블랙리스트(위험 태그/이벤트 핸들러/javascript: 문자열을 하나씩 지우는 방식)였는데,
+// 브라우저가 URL 스킴을 판단하기 전에 탭/개행 같은 제어문자를 무시해버리는 걸 이용하면
+// (예: href="java&#9;script:...") 정규식은 통과하면서 실제로는 여전히 javascript: 링크로
+// 동작하는 우회가 가능했음(원격 서버가 완전히 자유롭게 조작 가능한 content/summary에 저장형
+// XSS로 이어짐). 검증된 allowlist 기반 라이브러리로 교체 — 허용한 태그/속성 외엔 전부 제거되고,
+// 스킴 검사도 문자열 매칭이 아니라 실제로 파싱해서 하기 때문에 같은 종류의 우회가 안 통함.
+const SANITIZE_OPTIONS: sanitizeHtmlLib.IOptions = {
+    allowedTags: [
+        'p', 'br', 'span', 'a',
+        'strong', 'b', 'em', 'i', 'u', 's', 'del', 'mark',
+        'code', 'pre', 'blockquote',
+        'ul', 'ol', 'li', 'img',
+    ],
+    allowedAttributes: {
+        a: ['href', 'rel', 'target', 'class'],
+        span: ['class'],
+        img: ['src', 'alt', 'title', 'loading', 'class'],
+    },
+    allowedSchemesByTag: {
+        a: ['http', 'https', 'mailto'],
+        img: ['http', 'https'],
+    },
+    allowProtocolRelative: false,
+    // 링크는 항상 새 탭 + noopener/noreferrer로 강제(원본 content가 target/rel을 안 줘도)
+    transformTags: {
+        a: sanitizeHtmlLib.simpleTransform('a', { rel: 'noopener noreferrer', target: '_blank' }, true),
+    },
+}
 
 export function sanitizeHtml(html: string): string {
-    return html
-        // 위험한 태그 + 내용 제거
-        .replace(new RegExp(`<(${DANGEROUS_TAGS.source})\\b[^>]*>[\\s\\S]*?<\\/\\1>`, 'gi'), '')
-        .replace(new RegExp(`<(${DANGEROUS_TAGS.source})\\b[^>]*/?>`, 'gi'), '')
-        // 이벤트 핸들러 제거 (onclick, onerror 등)
-        .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-        // javascript:/data:/vbscript: URL 제거
-        .replace(/(href|src|action)\s*=\s*"(?:javascript|data|vbscript):[^"]*"/gi, '$1="#"')
-        .replace(/(href|src|action)\s*=\s*'(?:javascript|data|vbscript):[^']*'/gi, "$1='#'")
+    return sanitizeHtmlLib(html || '', SANITIZE_OPTIONS)
 }
 
 function escapeHtml(str: string): string {

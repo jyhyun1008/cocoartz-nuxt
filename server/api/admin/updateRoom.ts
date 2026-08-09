@@ -1,6 +1,7 @@
 import { db } from '../../utils/db'
 import { rooms, users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -9,7 +10,8 @@ async function checkAdmin(userid: number) {
 }
 
 export default eventHandler(async (event) => {
-    const { userid, id, path, knownas, type, info, galleryView } = await readBody(event)
+    const { id, path, knownas, type, info, galleryView } = await readBody(event)
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
 
     const [existing] = await db.select({ type: rooms.type, federated: rooms.federated }).from(rooms).where(eq(rooms.id, id))

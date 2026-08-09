@@ -3,6 +3,7 @@ import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { getUserBlockStatus } from '../../utils/userStatus'
+import { createAuthSession } from '../../utils/session'
 
 export default eventHandler(async (event) => {
     const { email, password } = await readBody(event)
@@ -39,11 +40,14 @@ export default eventHandler(async (event) => {
 
     await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, user.id))
 
+    // 'user-id'는 클라이언트가 "지금 로그인된 사람이 누구인지" UI 표시용으로만 읽는 평문 쿠키 —
+    // 실제 인가는 아래 세션(서버만 복호화 가능)만 씀. 자세한 이유는 server/utils/session.ts 참고.
     setCookie(event, 'user-id', String(user.id), {
         maxAge: 60 * 60 * 24 * 30,
         path: '/',
         sameSite: 'lax',
     })
+    await createAuthSession(event, user.id)
 
     return { id: user.id, username: user.username }
 })

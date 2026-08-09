@@ -2,6 +2,7 @@ import { db } from '../utils/db'
 import { chats, users, chatReactions } from '../db/schema'
 import { eq, and, inArray, desc } from 'drizzle-orm'
 import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup, filterMutedReactions } from '../utils/mutes'
+import { getOptionalUserId } from '../utils/session'
 
 // 방 하나에 몇 달치 채팅이 쌓이면 매번 그 방을 열 때마다 전체 이력을 통째로(정렬 기준도 없이!)
 // 다시 내려주고 있었음 — 서버 쿼리 비용도 크고, 클라이언트가 그 전체를 메모리에 들고 있어야 해서
@@ -10,7 +11,8 @@ import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter,
 const PAGE_SIZE = 50
 
 export default eventHandler(async (event) => {
-    const { serverid, roomid, userid, offset } = await readBody(event)
+    const { serverid, roomid, offset } = await readBody(event)
+    const userid = await getOptionalUserId(event)
     const rows = await db.select().from(chats).where(
         and(eq(chats.serverid, serverid), eq(chats.roomid, roomid))
     ).orderBy(desc(chats.createdAt)).limit(PAGE_SIZE + 1).offset(offset ?? 0)

@@ -4,9 +4,11 @@ import { eq, inArray } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { actorUrl, buildDeleteActivity } from '../utils/ap/activitypub'
 import { deliverToFollowers, deliverToInbox } from '../utils/ap/deliver'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { postid, userid } = await readBody(event)
+    const { postid } = await readBody(event)
+    const userid = await requireUserId(event)
     const [post] = await db.select().from(posts).where(eq(posts.id, postid))
     if (!post) throw createError({ statusCode: 404, message: '게시글을 찾을 수 없습니다' })
     if (!post.userid || post.userid !== userid) throw createError({ statusCode: 403, message: '본인 글만 삭제할 수 있습니다' })

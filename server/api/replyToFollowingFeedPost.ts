@@ -6,13 +6,15 @@ import { actorUrl, postObjectUrl, buildCreateActivity } from '../utils/ap/activi
 import { deliverToInbox } from '../utils/ap/deliver'
 import { extractMarkdownImages } from '../utils/ap/attachments'
 import { marked } from 'marked'
+import { requireUserId } from '../utils/session'
 
 // 개인 팔로잉 피드(remoteFeedPosts)에 뜬 원격 글에 댓글을 달면, 로컬에는 글타래 없이 posts에만
 // 저장해두고(목록/타임라인엔 안 보임 — remoteParentObjectId 필터로 제외됨) 원 작성자에게는 실제
 // 답글(Create+inReplyTo)로 배포한다. 개인 타임라인은 특정 방(room) 소속이 아니라서
 // posts.serverid/roomid는 비워둠(nullable). (연합 게시판용 replyToRemoteFeedPost.ts와는 별개)
 export default eventHandler(async (event) => {
-    const { userid, feedPostId, content } = await readBody(event)
+    const { feedPostId, content } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     const trimmed = String(content || '').trim()
     if (!trimmed) throw createError({ statusCode: 400, message: '내용을 입력해주세요' })

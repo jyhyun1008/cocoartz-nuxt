@@ -4,10 +4,11 @@ import { eq, and } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { buildLikeActivity, actorUrl } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { postid, userid } = await readBody(event)
-
+    const { postid } = await readBody(event)
+    const userid = await requireUserId(event)
     const existing = await db.select().from(likes).where(
         and(eq(likes.postid, postid), eq(likes.userid, userid))
     )

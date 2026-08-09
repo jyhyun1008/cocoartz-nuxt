@@ -2,9 +2,11 @@ import { db } from '../utils/db'
 import { mutes } from '../db/schema'
 import { fetchActor } from '../utils/ap/activitypub'
 import { renderActorName } from '../utils/ap/sanitize'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { userid, targetUserId, targetActorUrl, level } = await readBody(event)
+    const { targetUserId, targetActorUrl, level } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     if (level !== 'soft' && level !== 'hard') throw createError({ statusCode: 400, message: 'level은 soft 또는 hard여야 합니다' })
     if (!targetUserId && !targetActorUrl) throw createError({ statusCode: 400, message: '뮤트 대상이 필요합니다' })

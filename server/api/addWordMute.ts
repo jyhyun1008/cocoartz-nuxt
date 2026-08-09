@@ -1,12 +1,14 @@
 import { db } from '../utils/db'
 import { wordMutes } from '../db/schema'
 import { eq, and, count } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 const MAX_WORD_MUTES_PER_USER = 100
 const MAX_PATTERN_LENGTH = 200
 
 export default eventHandler(async (event) => {
-    const { userid, pattern, isRegex, level } = await readBody(event)
+    const { pattern, isRegex, level } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     if (level !== 'soft' && level !== 'hard') throw createError({ statusCode: 400, message: 'level은 soft 또는 hard여야 합니다' })
 

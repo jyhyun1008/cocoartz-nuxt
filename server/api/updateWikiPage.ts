@@ -1,9 +1,11 @@
 import { db } from '../utils/db'
 import { wikiPages, users } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../utils/session'
 
 export default eventHandler(async (event) => {
-    const { id, userid, title, content } = await readBody(event)
+    const { id, title, content } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     const [existing] = await db.select().from(wikiPages).where(eq(wikiPages.id, id))
     if (!existing) throw createError({ statusCode: 404, message: '페이지를 찾을 수 없습니다' })

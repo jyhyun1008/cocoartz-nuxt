@@ -2,6 +2,7 @@ import { db } from '../utils/db'
 import { chats, users, chatReactions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { getUserBlockStatus } from '../utils/userStatus'
+import { getUserIdFromCookieHeader } from '../utils/session'
 
 interface PeerInfo {
   peer: any
@@ -88,7 +89,18 @@ export default defineWebSocketHandler({
     try { data = JSON.parse(message.text()) } catch { return }
 
     if (data.type === 'join') {
-      const { roomPath, userId, x = 0, y = 0, z = 0 } = data
+      const { roomPath, x = 0, y = 0, z = 0 } = data
+
+      // ⚠️ 예전엔 위에서 그냥 data.userId(클라이언트가 자유롭게 조작 가능)를 그대로 믿었음 —
+      // 로그인 없이도(혹은 남의 id를 실어서) 그 사람 행세로 이동/채팅이 가능한 완전한 인증
+      // 우회였음. 이제 업그레이드 요청에 실려온 쿠키에서 서버만 복호화 가능한 세션을 검증해서
+      // 얻은 id만 신뢰함(server/utils/session.ts) — 세션이 없으면 접속 자체를 거절함.
+      const userId = await getUserIdFromCookieHeader(peer.request.headers.get('cookie'))
+      if (!userId) {
+        sendTo(peer, { type: 'join_rejected', reason: 'unauthenticated' })
+        peer.close?.()
+        return
+      }
 
       // 같은 계정으로 다른 기기/탭에서 이미 접속돼 있으면 그 연결을 끊음(단순 새로고침으로
       // 옛 소켓이 아직 안 닫힌 경우도 포함) — 계정당 연결을 하나로 강제하는 이유는, 맵 위

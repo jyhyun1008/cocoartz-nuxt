@@ -4,12 +4,14 @@ import { eq, and } from 'drizzle-orm'
 import { ensureActor } from '../utils/ap/ensureActor'
 import { actorUrl, buildLikeActivity, buildUndoActivity } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
+import { requireUserId } from '../utils/session'
 
 // 연합 타임라인(공용) 글에 좋아요 — 마스토돈의 "즐겨찾기"에 해당하는 Like 액티비티를 원 작성자에게 보냄.
 // 글 자체가 이제 유저 전용이 아니라 서버 공용이라, 좋아요 여부는 remoteTimelinePostLikes에 뷰어별로 따로 기록하고
 // 배송할 inbox는 (뷰어가 그 계정을 개인적으로 팔로우하지 않아도 되도록) 글에 캐시된 sourceInbox를 그대로 씀
 export default eventHandler(async (event) => {
-    const { id, userid } = await readBody(event)
+    const { id } = await readBody(event)
+    const userid = await requireUserId(event)
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
 
     const [post] = await db.select().from(remoteTimelinePosts).where(eq(remoteTimelinePosts.id, id))

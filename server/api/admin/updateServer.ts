@@ -1,6 +1,7 @@
 import { db } from '../../utils/db'
 import { servers, users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
+import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -11,7 +12,8 @@ async function checkAdmin(userid: number) {
 const REGISTRATION_MODES = ['open', 'approval', 'closed']
 
 export default eventHandler(async (event) => {
-    const { userid, slug, title, themecolor, info, avatar, registrationMode, currencyName, signupBonus } = await readBody(event)
+    const { slug, title, themecolor, info, avatar, registrationMode, currencyName, signupBonus } = await readBody(event)
+    const userid = await requireUserId(event)
     await checkAdmin(userid)
     if (!slug) throw createError({ statusCode: 400, message: 'slug가 필요합니다' })
     if (registrationMode !== undefined && !REGISTRATION_MODES.includes(registrationMode)) {
