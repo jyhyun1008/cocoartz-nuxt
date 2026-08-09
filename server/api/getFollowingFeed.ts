@@ -35,13 +35,13 @@ export default eventHandler(async (event) => {
         hasMoreLocal = rows.length > PAGE_SIZE
         localPosts = rows.slice(0, PAGE_SIZE)
 
+        const authorIds = [...new Set(localPosts.map(p => p.userid).filter((id): id is number => id != null))]
+        const authorRows = authorIds.length
+            ? await db.select({ id: users.id, username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(inArray(users.id, authorIds))
+            : []
+        const authorById = new Map(authorRows.map(u => [u.id, u]))
         for (const item of localPosts) {
-            const [author] = await db.select({
-                username: users.username,
-                knownas: users.knownas,
-                avatar: users.avatar,
-            }).from(users).where(eq(users.id, item.userid as number))
-            item.user = author ?? null
+            item.user = (item.userid != null ? authorById.get(item.userid) : null) ?? null
             item.isRemote = false
             item.sortDate = item.createdAt
         }

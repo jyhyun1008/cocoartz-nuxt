@@ -1,6 +1,6 @@
 import { db } from '../utils/db'
 import { posts, users, likes, reactions, boosts, rooms } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup, filterMutedReactions } from '../utils/mutes'
 
 export default eventHandler(async (event) => {
@@ -15,11 +15,13 @@ export default eventHandler(async (event) => {
     const [room] = await db.select({ path: rooms.path, knownas: rooms.knownas }).from(rooms).where(eq(rooms.id, post.roomid))
 
     let comments = await db.select().from(posts).where(eq(posts.replyto, String(postid)))
+    const commentUserIds = [...new Set(comments.map(c => c.userid).filter((id): id is number => id != null))]
+    const commentUserRows = commentUserIds.length
+        ? await db.select({ id: users.id, username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(inArray(users.id, commentUserIds))
+        : []
+    const commentUserById = new Map(commentUserRows.map(u => [u.id, u]))
     for (const comment of comments) {
-        const [commentUser] = comment.userid
-            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, comment.userid))
-            : []
-        ;(comment as any).user = commentUser
+        ;(comment as any).user = comment.userid != null ? commentUserById.get(comment.userid) : undefined
     }
 
     const muteLookup = await getMuteLookup(userid)

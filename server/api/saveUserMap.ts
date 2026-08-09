@@ -1,6 +1,6 @@
 import { db } from '../utils/db'
 import { users, items, userItems } from '../db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 
 // 맵 아이템(mapInfo[1])은 상점에서 산 만큼만 놓을 수 있음 — WindowMapEditor.vue가 팔레트에서도
 // 막지만, 이 API를 직접 호출해서 우회하는 걸 막기 위해 저장 시점에 서버에서도 한 번 더 셈.
@@ -18,14 +18,25 @@ async function validateMapItems(userid: number, mapJson: string) {
         placedCounts.set(id, (placedCounts.get(id) ?? 0) + 1)
     }
 
-    for (const [itemid, placedCount] of placedCounts) {
-        const [item] = await db.select({ id: items.id }).from(items)
-            .where(and(eq(items.category, 'map_item'), eq(items.itemKey, String(itemid))))
-        if (!item) throw createError({ statusCode: 400, message: `등록되지 않은 아이템(${itemid})은 놓을 수 없어요` })
+    // 놓인 아이템 종류마다 items/userItems를 따로 조회하던 걸(최대 2*N번) 배치 조회 2번으로 합침
+    const itemKeys = [...placedCounts.keys()].map(String)
+    const itemRows = await db.select({ id: items.id, itemKey: items.itemKey }).from(items)
+        .where(and(eq(items.category, 'map_item'), inArray(items.itemKey, itemKeys)))
+    const itemIdByKey = new Map(itemRows.map(r => [r.itemKey, r.id]))
 
-        const [owned] = await db.select({ count: userItems.count }).from(userItems)
-            .where(and(eq(userItems.userid, userid), eq(userItems.itemid, item.id)))
-        const ownedCount = owned?.count ?? 0
+    for (const itemid of placedCounts.keys()) {
+        if (!itemIdByKey.has(String(itemid))) {
+            throw createError({ statusCode: 400, message: `등록되지 않은 아이템(${itemid})은 놓을 수 없어요` })
+        }
+    }
+
+    const ownedRows = await db.select({ itemid: userItems.itemid, count: userItems.count }).from(userItems)
+        .where(and(eq(userItems.userid, userid), inArray(userItems.itemid, [...itemIdByKey.values()])))
+    const ownedByItemId = new Map(ownedRows.map(r => [r.itemid, r.count]))
+
+    for (const [itemid, placedCount] of placedCounts) {
+        const dbItemId = itemIdByKey.get(String(itemid))!
+        const ownedCount = ownedByItemId.get(dbItemId) ?? 0
         if (placedCount > ownedCount) {
             throw createError({
                 statusCode: 400,

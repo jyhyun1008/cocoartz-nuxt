@@ -1,6 +1,6 @@
 import { db } from '../utils/db'
 import { posts, users } from '../db/schema'
-import { eq, and, isNull, desc } from 'drizzle-orm'
+import { eq, and, isNull, desc, inArray } from 'drizzle-orm'
 import { getMuteLookup, applyMuteFilter, getWordMuteLookup, applyWordMuteFilter, getEmojiMuteLookup } from '../utils/mutes'
 
 const PAGE_SIZE = 20
@@ -14,11 +14,13 @@ export default eventHandler(async (event) => {
     const hasMore = rows.length > PAGE_SIZE
     let results = rows.slice(0, PAGE_SIZE)
 
+    const userIds = [...new Set(results.map(r => r.userid).filter((id): id is number => id != null))]
+    const userRows = userIds.length
+        ? await db.select({ id: users.id, username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(inArray(users.id, userIds))
+        : []
+    const userById = new Map(userRows.map(u => [u.id, u]))
     for (const result of results) {
-        const userinfo = result.userid
-            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, result.userid))
-            : []
-        ;(result as any).user = userinfo[0]
+        ;(result as any).user = result.userid != null ? userById.get(result.userid) : undefined
     }
 
     const muteLookup = await getMuteLookup(viewerUserId)

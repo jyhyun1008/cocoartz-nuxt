@@ -45,12 +45,14 @@ export default eventHandler(async (event) => {
         remoteIds.length ? db.select().from(remoteTimelinePosts).where(inArray(remoteTimelinePosts.id, remoteIds)) : Promise.resolve([] as (typeof remoteTimelinePosts.$inferSelect)[]),
     ])
 
-    // 로컬 글 작성자 정보
+    // 로컬 글 작성자 정보 — 글 하나마다 따로 조회하던 걸 한 번에 배치 조회로 합침
+    const localUserIds = [...new Set((localRows as any[]).map(r => r.userid).filter((id): id is number => id != null))]
+    const localUserRows = localUserIds.length
+        ? await db.select({ id: users.id, username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(inArray(users.id, localUserIds))
+        : []
+    const localUserById = new Map(localUserRows.map(u => [u.id, u]))
     for (const row of localRows as any[]) {
-        const userinfo = row.userid
-            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, row.userid))
-            : []
-        row.user = userinfo[0] ?? null
+        row.user = (row.userid != null ? localUserById.get(row.userid) : null) ?? null
     }
 
     // 원격 글: 재게시면 표시용 published도 effective date로 맞춤(getRemoteFeedPosts.ts와 동일)

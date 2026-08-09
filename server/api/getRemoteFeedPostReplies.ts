@@ -36,11 +36,13 @@ export default eventHandler(async (event) => {
         frontierIds = fresh.map((r) => r.id)
     }
 
+    const replyUserIds = [...new Set(all.map(item => item.userid).filter((id): id is number => id != null))]
+    const replyUserRows = replyUserIds.length
+        ? await db.select({ id: users.id, username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(inArray(users.id, replyUserIds))
+        : []
+    const replyUserById = new Map(replyUserRows.map(u => [u.id, u]))
     for (const item of all) {
-        const u = item.userid
-            ? await db.select({ username: users.username, knownas: users.knownas, avatar: users.avatar }).from(users).where(eq(users.id, item.userid))
-            : []
-        ;(item as any).user = u[0] ?? null
+        ;(item as any).user = (item.userid != null ? replyUserById.get(item.userid) : null) ?? null
     }
 
     const muteLookup = await getMuteLookup(viewerUserId)

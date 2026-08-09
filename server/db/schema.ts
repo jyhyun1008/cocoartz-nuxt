@@ -1,4 +1,4 @@
-import { pgTable, integer, timestamp, text, boolean, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, integer, timestamp, text, boolean, uniqueIndex, index } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -86,7 +86,11 @@ export const chats = pgTable('chats', {
     replyto: text(),
     // 채팅 메시지 수정 시 true — "(수정됨)" 표시용. 삭제는 이력 안 남기고 그냥 row 자체를 지움
     edited: boolean().default(false).notNull(),
-})
+}, (table) => [
+    // getChatsByRoomId.ts가 방 들어갈 때마다 (serverid, roomid)로 전체를 긁는데, 인덱스가 하나도
+    // 없어서 채팅이 쌓일수록 매번 풀스캔이었음
+    index('chats_room_idx').on(table.serverid, table.roomid),
+])
 
 export const posts = pgTable('posts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -121,6 +125,11 @@ export const posts = pgTable('posts', {
     summary: text(),
 }, (table) => [
     uniqueIndex('posts_object_id_idx').on(table.objectId),
+    // 게시판 목록(roomid), 개인 타임라인/프로필(userid), 댓글 조회(replyto) — 전부 인덱스 없이
+    // 풀스캔하고 있었음(N+1 쿼리 수정과 별개로, 이건 테이블 자체가 커질수록 심각해지는 문제)
+    index('posts_room_idx').on(table.roomid),
+    index('posts_userid_idx').on(table.userid),
+    index('posts_replyto_idx').on(table.replyto),
 ])
 
 export const likes = pgTable('likes', {
@@ -136,6 +145,7 @@ export const likes = pgTable('likes', {
     activityId: text(),
 }, (table) => [
     uniqueIndex('likes_activity_id_idx').on(table.activityId),
+    index('likes_postid_idx').on(table.postid),
 ])
 
 export const actors = pgTable('actors', {
@@ -168,6 +178,9 @@ export const follows = pgTable('follows', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('follows_userid_actor_idx').on(table.userid, table.followerActorUrl),
+    // userid는 위 복합 유니크 인덱스의 왼쪽 컬럼이라 이미 커버되지만, followerUserId(로컬 팔로워
+    // 조회 — getFollowingFeed.ts 등)는 별도 컬럼이라 인덱스가 전혀 없었음
+    index('follows_follower_userid_idx').on(table.followerUserId),
 ])
 
 // 개인 알림함 — 우선 'follow' 타입만 사용하지만 향후 확장 대비 문자열 type으로 둠
@@ -178,7 +191,9 @@ export const notifications = pgTable('notifications', {
     actorUserId: integer(),
     read: boolean().default(false).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-})
+}, (table) => [
+    index('notifications_userid_idx').on(table.userid),
+])
 
 export const boosts = pgTable('boosts', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -191,6 +206,7 @@ export const boosts = pgTable('boosts', {
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('boosts_activity_id_idx').on(table.activityId),
+    index('boosts_postid_idx').on(table.postid),
 ])
 
 export const reactions = pgTable('reactions', {
@@ -199,7 +215,9 @@ export const reactions = pgTable('reactions', {
     postid: integer().notNull(),
     emoji: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-})
+}, (table) => [
+    index('reactions_postid_idx').on(table.postid),
+])
 
 export const chatReactions = pgTable('chat_reactions', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -207,7 +225,9 @@ export const chatReactions = pgTable('chat_reactions', {
     chatid: integer().notNull(),
     emoji: text().notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-})
+}, (table) => [
+    index('chat_reactions_chatid_idx').on(table.chatid),
+])
 
 // 우리 서버 자체의 커스텀 이모지(관리자 업로드) — 게시판/채팅/위키 본문과 리액션에서
 // :shortcode: 로 쓸 수 있고, 연합 게시판에 올라간 글은 이 정보를 AP tag 배열에 실어서
@@ -233,7 +253,9 @@ export const wikiPages = pgTable('wiki_pages', {
     history: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-})
+}, (table) => [
+    index('wiki_pages_roomid_idx').on(table.roomid),
+])
 
 // 유저 개인이 팔로우하는 원격(fediverse) 계정
 export const remoteFollows = pgTable('remote_follows', {
