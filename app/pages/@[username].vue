@@ -296,7 +296,7 @@ function switchFollowListTab(type) {
                         </div>
                     </div>
                     <button v-if="isOwn" id="edit-profile-btn" @click="openEdit">프로필 편집</button>
-                    <template v-else-if="userId">
+                    <div v-else-if="userId" id="profile-actions">
                         <button
                             id="follow-btn"
                             :class="{ following: userData?.isFollowing, requested: userData?.isFollowRequested }"
@@ -330,7 +330,7 @@ function switchFollowListTab(type) {
                                 >하드 뮤트</button>
                             </div>
                         </div>
-                    </template>
+                    </div>
                 </div>
 
                 <!-- 프로필 정보 -->
@@ -649,6 +649,14 @@ function switchFollowListTab(type) {
     margin-bottom: 12px;
     position: relative;
     z-index: 1;
+}
+
+/* 팔로우 버튼이 space-between 때문에 아바타-뮤트 사이 어중간한 자리에 홀로 떨어져 보이던 문제 —
+   팔로우+뮤트를 한 그룹으로 묶어서 오른쪽 끝에 같이 붙게 함(아바타는 왼쪽, 이 그룹은 오른쪽) */
+#profile-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 #profile-avatar {
