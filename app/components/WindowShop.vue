@@ -239,6 +239,11 @@ async function buy(item) {
     font-size: 0.72rem;
     color: rgba(var(--fg-rgb),0.45);
     line-height: 1.3;
+    /* 설명이 길면 카드 높이가 아이템마다 들쭉날쭉해지니 2줄까지만 보여주고 나머진 ...으로 자름 */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .shop-card-price {
