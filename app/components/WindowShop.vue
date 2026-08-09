@@ -239,11 +239,13 @@ async function buy(item) {
     font-size: 0.72rem;
     color: rgba(var(--fg-rgb),0.45);
     line-height: 1.3;
-    /* 설명이 길면 카드 높이가 아이템마다 들쭉날쭉해지니 2줄까지만 보여주고 나머진 ...으로 자름 */
+    /* 설명이 길면 카드 높이가 아이템마다 들쭉날쭉해지니 2줄까지만 보여주고 나머진 ...으로 자름.
+       min-height도 2줄 높이로 고정해서, 짧은 설명(1줄)인 카드도 옆 카드랑 높이가 안 어긋나게 함 */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    min-height: calc(1.3em * 2);
 }
 
 .shop-card-price {
