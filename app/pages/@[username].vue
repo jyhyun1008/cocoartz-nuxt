@@ -15,13 +15,17 @@ const { userId } = useCurrentUser()
 // 그래서 남의 프로필 URL인데 내 방이 그대로 보이고 편집(꾸미기)까지 가능해 보였음.
 const username = computed(() => route.params.username)
 
+// ⚠️ 키 자체를 username에 물려서 씀(고정 문자열 키 + watch 조합 말고) — 키가 고정이면 Nuxt의
+// getCachedData 기본 동작(payloadExtraction/static 캐시)이 조건에 따라 "같은 키니까 이전 값
+// 재사용"으로 판단할 여지가 남아있어서, 프로필을 옮겨다녀도 예전 데이터가 계속 보일 수 있음.
+// 키에 username을 직접 포함시키면 유저가 바뀌는 순간 완전히 새로운 키가 되어 그 문제 자체가
+// 없고, 한 번 봤던 프로필로 돌아가면 오히려 캐시를 재사용해 더 빠르게 뜨는 보너스도 있음.
 const { data: userData, refresh } = await useAsyncData(
-    'user-profile',
+    () => `user-profile-${username.value}`,
     () => $fetch(`${apiBaseUrl}/api/getUserProfile`, {
         method: 'POST',
         body: { username: username.value, viewerUserId: userId.value },
     }),
-    { watch: [username] }
 )
 
 if (!userData.value) {

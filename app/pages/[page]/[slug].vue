@@ -11,14 +11,14 @@ const path = computed(() => `/${page.value}`)
 
 const { server, slug, accent, bgaccent, accentFgRgb } = await useServer()
 
+// 고정 문자열 키 대신 키 자체에 page를 물림 — @[username].vue와 같은 이유(그쪽 주석 참고)
 const { data: roomData } = await useAsyncData(
-    'room-data',
+    () => `room-data-${page.value}`,
     () => $fetch<any[]>(`${apiBaseUrl}/api/getRoomByPath`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: path.value }),
     }).then(res => (Array.isArray(res) && res.length > 0 ? res[0] : null)),
-    { watch: [page] },
 )
 
 const roomType = computed(() => roomData.value?.type ?? 'wiki')
