@@ -391,6 +391,7 @@
                             <span class="admin-ch-name">{{ item.name }}</span>
                             <code class="admin-ch-path">{{ shopCategoryLabel(item.category) }} · {{ item.itemKey }} · {{ item.price }}{{ serverForm.currencyName || '코코아' }}</code>
                             <span v-if="item.isDefault" class="admin-ch-type-badge admin-ch-federated-badge">가입 시 기본 지급</span>
+                            <span v-if="item.category === 'terrain' && item.blocksMovement" class="admin-ch-type-badge">막힘</span>
                             <span class="admin-ch-type-badge" :class="{ 'admin-ch-federated-badge': item.active }">{{ item.active ? '판매중' : '비활성' }}</span>
                             <div class="admin-ch-actions">
                                 <button class="admin-icon-btn" @click="toggleEditShopItem(item)" title="수정">
@@ -413,6 +414,9 @@
                                 </label>
                                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
                                     <input type="checkbox" v-model="shopEditForm.isDefault" /> 가입 시 기본 지급
+                                </label>
+                                <label v-if="item.category === 'terrain'" style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                                    <input type="checkbox" v-model="shopEditForm.blocksMovement" /> 캐릭터 통과 불가(막힘)
                                 </label>
                             </div>
 
@@ -517,6 +521,9 @@
                     </label>
                     <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
                         <input type="checkbox" v-model="newShopItem.isDefault" /> 가입 시 기본 지급
+                    </label>
+                    <label v-if="newShopItem.category === 'terrain'" style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                        <input type="checkbox" v-model="newShopItem.blocksMovement" /> 캐릭터 통과 불가(막힘)
                     </label>
                 </div>
                 <p v-if="newShopItem.isDefault" class="admin-label-hint">앞으로 가입하는 유저에게 자동으로 인벤토리로 지급돼요. 기존 유저한테도 주려면 저장 후 <code>npm run db:seed-shop-items</code>를 다시 돌리세요.</p>
@@ -1059,7 +1066,7 @@ const filteredShopItems = computed(() =>
 
 // 새 아이템 등록
 function emptyShopForm() {
-    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, icon: '', layers: [] }
+    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, icon: '', layers: [] }
 }
 const newShopItem = reactive(emptyShopForm())
 const newShopItemError = ref('')
@@ -1134,6 +1141,7 @@ async function submitNewShopItem() {
                 price: newShopItem.price,
                 active: newShopItem.active,
                 isDefault: newShopItem.isDefault,
+                blocksMovement: newShopItem.blocksMovement,
                 icon: newShopItem.icon || null,
                 layers: newShopItem.category === 'map_item' ? newShopItem.layers : undefined,
             },
@@ -1148,7 +1156,7 @@ async function submitNewShopItem() {
 
 // 인라인 수정
 const editingShopItemId = ref(null)
-const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, icon: '', layers: [] })
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, icon: '', layers: [] })
 const shopEditError = ref('')
 const shopEditSaving = ref(false)
 const shopEditIconFileInput = ref(null)
@@ -1173,6 +1181,7 @@ function toggleEditShopItem(item) {
     shopEditForm.price = item.price
     shopEditForm.active = item.active
     shopEditForm.isDefault = item.isDefault
+    shopEditForm.blocksMovement = !!item.blocksMovement
     shopEditForm.icon = item.icon ?? ''
     shopEditForm.layers = [] // 새로 6장 올릴 때만 채워짐 — 비어있으면 update 쪽에서 기존 값 유지
 }
@@ -1215,6 +1224,7 @@ async function submitEditShopItem(item) {
                 price: shopEditForm.price,
                 active: shopEditForm.active,
                 isDefault: shopEditForm.isDefault,
+                blocksMovement: item.category === 'terrain' ? shopEditForm.blocksMovement : undefined,
                 icon: item.category === 'map_item' ? undefined : (shopEditForm.icon || null),
                 layers: item.category === 'map_item' && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
             },

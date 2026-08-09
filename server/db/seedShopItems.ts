@@ -33,11 +33,13 @@ const STARTER_AVATAR_ITEMS = [
 // 이 카탈로그(+인벤토리 보유 여부)로만 결정되니, 나중에 새 기본 지형을 추가하고 싶으면 코드를
 // 안 고치고 관리자 페이지에서 isDefault 켜서 등록하기만 하면 됨(특수지형은 isDefault 끄고 유료로)
 const STARTER_TERRAIN_ITEMS = [
-    { category: 'terrain', itemKey: '1', name: '잔디', icon: '/tileset/1.png' },
-    { category: 'terrain', itemKey: '2', name: '물', icon: '/tileset/2.png' },
-    { category: 'terrain', itemKey: '3', name: '모래', icon: '/tileset/3.png' },
-    { category: 'terrain', itemKey: '4', name: '돌', icon: '/tileset/4.png' },
-    { category: 'terrain', itemKey: '5', name: '나무', icon: '/tileset/5.png' },
+    { category: 'terrain', itemKey: '1', name: '잔디', icon: '/tileset/1.png', blocksMovement: false },
+    // 물은 예전엔 코드에 WATER_TILE_ID=2로 하드코딩된 유일한 "못 지나가는 지형"이었음 — 이제
+    // 이 플래그로 관리자가 새로 등록하는 지형도 자유롭게 막을 수 있음(RoomMap.vue 등 참고)
+    { category: 'terrain', itemKey: '2', name: '물', icon: '/tileset/2.png', blocksMovement: true },
+    { category: 'terrain', itemKey: '3', name: '모래', icon: '/tileset/3.png', blocksMovement: false },
+    { category: 'terrain', itemKey: '4', name: '돌', icon: '/tileset/4.png', blocksMovement: false },
+    { category: 'terrain', itemKey: '5', name: '나무', icon: '/tileset/5.png', blocksMovement: false },
 ].map(i => ({ ...i, price: 0, description: '가입하면 기본으로 지급되는 기본 지형이에요.', isDefault: true }))
 
 const SAMPLE_ITEMS = [

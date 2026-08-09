@@ -228,7 +228,8 @@ const mapSpawn = computed(() => {
 
 // ─── 이동 충돌 판정 — RoomMap.vue와 같은 방식(자세한 설명은 그쪽 주석 참고). 여긴 다른 유저/점프가
 // 없는 단순 미리보기라 그 부분만 빼고 이식함. 이게 없으면 지형 없는 칸으로도 그냥 걸어나가버림.
-const WATER_TILE_ID = 2
+// 어떤 지형이 막히는지는 상점(관리자 페이지)에서 지형마다 지정함(useTerrainCatalog.ts 참고)
+const { getTerrainBlocksMovement } = useTerrainCatalog()
 function tilesAt(tx, ty) {
     return displayTiles.value.filter(t => t.position.x === tx && t.position.y === ty)
 }
@@ -244,16 +245,16 @@ function canEnterTile(tx, ty, zCur) {
     const here = tileAt(tx, ty, zCur)
     if (!here) return false
     if (tileAt(tx, ty, zCur + 1)) return false
-    return here.itemid !== WATER_TILE_ID
+    return !getTerrainBlocksMovement(here.itemid)
 }
-// 스페이스바로 점프 중일 때만 씀 — 같은 층에서 막혀도 바로 위/아래 층에 유효한(물 아닌) 타일이
-// 있으면 그쪽으로 넘어갈 수 있게 해줌
+// 스페이스바로 점프 중일 때만 씀 — 같은 층에서 막혀도 바로 위/아래 층에 유효한(막힘 지형 아닌)
+// 타일이 있으면 그쪽으로 넘어갈 수 있게 해줌
 function canEnterTileJumping(tx, ty, zCur) {
     if (canEnterTile(tx, ty, zCur)) return true
     const up = tileAt(tx, ty, zCur + 1)
-    if (up) return up.itemid !== WATER_TILE_ID
+    if (up) return !getTerrainBlocksMovement(up.itemid)
     const down = tileAt(tx, ty, zCur - 1)
-    if (down) return down.itemid !== WATER_TILE_ID
+    if (down) return !getTerrainBlocksMovement(down.itemid)
     return false
 }
 const COLLISION_Y_OFFSET = -1

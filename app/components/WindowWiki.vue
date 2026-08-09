@@ -19,12 +19,12 @@
                 <template v-else-if="currentView === 'detail'">
                     <button v-if="isLoggedIn" class="write-btn-header" @click="startEdit">편집</button>
                     <button class="back-btn-header" @click="currentView = 'history'">이력</button>
-                    <button class="back-btn-header" @click="currentView = 'list'">목록</button>
+                    <button class="back-btn-header" @click="goToList">목록</button>
                 </template>
                 <!-- 작성/편집/이력 뷰 -->
                 <template v-else>
                     <button class="back-btn-header" @click="goBack">← 뒤로</button>
-                    <button class="back-btn-header" @click="currentView = 'list'">목록</button>
+                    <button class="back-btn-header" @click="goToList">목록</button>
                 </template>
                 <button class="window-close-btn wiki-close-btn" @click="$emit('close')">✕</button>
             </div>
@@ -203,6 +203,16 @@ async function shareWikiPage() {
     setTimeout(() => { shareCopied.value = false }, 1500)
 }
 
+// 목록으로 돌아갈 때 currentView만 바꾸고 URL은 그대로 두면(/wiki/환영합니다에 계속 머무름),
+// 목록에서 방금 보던 페이지와 "같은" 제목을 다시 눌러도 navigateTo가 이미 그 URL이라 아무 일도
+// 안 하고 넘어가버려서(경로가 실제로 안 바뀌니 targetSlug watch가 안 켜짐) 본문으로 못 돌아오는
+// 버그가 있었음 — 목록으로 갈 때도 항상 URL을 채널 루트로 같이 옮겨서, 목록에서 아무 제목이나
+// 눌러도 항상 "진짜 경로 변경"이 되게 함
+function goToList() {
+    currentView.value = 'list'
+    navigateTo(props.channelPath)
+}
+
 async function openPageBySlug(slug) {
     const data = await $fetch(`${apiBaseUrl}/api/getWikiPageBySlug`, {
         method: 'POST',
@@ -302,7 +312,7 @@ function goBack() {
     if (currentView.value === 'history' || currentView.value === 'edit') {
         currentView.value = 'detail'
     } else {
-        currentView.value = 'list'
+        goToList()
     }
 }
 

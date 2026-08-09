@@ -790,8 +790,9 @@ const {
 } = useIsoTiles(topRatio)
 
 // ─── 이동 충돌 판정용 타일 조회 ──────────────────────────
-// 물 블록(타일셋 2번, /public/tileset/2.png) — 지나갈 수 없는 타일
-const WATER_TILE_ID = 2
+// 어떤 지형이 막히는지는 이제 상점(관리자 페이지)에서 지형마다 지정함 — 예전엔 "물(itemid=2)"만
+// 코드에 하드코딩된 유일한 막힘 지형이었음(useTerrainCatalog.ts의 blocksMovement 참고)
+const { getTerrainBlocksMovement } = useTerrainCatalog()
 
 function tilesAt(tx, ty) {
     return (mapInfo.value?.[0] ?? []).filter(t => t.position.x === tx && t.position.y === ty)
@@ -824,17 +825,17 @@ function canEnterTile(tx, ty, zCur) {
     const here = tileAt(tx, ty, zCur)
     if (!here) return false
     if (tileAt(tx, ty, zCur + 1)) return false
-    return here.itemid !== WATER_TILE_ID
+    return !getTerrainBlocksMovement(here.itemid)
 }
 
-// 스페이스바로 점프 중일 때만 씀 — 같은 층에서 막혀도 바로 위/아래 층에 유효한(물 아닌) 타일이
-// 있으면 그쪽으로 넘어갈 수 있게 해줌(평소엔 같은 층 안에서만 이동 가능 — canEnterTile 참고)
+// 스페이스바로 점프 중일 때만 씀 — 같은 층에서 막혀도 바로 위/아래 층에 유효한(막힘 지형 아닌)
+// 타일이 있으면 그쪽으로 넘어갈 수 있게 해줌(평소엔 같은 층 안에서만 이동 가능 — canEnterTile 참고)
 function canEnterTileJumping(tx, ty, zCur) {
     if (canEnterTile(tx, ty, zCur)) return true
     const up = tileAt(tx, ty, zCur + 1)
-    if (up) return up.itemid !== WATER_TILE_ID
+    if (up) return !getTerrainBlocksMovement(up.itemid)
     const down = tileAt(tx, ty, zCur - 1)
-    if (down) return down.itemid !== WATER_TILE_ID
+    if (down) return !getTerrainBlocksMovement(down.itemid)
     return false
 }
 

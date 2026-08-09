@@ -14,6 +14,6 @@ export default eventHandler(async () => {
     return rows.flatMap((row) => {
         const id = Number(row.itemKey)
         if (!Number.isFinite(id) || !row.icon) return []
-        return [{ id, name: row.name, image: row.icon }]
+        return [{ id, name: row.name, image: row.icon, blocksMovement: row.blocksMovement }]
     })
 })

@@ -7,11 +7,17 @@ export interface TerrainDef {
     id: number
     name: string
     image: string
+    // 캐릭터가 이 지형 위로 못 지나감(예: 물) — 관리자가 상점 페이지에서 지형별로 지정.
+    // RoomMap.vue/UserRoomEmbed.vue의 canEnterTile이 이 값을 씀(예전엔 itemid===2 하드코딩이었음)
+    blocksMovement: boolean
 }
 
 // server/db/seedShopItems.ts의 STARTER_TERRAIN_ITEMS(1~5)와 짝맞춘 기본값 — DB 조회가 아직 안 끝났거나
-// (SSR 중) seed가 안 돌아간 상태에서도 기본 지형 5종은 항상 그려지도록 하는 안전망
-const STATIC_TERRAIN_CATALOG: TerrainDef[] = [1, 2, 3, 4, 5].map(n => ({ id: n, name: `지형 ${n}`, image: `/tileset/${n}.png` }))
+// (SSR 중) seed가 안 돌아간 상태에서도 기본 지형 5종은 항상 그려지도록 하는 안전망. blocksMovement도
+// 시드와 맞춰둠(2번=물만 true) — 예전 하드코딩(WATER_TILE_ID=2)과 같은 동작을 폴백으로도 유지
+const STATIC_TERRAIN_CATALOG: TerrainDef[] = [1, 2, 3, 4, 5].map(n => ({
+    id: n, name: `지형 ${n}`, image: `/tileset/${n}.png`, blocksMovement: n === 2,
+}))
 
 export function useTerrainCatalog() {
     const config = useRuntimeConfig()
@@ -33,5 +39,11 @@ export function useTerrainCatalog() {
         return TERRAIN_CATALOG.value.find(t => t.id === id)?.image ?? `/tileset/${id}.png`
     }
 
-    return { TERRAIN_CATALOG, getTerrainImage }
+    // 카탈로그에 없는(예: 아직 등록 안 된) itemid는 안전하게 "막힘"으로 취급 — 지형이 없는 칸을
+    // 그냥 지나갈 수 있게 두는 것보다, 모르는 지형은 막아두는 쪽이 덜 이상함
+    function getTerrainBlocksMovement(id: number): boolean {
+        return TERRAIN_CATALOG.value.find(t => t.id === id)?.blocksMovement ?? true
+    }
+
+    return { TERRAIN_CATALOG, getTerrainImage, getTerrainBlocksMovement }
 }

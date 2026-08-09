@@ -461,6 +461,10 @@ export const items = pgTable('items', {
     // true면 가입 시점에 인벤토리로 자동 지급(server/api/auth/register.ts) — 카테고리 전체가 아니라
     // 아이템 단위로 관리자가 직접 고름(예: 헤어 스타일을 새로 추가해도 이 값이 false면 공짜로 안 나감)
     isDefault: boolean().default(false).notNull(),
+    // category='terrain'에서만 의미 있음 — 캐릭터가 이 지형 위로 못 지나감(예: 물). 예전엔 "물
+    // 타일(itemKey=2)"이 코드에 하드코딩된 유일한 막힘 지형이었는데, 이제 관리자가 상점 페이지에서
+    // 새로 등록하는 지형마다 자유롭게 지정할 수 있음(RoomMap.vue/UserRoomEmbed.vue의 canEnterTile 참고)
+    blocksMovement: boolean().default(false).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
     uniqueIndex('items_category_key_idx').on(table.category, table.itemKey),
