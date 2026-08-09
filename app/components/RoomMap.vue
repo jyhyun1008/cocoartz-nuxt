@@ -877,18 +877,31 @@ function itemKey(item, idx) {
 // ─── 재화: 코인 랜덤 스폰 + 수집 판정 ──────────────────────────
 // 나(이 브라우저)한테만 보이는 연출이라 서버로 동기화하지 않음 — 그래서 아래 타이머로 그냥
 // 로컬에서 랜덤하게 켬. 한 번에 하나만 떠 있게 해서 화면이 어지럽지 않게 함.
-// 5분에 한 번씩 등장(1분간 유지 — useCoinBubbles.ts의 COIN_DURATION_MS)
+//
+// 예전엔 5분마다 뜨고 1분 안에 못 먹으면 사라지는 방식이었는데, 그 1분을 놓치면 다음 정시(5분
+// 간격) 타이밍까지 그냥 허탕이라 너무 빡빡하다는 피드백을 반영함 — 이제 코인은 유저가 실제로
+// 먹을 때까지(hideCoin) 계속 떠 있고, 다음 코인은 "먹은 시점"부터 5분 뒤에 뜸. 그래서 고정
+// interval 대신 collectCoin이 성공/스킵될 때마다 스스로를 다시 예약하는 setTimeout으로 바꿈.
 const COIN_SPAWN_INTERVAL_MS = 5 * 60 * 1000
 let coinSpawnTimer = null
 
-function maybeSpawnCoin() {
+function scheduleCoinSpawn(delayMs = COIN_SPAWN_INTERVAL_MS) {
+    clearTimeout(coinSpawnTimer)
+    coinSpawnTimer = setTimeout(trySpawnCoin, delayMs)
+}
+
+function trySpawnCoin() {
     // 로그아웃 상태(구경만 하는 손님)한테는 어차피 못 먹으니 아예 안 띄움 — 안 그러면 코인이
-    // 뜨는데 지나가도 안 먹히는(collectCoin이 401로 조용히 실패하는) 것처럼 보임
-    if (!isLoggedIn.value) return
-    if (Object.keys(coinBubbles.value).length > 0) return
-    if (!mapItems.value.length) return
+    // 뜨는데 지나가도 안 먹히는(collectCoin이 401로 조용히 실패하는) 것처럼 보임. 지금은 못
+    // 띄우는 조건이면(로그인 안 함/맵에 아이템 없음/이미 떠 있음) 5분 뒤 다시 시도만 예약해둠
+    if (!isLoggedIn.value || !mapItems.value.length || Object.keys(coinBubbles.value).length > 0) {
+        scheduleCoinSpawn()
+        return
+    }
     const idx = Math.floor(Math.random() * mapItems.value.length)
     showCoin(itemKey(mapItems.value[idx], idx))
+    // 다음 스폰은 여기서 예약 안 함 — 이 코인을 실제로 먹는 순간(checkCoinCollection의 hideCoin
+    // 직후)에 예약함. 그래야 "안 먹으면 계속 떠 있다가, 먹은 지 5분 뒤 다음 게 뜨는" 동작이 됨
 }
 
 const coinToastAmount = ref(null)
@@ -918,7 +931,7 @@ async function collectCoin() {
 // 판정 때의 칸과 비교해서 실제로 바뀐 경우에만 검사
 const lastCheckedTile = ref({ x: null, y: null })
 function checkCoinCollection() {
-    // 코인 뜬 채로(1분 이내) 로그아웃하는 극단적인 경우까지 대비 — 로그인 안 된 상태면 판정 자체를 건너뜀
+    // 코인 뜬 채로 로그아웃하는 경우까지 대비 — 로그인 안 된 상태면 판정 자체를 건너뜀
     if (!isLoggedIn.value) return
     const lx = localPosition.value.x
     const ly = localPosition.value.y
@@ -933,16 +946,17 @@ function checkCoinCollection() {
         if (!coinBubbles.value[key]) return
         if (item.position.x !== tx || item.position.y !== ty) return
         hideCoin(key)  // 낙관적으로 즉시 지움 — 다시 왔다갔다해도 중복 수집 시도 안 함
+        scheduleCoinSpawn()  // "먹은 시점" 기준으로 다음 코인 5분 뒤 예약
         collectCoin()
     })
 }
 watch(() => localPosition.value, checkCoinCollection)
 
 onMounted(() => {
-    coinSpawnTimer = setInterval(maybeSpawnCoin, COIN_SPAWN_INTERVAL_MS)
+    scheduleCoinSpawn()
 })
 onUnmounted(() => {
-    if (coinSpawnTimer) clearInterval(coinSpawnTimer)
+    clearTimeout(coinSpawnTimer)
     clearTimeout(coinToastTimer)
 })
 
