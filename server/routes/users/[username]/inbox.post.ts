@@ -1,6 +1,6 @@
 import { db } from '../../../utils/db'
 import { users, actors, follows, posts, likes, boosts, rooms, remoteFollows, remoteFeedPosts, remoteTimelinePosts, remoteTimelinePostLikes } from '../../../db/schema'
-import { eq, and, count, inArray, type SQL } from 'drizzle-orm'
+import { eq, and, count, inArray, desc, type SQL } from 'drizzle-orm'
 import { buildAcceptActivity, fetchActor, fetchObject, parseLocalPostId, actorUrl, isPublicAudience, buildActorDisplayInfo } from '../../../utils/ap/activitypub'
 import { deliverToInbox } from '../../../utils/ap/deliver'
 import { verifyInboxSignature, extractSignatureDomain } from '../../../utils/ap/httpSignature'
@@ -265,7 +265,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         // 아무것도 안 돌려줌 — 그럴 땐 이미 한 번 스트리밍했을 테니 다시 안 보냄. 진짜 새로 저장된
         // 경우에만 연합 게시판을 지금 보고 있는 사람들에게 실시간으로 흘려보냄(연합 타임라인 스트리밍)
         if (inserted) {
-            const [federatedRoom] = await db.select({ path: rooms.path }).from(rooms).where(eq(rooms.federated, true))
+            const [federatedRoom] = await db.select({ path: rooms.path }).from(rooms).where(eq(rooms.federated, true)).orderBy(desc(rooms.id)).limit(1)
             if (federatedRoom) {
                 void broadcastFederatedBoardPost(federatedRoom.path, { kind: 'remote', post: { ...inserted, liked: false } })
                     .catch((e) => console.error('[inbox] 연합 게시판 스트리밍 실패', e))
@@ -523,7 +523,7 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
         // 시각"을 표시용 published로 맞춰서 보냄(원 글 작성 시각 그대로면 목록 맨 위에 새로
         // 꽂아 넣었는데 날짜만 옛날로 보이는 어색함이 생김)
         if (inserted) {
-            const [federatedRoom] = await db.select({ path: rooms.path }).from(rooms).where(eq(rooms.federated, true))
+            const [federatedRoom] = await db.select({ path: rooms.path }).from(rooms).where(eq(rooms.federated, true)).orderBy(desc(rooms.id)).limit(1)
             if (federatedRoom) {
                 void broadcastFederatedBoardPost(federatedRoom.path, {
                     kind: 'remote',

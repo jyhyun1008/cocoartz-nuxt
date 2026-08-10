@@ -1,6 +1,6 @@
 import { db } from '../../utils/db'
 import { rooms, servers, users } from '../../db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, and, ne } from 'drizzle-orm'
 import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
@@ -31,12 +31,13 @@ export default eventHandler(async (event) => {
     }
 
     if (federated) {
-        // 같은 서버 내 다른 연합 게시판은 자동으로 해제 (서버당 1개 제한)
-        const otherIds = serverRoomIds.filter((id) => id !== roomid)
+        // 다른 연합 게시판은 자동으로 해제 — 이 배포는 서버 1개를 전제로 하고(server당 1개 제한),
+        // inbox.post.ts/_ws.ts의 "연합 게시판 찾기" 쿼리가 serverid 구분 없이 rooms 테이블 전체에서
+        // federated=true인 행을 그냥 하나 집어오기 때문에, 예전엔 이 채널의 servers.rooms 배열에
+        // 속한 행끼리만 해제해서 그 배열 밖으로 빠진(삭제/재생성으로 고아가 된) 예전 채널이 federated
+        // 플래그를 계속 들고 있는 채로 남아 계속 잘못 골라지는 버그가 있었음 — 전체 테이블 기준으로 해제
         await db.transaction(async (tx) => {
-            if (otherIds.length) {
-                await tx.update(rooms).set({ federated: false }).where(inArray(rooms.id, otherIds))
-            }
+            await tx.update(rooms).set({ federated: false }).where(and(eq(rooms.federated, true), ne(rooms.id, roomid)))
             // 연합 게시판은 갤러리 보기를 지원 안 함(원격 글까지 섞여서 정사각형 그리드가 안 맞음) —
             // 이미 갤러리로 켜져 있던 게시판을 연합으로 지정하면 조용히 꺼줌
             await tx.update(rooms).set({ federated: true, galleryView: false }).where(eq(rooms.id, roomid))
