@@ -442,6 +442,13 @@ onMounted(() => {
     window.addEventListener('keydown', (e) => {
         if (e.isSynthetic) return  // 조이스틱/점프 버튼이 걷기 애니메이션만 재생시키려고 쏘는 합성 이벤트 — 이동은 moveStep이 직접 처리하므로 여기선 무시
         if (isEditMode.value) return
+        // RoomMap.vue의 onKeydown에는 있는데 여기는 빠져있던 가드 — 프로필 페이지엔 이 방(내 room
+        // 미리보기)과 댓글/채팅 입력창이 같이 떠 있는 경우가 많아서, 이 가드 없이는 다른 입력창에
+        // 포커스한 채로 스페이스바를 눌러도(예: 댓글에 띄어쓰기) 여기서 먼저 가로채서 점프 처리하고
+        // preventDefault까지 걸어버려 스페이스가 안 눌리는 것처럼 보였음("모바일/데스크탑에서 간혹
+        // 띄어쓰기가 안 됨" 제보의 원인)
+        const tag = document.activeElement?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return
         if (e.code === 'Space') {
             e.preventDefault()  // 안 막으면 브라우저 기본 동작(페이지 스크롤)이 먹음
             if (!e.repeat) {

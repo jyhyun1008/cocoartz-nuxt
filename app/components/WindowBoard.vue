@@ -140,7 +140,14 @@
         <!-- 글 작성 / 수정 -->
         <div v-else-if="currentView === 'create' || currentView === 'edit'" id="board-wrapper">
             <div class="create-form">
-                <input v-model="newTitle" placeholder="제목" class="post-input" />
+                <!-- 연합 게시판은 이메일 인증한 유저만 글을 쓸 수 있음 — 제출한 뒤에야 에러로 알게 되면
+                     답답하니, 작성 화면에 들어오는 즉시 막혀있다는 걸 알리고 입력 자체를 비활성화함
+                     (서버(createPost.ts)도 동일하게 막아주니 이건 UX용, 실제 방어는 서버 쪽) -->
+                <p v-if="writeBlocked && currentView === 'create'" class="admin-error">
+                    <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 글을 쓸 수 있어요.
+                    <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                </p>
+                <input v-model="newTitle" placeholder="제목" class="post-input" :disabled="writeBlocked && currentView === 'create'" />
                 <div class="editor-tabs">
                     <button class="editor-tab-btn" :class="{ active: postEditorTab === 'write' }" @click="postEditorTab = 'write'">작성</button>
                     <button class="editor-tab-btn" :class="{ active: postEditorTab === 'preview' }" @click="postEditorTab = 'preview'">미리보기</button>
@@ -170,11 +177,15 @@
                         v-model="newContent"
                         placeholder="내용을 입력하세요... (마크다운 사용 가능)"
                         class="post-textarea wiki-textarea"
+                        :disabled="writeBlocked && currentView === 'create'"
                     ></textarea>
                 </template>
                 <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
                 <p v-if="postError" class="admin-error">{{ postError }}</p>
-                <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">
+                <button
+                    class="submit-btn" @click="submitPost"
+                    :disabled="!newTitle.trim() || !newContent.trim() || (writeBlocked && currentView === 'create')"
+                >
                     {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
                 </button>
             </div>
@@ -312,10 +323,14 @@
                     <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
                 </div>
 
+                <p v-if="writeBlocked" class="admin-error">
+                    <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 댓글을 쓸 수 있어요.
+                    <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                </p>
                 <p v-if="commentError" class="admin-error">{{ commentError }}</p>
                 <div class="comment-form">
-                    <input v-model="commentContent" placeholder="댓글 작성..." class="post-input" @keydown.enter="submitComment" />
-                    <button class="submit-btn" @click="submitComment" :disabled="!commentContent.trim()">작성</button>
+                    <input v-model="commentContent" placeholder="댓글 작성..." class="post-input" :disabled="writeBlocked" @keydown.enter="submitComment" />
+                    <button class="submit-btn" @click="submitComment" :disabled="!commentContent.trim() || writeBlocked">작성</button>
                 </div>
             </div>
         </div>
@@ -535,6 +550,22 @@ const props = defineProps({
 })
 
 const { userId } = useCurrentUser()
+
+// 연합 게시판은 이메일 인증한 유저만 글/댓글을 쓸 수 있음(createPost.ts가 최종 방어) — 여기선
+// 작성 화면에 들어오자마자 막혀있다는 걸 미리 보여주고 입력 자체를 막기 위한 상태만 가져옴.
+// 연합 게시판이 아니면 아예 관련 없는 값이니 fetch 자체를 안 함.
+const { data: emailVerificationData } = await useAsyncData(
+    'board-email-verification-status',
+    () => (props.isFederated && userId.value)
+        ? $fetch(`${apiBaseUrl}/api/getEmailVerificationStatus`, { method: 'POST', body: { userid: userId.value } })
+        : Promise.resolve({ required: false, verified: true }),
+    { watch: [userId] },
+)
+const writeBlocked = computed(() => {
+    if (!props.isFederated) return false
+    const d = emailVerificationData.value
+    return !!d?.required && !d?.verified
+})
 
 // 우리 서버 커스텀 이모지(:shortcode:) — 글/댓글/리액션 표시 시점에 치환
 const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
