@@ -49,6 +49,8 @@
                         <i v-else-if="pageitem.type === 'wiki'" class="hgi hgi-stroke hgi-book-open-01 side-icon"></i>
                         <i v-else class="hgi hgi-stroke hgi-meeting-room side-icon"></i>
                         <span>{{ pageitem.knownas }}</span>
+                        <!-- 새 글 스트리밍(연합 게시판은 제외 — server/api/createPost.ts 참고) -->
+                        <span v-if="isUnread(pageitem.path)" class="unread-dot" title="새 글이 있어요"></span>
                     </div>
                     <!-- 채널 내 접속 유저 (디스코드 음성채널 스타일) -->
                     <div v-if="roomPresence(pageitem.path).length" class="side-presence">
@@ -85,7 +87,7 @@ const props = defineProps({
   rooms: String,
 })
 
-const { presenceByRoom } = useRoomSocket()
+const { presenceByRoom, unreadRooms, markRoomRead } = useRoomSocket()
 const { isOpen, close } = useMobileNav()
 const { openProfileCard } = useProfileCard()
 // 개인 타임라인은 settings.vue처럼 마을(path='/')을 배경으로 재사용해서 props.path만으로는
@@ -95,6 +97,18 @@ const route = useRoute()
 function roomPresence(roomPath: string) {
   return presenceByRoom.value[roomPath] ?? []
 }
+
+// 새 글 스트리밍 안 읽음 표시 — 지금 보고 있는 채널이면 안 띄움(어차피 보고 있으니)
+function isUnread(roomPath: string) {
+  return !!unreadRooms.value[roomPath] && roomPath !== props.path
+}
+// 실제로 그 채널을 열어봤을 때(주소가 그 채널로 바뀔 때) 안 읽음 표시를 지움
+watch(() => props.path, (p) => { if (p) markRoomRead(p) }, { immediate: true })
+// 지금 보고 있는 채널에 스트리밍이 막 도착한 경우 — isUnread가 화면에는 안 보이게 가려주지만,
+// 상태(unreadRooms) 자체를 안 지우면 나중에 다른 채널 갔다가 돌아올 때(경로가 안 바뀌고 그대로
+// 있다가 떠났다 오는 경우) 위 watch가 다시 안 불려서 계속 안 읽음으로 남아있음 — 그래서 도착
+// 즉시 여기서도 지워줌
+watch(unreadRooms, () => { if (props.path && unreadRooms.value[props.path]) markRoomRead(props.path) })
 
 const slug = config.public.serverSlug
 
@@ -178,6 +192,14 @@ const notiPath = '/noti'
     color: var(--sidebar-text);
     font-size: 0.95rem;
     transition: background 0.1s, color 0.1s;
+}
+
+.unread-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--accent);
+    flex-shrink: 0;
 }
 
 .side-items:hover {

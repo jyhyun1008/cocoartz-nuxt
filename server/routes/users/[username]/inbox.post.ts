@@ -8,6 +8,7 @@ import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderAct
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 import { refreshRemoteActorCache } from '../../../utils/remoteActorCache'
 import { extractQuoteUrl, extractFirstLink } from '../../../utils/ap/linkExtract'
+import { broadcastFederatedBoardPost } from '../../_ws'
 
 const MAX_FOLLOWERS_PER_USER = 5000
 const MAX_FOLLOWS_PER_DOMAIN_PER_HOUR = 30
@@ -246,7 +247,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
     // 공개 글이면 유저 구분 없는 서버 공용 연합 타임라인에도 반영(연합 게시판용) — 다른 로컬 유저가
     // 같은 계정을 팔로우해서 동시에 들어와도 objectId unique라 중복 없이 한 번만 저장됨
     if (isPublic) {
-        await db.insert(remoteTimelinePosts).values({
+        const [inserted] = await db.insert(remoteTimelinePosts).values({
             sourceActorUrl: actorUrl_,
             sourceInbox: follow.targetInbox,
             sourceHandle: follow.targetHandle,
@@ -258,7 +259,18 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
             quoteUrl,
             linkUrl,
             published,
-        }).onConflictDoNothing({ target: remoteTimelinePosts.objectId })
+        }).onConflictDoNothing({ target: remoteTimelinePosts.objectId }).returning()
+
+        // 이미 알고 있던 글(다른 유저가 같은 계정을 팔로우해서 중복 유입)이면 onConflictDoNothing이
+        // 아무것도 안 돌려줌 — 그럴 땐 이미 한 번 스트리밍했을 테니 다시 안 보냄. 진짜 새로 저장된
+        // 경우에만 연합 게시판을 지금 보고 있는 사람들에게 실시간으로 흘려보냄(연합 타임라인 스트리밍)
+        if (inserted) {
+            const [federatedRoom] = await db.select({ path: rooms.path }).from(rooms).where(eq(rooms.federated, true))
+            if (federatedRoom) {
+                void broadcastFederatedBoardPost(federatedRoom.path, { kind: 'remote', post: { ...inserted, liked: false } })
+                    .catch((e) => console.error('[inbox] 연합 게시판 스트리밍 실패', e))
+            }
+        }
     }
 }
 
@@ -489,7 +501,7 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
     console.log(`[inbox] 원격 부스트 개인 피드 저장: ${follow.targetHandle} → ${objectId}`)
 
     if (isPublic) {
-        await db.insert(remoteTimelinePosts).values({
+        const [inserted] = await db.insert(remoteTimelinePosts).values({
             sourceActorUrl: attributedTo,
             sourceInbox: authorInbox,
             sourceHandle: authorHandle,
@@ -505,7 +517,20 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
             quoteUrl,
             linkUrl,
             published,
-        }).onConflictDoNothing({ target: remoteTimelinePosts.objectId })
+        }).onConflictDoNothing({ target: remoteTimelinePosts.objectId }).returning()
+
+        // 재게시(boostedByActorUrl 있음)는 getFederatedBoardFeed.ts와 동일하게 "재게시를 받은
+        // 시각"을 표시용 published로 맞춰서 보냄(원 글 작성 시각 그대로면 목록 맨 위에 새로
+        // 꽂아 넣었는데 날짜만 옛날로 보이는 어색함이 생김)
+        if (inserted) {
+            const [federatedRoom] = await db.select({ path: rooms.path }).from(rooms).where(eq(rooms.federated, true))
+            if (federatedRoom) {
+                void broadcastFederatedBoardPost(federatedRoom.path, {
+                    kind: 'remote',
+                    post: { ...inserted, published: inserted.createdAt, liked: false },
+                }).catch((e) => console.error('[inbox] 연합 게시판 스트리밍 실패', e))
+            }
+        }
     }
 }
 

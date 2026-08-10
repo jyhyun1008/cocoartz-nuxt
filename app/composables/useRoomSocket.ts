@@ -46,6 +46,16 @@ export function useRoomSocket() {
   // 서버가 이 연결을 끊은 이유 — null이면 정상. 'duplicate_session'(다른 기기/탭에서 새로
   // 접속함) 또는 'banned'/'suspended'(관리자 조치)로 옴. 화면에서 이 값을 보고 안내 배너를 띄움
   const kickedReason = useState<string | null>('ws-kicked-reason', () => null)
+  // roomPath -> 새 글이 올라와서 아직 안 읽은 채널 표시(ServerSidebar.vue의 사이드바 동그라미,
+  // faviconBadge.client.ts의 파비콘 배지가 이 값을 봄) — DB에 안 남기는 순전히 실시간 세션 동안만
+  // 유지되는 표시라, 새로고침하면 초기화됨(서버가 broadcastNewPost로 보내는 'new_post'만 반영)
+  const unreadRooms = useState<Record<string, true>>('ws-unread-rooms', () => ({}))
+  // 연합 게시판 실시간 스트리밍(server/routes/_ws.ts의 broadcastFederatedBoardPost) — 새 글/재게시가
+  // 도착할 때마다 배열 맨 뒤에 추가됨. WindowBoard.vue는 이 배열 자체를 히스토리로 재생하는 게
+  // 아니라 "바뀔 때마다 맨 뒤(가장 최근 것)만" 봐서 자기 목록(feedItems) 맨 앞에 꽂아 넣으므로,
+  // 긴 세션에서 계속 쌓이지 않게 오래된 것부터 잘라내도 무방함(최근 N개만 유지)
+  const federatedPostFeed = useState<Array<{ kind: 'local' | 'remote'; post: any }>>('ws-federated-post-feed', () => [])
+  const FEDERATED_FEED_CAP = 50
 
   function handleMessage(event: MessageEvent) {
     let data: any
@@ -102,6 +112,12 @@ export function useRoomSocket() {
     } else if (data.type === 'kicked') {
       _suppressReconnect = true
       kickedReason.value = data.reason ?? 'unknown'
+
+    } else if (data.type === 'new_post') {
+      unreadRooms.value = { ...unreadRooms.value, [data.roomPath]: true }
+
+    } else if (data.type === 'federated_new_post') {
+      federatedPostFeed.value = [...federatedPostFeed.value, data.entry].slice(-FEDERATED_FEED_CAP)
     }
   }
 
@@ -177,12 +193,24 @@ export function useRoomSocket() {
     connect(_apiBaseUrl)
   }
 
+  // 그 채널을 실제로 열어봤을 때(ServerSidebar.vue가 현재 경로와 비교해서 호출) 안 읽음 표시를
+  // 지움 — 새 글 스트리밍과 마찬가지로 세션 동안만 유지되는 순전히 클라이언트 쪽 read 상태
+  function markRoomRead(roomPath: string) {
+    if (!(roomPath in unreadRooms.value)) return
+    const next = { ...unreadRooms.value }
+    delete next[roomPath]
+    unreadRooms.value = next
+  }
+
   return {
     presenceByRoom: readonly(presenceByRoom),
     otherUsersInRoom: readonly(otherUsersInRoom),
     realtimeChats: readonly(realtimeChats),
     jumpPulses: readonly(jumpPulses),
     kickedReason: readonly(kickedReason),
+    unreadRooms: readonly(unreadRooms),
+    markRoomRead,
+    federatedPostFeed: readonly(federatedPostFeed),
     connect,
     joinRoom,
     sendPosition,

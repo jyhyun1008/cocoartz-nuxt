@@ -3,6 +3,7 @@ import { chats, users, chatReactions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { getUserBlockStatus } from '../utils/userStatus'
 import { getUserIdFromCookieHeader } from '../utils/session'
+import { getMuteLookup, getWordMuteLookup, getEmojiMuteLookup } from '../utils/mutes'
 
 interface PeerInfo {
   peer: any
@@ -111,6 +112,66 @@ export function broadcastUserUpdate(userId: number, user: any) {
       notifiedRooms.add(info.roomPath)
       broadcastToRoom(info.roomPath, { type: 'user_updated', userId, user })
     }
+  }
+}
+
+// 게시판에 새 글(댓글 제외)이 올라온 직후 호출됨(server/api/createPost.ts) — 사이드바 채널명
+// 옆에 띄우는 안 읽음 표시(useRoomSocket.ts의 unreadRooms)는 "지금 그 방에 들어와있는 사람"만
+// 알면 되는 게 아니라 서버 전체 어디에 있든 다 알아야 하니 broadcastToRoom이 아니라
+// broadcastToAll을 씀. 연합 게시판은 createPost.ts가 애초에 이 함수를 안 불러서(원격에서
+// 계속 들어오는 글까지 합치면 사실상 항상 켜져 있는 셈이라 의미가 없음) 여기까지 안 옴.
+export function broadcastNewPost(roomPath: string) {
+  broadcastToAll({ type: 'new_post', roomPath })
+}
+
+// 연합 게시판(연합 타임라인) 전용 실시간 스트리밍 — 위 broadcastNewPost(사이드바 안 읽음 동그라미)와
+// 반대로 여긴 연합 게시판만을 위한 것. 새로 올라온 글의 실제 내용을 지금 그 채널을 보고 있는
+// 사람들에게만(broadcastToRoom) 바로 흘려보내서, WindowBoard.vue가 새로고침 없이 목록 맨 위에
+// 바로 꽂아 넣을 수 있게 함. entry는 getFederatedBoardFeed.ts가 내려주는 것과 같은 모양
+// ({ kind: 'local'|'remote', post })으로 맞춰서 프론트가 그대로 재사용할 수 있게 함.
+// - 로컬 글: server/api/createPost.ts가 연합 게시판에 쓰였을 때 호출
+// - 원격 글: server/routes/users/[username]/inbox.post.ts가 연합 타임라인(remoteTimelinePosts)에
+//   실제로 새로 저장됐을 때(중복 아닐 때만) 호출
+//
+// ⚠️ 평범한 broadcastToRoom과 달리 유저마다 다르게 보냄 — 일반 목록 조회(getFederatedBoardFeed.ts)는
+// 보는 사람의 뮤트 목록(계정/단어/이모지 뮤트)을 서버에서 걸러주는데, 이 실시간 푸시는 그 필터링
+// 없이 그냥 모두에게 똑같이 뿌리면 뮤트한 사람 글이 스트리밍으로는 그대로 보이는 문제가 있었음.
+// 그래서 방에 있는 사람마다 그 사람 기준으로 뮤트 판정을 따로 해서, 하드 뮤트면 그 사람한텐 아예
+// 안 보내고 소프트 뮤트면 게이트가 뜨도록 post.muted='soft'를 붙여서 보냄 — getFederatedBoardFeed.ts/
+// getPostsByRoomId.ts 등이 하는 것과 동일한 판정을 여기서도 똑같이 함.
+function entryAuthor(entry: { kind: 'local' | 'remote'; post: any }) {
+  if (entry.kind === 'local') return { userid: entry.post.userid ?? null, actorUrl: entry.post.remoteActorUrl ?? null }
+  return { actorUrl: entry.post.sourceActorUrl ?? null }
+}
+function entryText(entry: { kind: 'local' | 'remote'; post: any }): string {
+  if (entry.kind === 'local') return `${entry.post.title ?? ''} ${entry.post.content ?? ''}`
+  return entry.post.content ?? ''
+}
+
+export async function broadcastFederatedBoardPost(roomPath: string, entry: { kind: 'local' | 'remote'; post: any }) {
+  const room = rooms.get(roomPath)
+  if (!room) return
+  const author = entryAuthor(entry)
+  const text = entryText(entry)
+
+  for (const [, info] of room) {
+    // 손님(비로그인)은 뮤트 목록 자체가 없으니 그대로 보냄
+    if (!info.authenticated) {
+      sendTo(info.peer, { type: 'federated_new_post', entry })
+      continue
+    }
+
+    const [muteLookup, wordMuteLookup, emojiMuteLookup] = await Promise.all([
+      getMuteLookup(info.userId),
+      getWordMuteLookup(info.userId),
+      getEmojiMuteLookup(info.userId),
+    ])
+    const levels = [muteLookup.levelOf(author), wordMuteLookup.levelOf(text), emojiMuteLookup.levelOf(text)]
+    if (levels.includes('hard')) continue  // 이 유저한테는 아예 안 보냄
+
+    const muted = levels.includes('soft') ? ('soft' as const) : undefined
+    const payload = muted ? { ...entry, post: { ...entry.post, muted } } : entry
+    sendTo(info.peer, { type: 'federated_new_post', entry: payload })
   }
 }
 

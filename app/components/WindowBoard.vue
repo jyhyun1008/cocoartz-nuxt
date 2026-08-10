@@ -627,6 +627,20 @@ async function loadMore() {
 
 const hasMoreToShow = computed(() => hasMoreFeed.value)
 
+// 연합 게시판 실시간 스트리밍 — 새 글/재게시가 도착하면(server/routes/_ws.ts의
+// broadcastFederatedBoardPost) 목록을 다시 불러오지 않고 맨 앞에 바로 꽂아 넣음. 배열 전체를
+// 히스토리로 재생하는 게 아니라 "바뀔 때마다 맨 뒤(방금 도착한 것)만" 보면 됨 — 히스토리 재생이
+// 필요 없는 이유는 마운트 시점 이전 것들은 이미 loadFirstPage로 받아왔기 때문
+const { federatedPostFeed } = useRoomSocket()
+watch(federatedPostFeed, (feed) => {
+    if (!props.isFederated || !feed.length) return
+    const entry = feed[feed.length - 1]
+    if (!entry?.post) return
+    const alreadyThere = feedItems.value.some((e) => e.kind === entry.kind && e.post?.id === entry.post.id)
+    if (alreadyThere) return
+    feedItems.value = [entry, ...feedItems.value]
+})
+
 await loadFirstPage()
 // props.ids(roomid)도 감시해야 함 — 다른 게시판으로 넘어가도 이 컴포넌트가 언마운트되지 않고
 // 재사용되는 경우(v-if 조건은 그대로 true인 채 부모의 roomData만 바뀌는 경우) roomid가 바뀌었는데
