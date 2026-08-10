@@ -7,6 +7,7 @@ import { deliverToInbox } from '../utils/ap/deliver'
 import { extractMarkdownImages } from '../utils/ap/attachments'
 import { marked } from 'marked'
 import { requireUserId } from '../utils/session'
+import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
 
 // 개인 팔로잉 피드(remoteFeedPosts)에 뜬 원격 글에 댓글을 달면, 로컬에는 글타래 없이 posts에만
 // 저장해두고(목록/타임라인엔 안 보임 — remoteParentObjectId 필터로 제외됨) 원 작성자에게는 실제
@@ -18,6 +19,16 @@ export default eventHandler(async (event) => {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     const trimmed = String(content || '').trim()
     if (!trimmed) throw createError({ statusCode: 400, message: '내용을 입력해주세요' })
+
+    // 이것도 항상 원 작성자의 원격 서버로 실제 배포됨 — replyToRemoteFeedPost.ts/createPost.ts와
+    // 동일한 이메일 인증 게이트를 적용(미인증 계정이 fediverse로 그대로 뿌리는 걸 막기 위함)
+    const verificationRequired = await isEmailVerificationRequired()
+    if (verificationRequired) {
+        const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
+        if (!author || !isVerified(author, verificationRequired)) {
+            throw createError({ statusCode: 403, message: '이메일 인증을 완료해야 댓글을 쓸 수 있어요' })
+        }
+    }
 
     const [feedPost] = await db.select().from(remoteFeedPosts).where(eq(remoteFeedPosts.id, feedPostId))
     if (!feedPost || feedPost.userid !== userid) {

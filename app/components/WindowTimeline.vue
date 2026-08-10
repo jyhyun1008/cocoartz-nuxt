@@ -268,10 +268,17 @@
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
                 </div>
 
-                <div v-if="userId" class="comment-form">
-                    <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" @keydown.enter="submitRemoteReply" />
-                    <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim()">작성</button>
-                </div>
+                <template v-if="userId">
+                    <p v-if="writeBlocked" class="admin-error">
+                        <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이메일 인증을 완료해야 댓글을 쓸 수 있어요.
+                        <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                    </p>
+                    <p v-if="remoteReplyError" class="admin-error">{{ remoteReplyError }}</p>
+                    <div class="comment-form">
+                        <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" :disabled="writeBlocked" @keydown.enter="submitRemoteReply" />
+                        <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim() || writeBlocked">작성</button>
+                    </div>
+                </template>
                 <div v-else class="empty" style="padding:8px 0">로그인 후 좋아요/댓글을 남길 수 있어요.</div>
             </div>
         </div>
@@ -284,6 +291,21 @@ const apiBaseUrl = config.public.apiBaseUrl
 defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
+
+// 원격 팔로우 계정 글에 댓글을 달면 replyToFollowingFeedPost.ts가 항상 그 계정 서버로 실제
+// 배포함 — 연합 게시판(WindowBoard.vue)과 동일한 이유로 이메일 인증한 유저만 가능하게 막아둠.
+// 여기도 작성 단계에서 미리 알 수 있게 배너 + 입력 비활성화로 보여줌
+const { data: emailVerificationData } = await useAsyncData(
+    'timeline-email-verification-status',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getEmailVerificationStatus`, { method: 'POST', body: { userid: userId.value } })
+        : Promise.resolve({ required: false, verified: true }),
+    { watch: [userId] },
+)
+const writeBlocked = computed(() => {
+    const d = emailVerificationData.value
+    return !!d?.required && !d?.verified
+})
 
 // 우리 서버 커스텀 이모지(:shortcode:) — 원격글 상세의 로컬 댓글 표시 시점에 치환
 // (WindowBoard.vue에는 이미 있는데 여기는 빠져 있었음)
@@ -579,18 +601,26 @@ async function toggleRemoteLike() {
     currentRemotePost.value.liked = result.liked
 }
 
+const remoteReplyError = ref('')
+
 async function submitRemoteReply() {
     if (!remoteReplyContent.value.trim() || !currentRemotePost.value) return
+    remoteReplyError.value = ''
     const content = remoteReplyContent.value.trim()
+    try {
+        const reply = await $fetch(`${apiBaseUrl}/api/replyToFollowingFeedPost`, {
+            method: 'POST',
+            body: {
+                userid: userId.value,
+                feedPostId: currentRemotePost.value.feedPostId,
+                content,
+            },
+        })
+        remoteReplies.value = [...remoteReplies.value, reply]
+    } catch (e) {
+        remoteReplyError.value = e?.data?.message ?? '댓글 작성에 실패했습니다'
+        return
+    }
     remoteReplyContent.value = ''
-    const reply = await $fetch(`${apiBaseUrl}/api/replyToFollowingFeedPost`, {
-        method: 'POST',
-        body: {
-            userid: userId.value,
-            feedPostId: currentRemotePost.value.feedPostId,
-            content,
-        },
-    })
-    remoteReplies.value = [...remoteReplies.value, reply]
 }
 </script>

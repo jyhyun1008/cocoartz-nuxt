@@ -497,10 +497,17 @@
                     <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
                 </div>
 
-                <div v-if="userId" class="comment-form">
-                    <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" @keydown.enter="submitRemoteReply" />
-                    <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim()">작성</button>
-                </div>
+                <template v-if="userId">
+                    <p v-if="writeBlocked" class="admin-error">
+                        <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 댓글을 쓸 수 있어요.
+                        <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                    </p>
+                    <p v-if="remoteReplyError" class="admin-error">{{ remoteReplyError }}</p>
+                    <div class="comment-form">
+                        <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" :disabled="writeBlocked" @keydown.enter="submitRemoteReply" />
+                        <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim() || writeBlocked">작성</button>
+                    </div>
+                </template>
                 <div v-else class="empty" style="padding:8px 0">로그인 후 좋아요/댓글을 남길 수 있어요.</div>
             </div>
         </div>
@@ -904,24 +911,31 @@ async function toggleRemoteLike() {
 
 async function submitRemoteReply() {
     if (!remoteReplyContent.value.trim() || !currentRemotePost.value) return
+    remoteReplyError.value = ''
     const content = remoteReplyContent.value.trim()
+    try {
+        const reply = await $fetch(`${apiBaseUrl}/api/replyToRemoteFeedPost`, {
+            method: 'POST',
+            body: {
+                ...props.ids,
+                userid: userId.value,
+                remoteFeedPostId: currentRemotePost.value.id,
+                content,
+            },
+        })
+        remoteReplies.value = [...remoteReplies.value, reply]
+    } catch (e) {
+        remoteReplyError.value = e?.data?.message ?? '댓글 작성에 실패했습니다'
+        return
+    }
     remoteReplyContent.value = ''
-    const reply = await $fetch(`${apiBaseUrl}/api/replyToRemoteFeedPost`, {
-        method: 'POST',
-        body: {
-            ...props.ids,
-            userid: userId.value,
-            remoteFeedPostId: currentRemotePost.value.id,
-            content,
-        },
-    })
-    remoteReplies.value = [...remoteReplies.value, reply]
 }
 
-// 연합 게시판은 이메일 인증 안 한 유저가 글/댓글을 못 쓰게 서버(createPost.ts)에서 막아뒀는데,
-// 예전엔 이 폼에 에러 표시 자체가 없어서(성공이든 실패든 그냥 아무 반응 없어 보임) 새로 추가함
+// 연합 게시판은 이메일 인증 안 한 유저가 글/댓글을 못 쓰게 서버(createPost.ts/replyToRemoteFeedPost.ts)에서
+// 막아뒀는데, 예전엔 이 폼들에 에러 표시 자체가 없어서(성공이든 실패든 그냥 아무 반응 없어 보임) 새로 추가함
 const postError = ref('')
 const commentError = ref('')
+const remoteReplyError = ref('')
 
 async function submitPost() {
     if (!newTitle.value.trim() || !newContent.value.trim()) return

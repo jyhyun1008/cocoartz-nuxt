@@ -7,6 +7,7 @@ import { deliverToInbox } from '../utils/ap/deliver'
 import { extractMarkdownImages } from '../utils/ap/attachments'
 import { marked } from 'marked'
 import { requireUserId } from '../utils/session'
+import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
 
 // 연합 타임라인(공용) 글에 댓글을 달면, 로컬에는 글타래 없이 posts에만 저장해두고(목록/타임라인에는
 // 안 보임 — remoteParentObjectId 필터로 제외됨) 원 작성자에게는 실제 답글(Create+inReplyTo)로 배포한다.
@@ -17,6 +18,16 @@ export default eventHandler(async (event) => {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     const trimmed = String(content || '').trim()
     if (!trimmed) throw createError({ statusCode: 400, message: '내용을 입력해주세요' })
+
+    // 이 엔드포인트는 항상 원 작성자의 원격 서버로 실제 배포됨(createPost.ts의 연합 게시판 글과
+    // 동일한 위험) — createPost.ts에 넣은 이메일 인증 게이트를 여기서도 똑같이 적용
+    const verificationRequired = await isEmailVerificationRequired()
+    if (verificationRequired) {
+        const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
+        if (!author || !isVerified(author, verificationRequired)) {
+            throw createError({ statusCode: 403, message: '연합 게시판은 이메일 인증을 완료해야 댓글을 쓸 수 있어요' })
+        }
+    }
 
     const [feedPost] = await db.select().from(remoteTimelinePosts).where(eq(remoteTimelinePosts.id, remoteFeedPostId))
     if (!feedPost) throw createError({ statusCode: 404, message: '글을 찾을 수 없습니다' })
