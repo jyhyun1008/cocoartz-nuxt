@@ -4,10 +4,30 @@ import { eq } from 'drizzle-orm'
 import { publishPostIfFederated } from '../utils/ap/publishPost'
 import { requireUserId } from '../utils/session'
 import { broadcastNewPost, broadcastFederatedBoardPost, broadcastTimelineNewPost } from '../routes/_ws'
+import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
 
 export default eventHandler(async (event) => {
     const { serverid, roomid, title, content, replyto } = await readBody(event)
     const userid = await requireUserId(event)
+
+    // 인서트 전에 미리 조회 — 연합 게시판이면 아래에서 이메일 인증 여부부터 확인해야 하고(글쓴이가
+    // 이메일 인증한 유저인지), 통과하면 이 room 값을 아래 브로드캐스트에서도 그대로 재사용함
+    const [room] = await db.select({ path: rooms.path, federated: rooms.federated }).from(rooms).where(eq(rooms.id, roomid))
+
+    // 연합 게시판(댓글 포함 — 부모 글타래가 연합돼있으면 댓글도 함께 fediverse로 나감)은 이메일
+    // 인증한 유저만 쓸 수 있게 함 — 미인증 계정이 그대로 다른 서버로 글을 뿌리는 걸 막기 위한 최소
+    // 안전장치. SMTP 자체가 꺼져있는 서버(isEmailVerificationRequired=false)는 인증을 요구할 방법이
+    // 없으므로 이 제약도 자동으로 스킵됨(다른 이메일 인증 기능과 동일한 "소프트" 원칙)
+    if (room?.federated) {
+        const verificationRequired = await isEmailVerificationRequired()
+        if (verificationRequired) {
+            const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
+            if (!author || !isVerified(author, verificationRequired)) {
+                throw createError({ statusCode: 403, message: '연합 게시판은 이메일 인증을 완료해야 글을 쓸 수 있어요' })
+            }
+        }
+    }
+
     const [post] = await db.insert(posts).values({
         serverid,
         roomid,
@@ -23,7 +43,6 @@ export default eventHandler(async (event) => {
 
     // 댓글(replyto 있음)은 새 글이 아니라 대화의 일부라 아래 전부 제외
     if (replyto == null) {
-        const [room] = await db.select({ path: rooms.path, federated: rooms.federated }).from(rooms).where(eq(rooms.id, roomid))
         if (room) {
             if (room.federated) {
                 // 연합 게시판은 사이드바 동그라미 대신, 그 채널을 지금 보고 있는 사람들에게

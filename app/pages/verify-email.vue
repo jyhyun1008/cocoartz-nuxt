@@ -8,24 +8,26 @@ const route = useRoute()
 const { server } = await useServer()
 useHead({ title: server?.title || 'CocoArtz' })
 
-const status = ref('loading') // 'loading' | 'success' | 'error'
-const message = ref('')
-
 const token = typeof route.query.token === 'string' ? route.query.token : ''
 
-if (!token) {
-    status.value = 'error'
-    message.value = '유효하지 않은 링크입니다.'
-} else {
-    try {
-        const res = await $fetch(`${apiBaseUrl}/api/verifyEmail`, { method: 'POST', body: { token } })
-        status.value = 'success'
-        message.value = `${res.username}님, 이메일 인증이 완료되었습니다.`
-    } catch (e) {
-        status.value = 'error'
-        message.value = e?.data?.message ?? '인증에 실패했습니다.'
-    }
-}
+// useAsyncData로 감싸야 SSR에서 받아온 결과가 payload로 클라이언트에 그대로 전달됨 — 예전엔
+// top-level await $fetch를 그냥 썼는데, 그러면 서버(SSR)에서 한 번 호출되고 하이드레이션 시점에
+// 클라이언트에서 또 한 번 호출돼서 같은 토큰으로 검증 요청이 총 두 번 나갔음(verifyEmail.ts를
+// idempotent하게 고쳐서 두 번 와도 안전하게는 했지만, 애초에 불필요한 중복 호출 자체를 없앰)
+const { data: result, error } = token
+    ? await useAsyncData('verify-email', () => $fetch(`${apiBaseUrl}/api/verifyEmail`, { method: 'POST', body: { token } }))
+    : { data: ref(null), error: ref(null) }
+
+const status = computed(() => {
+    if (!token) return 'error'
+    return error?.value ? 'error' : (result?.value ? 'success' : 'loading')
+})
+const message = computed(() => {
+    if (!token) return '유효하지 않은 링크입니다.'
+    if (status.value === 'success') return `${result.value.username}님, 이메일 인증이 완료되었습니다.`
+    if (status.value === 'error') return error?.value?.data?.message ?? '인증에 실패했습니다.'
+    return ''
+})
 </script>
 
 <template>

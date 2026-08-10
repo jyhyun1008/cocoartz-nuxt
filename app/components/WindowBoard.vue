@@ -173,6 +173,7 @@
                     ></textarea>
                 </template>
                 <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
+                <p v-if="postError" class="admin-error">{{ postError }}</p>
                 <button class="submit-btn" @click="submitPost" :disabled="!newTitle.trim() || !newContent.trim()">
                     {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
                 </button>
@@ -311,6 +312,7 @@
                     <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
                 </div>
 
+                <p v-if="commentError" class="admin-error">{{ commentError }}</p>
                 <div class="comment-form">
                     <input v-model="commentContent" placeholder="댓글 작성..." class="post-input" @keydown.enter="submitComment" />
                     <button class="submit-btn" @click="submitComment" :disabled="!commentContent.trim()">작성</button>
@@ -885,8 +887,14 @@ async function submitRemoteReply() {
     remoteReplies.value = [...remoteReplies.value, reply]
 }
 
+// 연합 게시판은 이메일 인증 안 한 유저가 글/댓글을 못 쓰게 서버(createPost.ts)에서 막아뒀는데,
+// 예전엔 이 폼에 에러 표시 자체가 없어서(성공이든 실패든 그냥 아무 반응 없어 보임) 새로 추가함
+const postError = ref('')
+const commentError = ref('')
+
 async function submitPost() {
     if (!newTitle.value.trim() || !newContent.value.trim()) return
+    postError.value = ''
     if (currentView.value === 'edit' && currentPost.value) {
         const updated = await $fetch(`${apiBaseUrl}/api/editPost`, {
             method: 'POST',
@@ -904,15 +912,20 @@ async function submitPost() {
         currentView.value = 'detail'
         return
     }
-    await $fetch(`${apiBaseUrl}/api/createPost`, {
-        method: 'POST',
-        body: {
-            ...props.ids,
-            userid: userId.value,
-            title: newTitle.value.trim(),
-            content: newContent.value.trim(),
-        },
-    })
+    try {
+        await $fetch(`${apiBaseUrl}/api/createPost`, {
+            method: 'POST',
+            body: {
+                ...props.ids,
+                userid: userId.value,
+                title: newTitle.value.trim(),
+                content: newContent.value.trim(),
+            },
+        })
+    } catch (e) {
+        postError.value = e?.data?.message ?? '글 작성에 실패했습니다'
+        return
+    }
     newTitle.value = ''
     newContent.value = ''
     await loadFirstPage()
@@ -921,18 +934,24 @@ async function submitPost() {
 
 async function submitComment() {
     if (!commentContent.value.trim() || !currentPost.value) return
+    commentError.value = ''
     const content = commentContent.value.trim()
+    try {
+        await $fetch(`${apiBaseUrl}/api/createPost`, {
+            method: 'POST',
+            body: {
+                ...props.ids,
+                userid: userId.value,
+                title: content.slice(0, 50),
+                content,
+                replyto: currentPost.value.id,
+            },
+        })
+    } catch (e) {
+        commentError.value = e?.data?.message ?? '댓글 작성에 실패했습니다'
+        return
+    }
     commentContent.value = ''
-    await $fetch(`${apiBaseUrl}/api/createPost`, {
-        method: 'POST',
-        body: {
-            ...props.ids,
-            userid: userId.value,
-            title: content.slice(0, 50),
-            content,
-            replyto: currentPost.value.id,
-        },
-    })
     await openPost(currentPost.value.id)
 }
 
