@@ -19,9 +19,21 @@ export function isStackableCategory(category: string): boolean {
 // 유효한 카테고리 전체 목록 — 관리자 아이템 생성/수정 서버 검증에 씀. 아바타 파츠는
 // app/composables/useCharacter.ts CHARACTER_PARTS와 값이 같아야 함(그쪽은 앱 전용 composable이라
 // 여기 서버에서 직접 import를 못 해서 이름만 그대로 다시 나열함 — 파츠 종류가 바뀌면 둘 다 손볼 것)
-export const AVATAR_CATEGORIES = ['avatar_body', 'avatar_shoes', 'avatar_bottom', 'avatar_top', 'avatar_face', 'avatar_hair']
+// - outfit(한벌옷): 장착하면 bottom+top을 대신함(상호 배타) — useCharacter.ts getCharacterLayers 참고
+// - deco(데코): 있다/없다뿐 아니라 "몸 앞/뒤 중 어디에 그릴지"도 아이템 등록 시점에 정함
+//   (items.meta JSON에 {"layer":"front"|"back"}로 저장 — DECO_META_KEY 참고). 원본 스프라이트시트도
+//   다른 파츠(768x1024)보다 위로 100px 더 큰 768x1424 — 모자/날개처럼 머리 위로 뻗는 여유 공간
+export const AVATAR_CATEGORIES = ['avatar_body', 'avatar_shoes', 'avatar_bottom', 'avatar_top', 'avatar_outfit', 'avatar_face', 'avatar_hair', 'avatar_deco']
 export const ITEM_CATEGORIES = ['terrain', 'map_item', 'functional', 'consumable', 'map_background']
 export const ALL_CATEGORIES = [...AVATAR_CATEGORIES, ...ITEM_CATEGORIES]
+
+// 데코 전용 스프라이트 치수 — 다른 아바타 파츠(768x1024, 셀 256x256)와 달리 셀 높이가 100px 더 큼
+export const DECO_SPRITE_W = 768
+export const DECO_SPRITE_H = 1424
+export const DECO_CELL_W = 256
+export const DECO_CELL_H = 356
+// 셀 안에서 실제 "몸통 자리"(다른 파츠와 겹치는 256px 영역)는 맨 위 100px 여유 다음부터 시작함
+export const DECO_HEADROOM = 100
 
 export function isValidCategory(category: string): boolean {
     return ALL_CATEGORIES.includes(category)
@@ -32,4 +44,20 @@ export function isValidCategory(category: string): boolean {
 export function avatarPartFromCategory(category: string): string | null {
     if (!category?.startsWith('avatar_')) return null
     return category.slice('avatar_'.length)
+}
+
+// items.meta에 데코 전용으로 저장하는 JSON 모양 — 다른 카테고리(terrain의 blocksMovement 등)와
+// 같은 자리(meta 컬럼)를 재사용함. layer가 없거나 인식 못 할 값이면 'back'(몸 뒤)으로 취급.
+export interface DecoMeta {
+    layer?: 'front' | 'back'
+}
+export function parseDecoMeta(meta: string | null | undefined): DecoMeta {
+    if (!meta) return {}
+    try {
+        const parsed = JSON.parse(meta)
+        return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch { return {} }
+}
+export function decoLayerOf(meta: string | null | undefined): 'front' | 'back' {
+    return parseDecoMeta(meta).layer === 'front' ? 'front' : 'back'
 }

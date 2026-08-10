@@ -2,7 +2,7 @@ import { CHARACTER_PARTS } from './useCharacter'
 
 // 상점(WindowShop.vue)과 인벤토리(@[username].vue) 양쪽에서 같은 카테고리 탭 구성을 써야 해서 공용으로 뺌.
 // 새 카테고리를 추가하려면 여기 한 곳만 고치면 됨(단, items.category에 쓰는 실제 문자열 값도 맞춰야 함 — server/db/schema.ts 주석 참고)
-const AVATAR_PART_LABELS: Record<string, string> = { hair: '헤어', top: '상의', bottom: '하의', shoes: '신발', face: '얼굴', body: '바디' }
+const AVATAR_PART_LABELS: Record<string, string> = { hair: '헤어', top: '상의', bottom: '하의', shoes: '신발', face: '얼굴', body: '바디', outfit: '한벌옷', deco: '데코' }
 
 export function useShopCategories() {
     const mainTabs = [

@@ -63,6 +63,8 @@
                     <!-- 로컬 캐릭터 -->
                     <CharacterMoving
                         :layers="localCharLayers"
+                        :back-deco="localChar.backDeco"
+                        :front-deco="localChar.frontDeco"
                         :top-ratio="topRatio"
                         :zoom-level="zoomLevel"
                         :tile-mode="true"
@@ -77,7 +79,9 @@
                     <OtherCharacter
                         v-for="other in otherUsersInRoom"
                         :key="other.userId"
-                        :layers="getCharacterLayers(other.user?.character, getAvatarPartImage)"
+                        :layers="otherCharByUserId[other.userId]?.layers"
+                        :back-deco="otherCharByUserId[other.userId]?.backDeco"
+                        :front-deco="otherCharByUserId[other.userId]?.frontDeco"
                         :top-ratio="topRatio"
                         :local-x="other.x"
                         :local-y="other.y"
@@ -323,8 +327,21 @@ const apiBaseUrl = config.public.apiBaseUrl
 
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 // 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
-const { getAvatarPartImage } = useAvatarPartCatalog()
-const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage))
+const { getAvatarPartImage, getDecoLayer } = useAvatarPartCatalog()
+// getCharacterLayers가 {layers, backDeco, frontDeco}를 돌려주도록 바뀜(데코가 다른 파츠와 스프라이트
+// 치수가 달라서 layers 배열에 안 섞임 — useCharacter.ts 참고)
+const localChar = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage, getDecoLayer))
+const localCharLayers = computed(() => localChar.value.layers)
+
+// 다른 유저 캐릭터도 같은 함수를 쓰는데, 템플릿에서 layers/backDeco/frontDeco 3번 따로 부르면
+// 그때마다 다시 계산되니(getCharacterLayers가 JSON.parse까지 함) userId별로 한 번만 계산해서 캐싱
+const otherCharByUserId = computed(() => {
+    const map = {}
+    for (const other of otherUsersInRoom.value) {
+        map[other.userId] = getCharacterLayers(other.user?.character, getAvatarPartImage, getDecoLayer)
+    }
+    return map
+})
 
 // 재화(코인 수집) — 재화 이름(server.currencyName)을 토스트 라벨에 씀
 const { server } = await useServer()

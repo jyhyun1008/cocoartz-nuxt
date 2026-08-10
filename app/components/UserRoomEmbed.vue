@@ -61,6 +61,8 @@
                         />
                         <CharacterMoving
                             :layers="localCharLayers"
+                            :back-deco="localChar.backDeco"
+                            :front-deco="localChar.frontDeco"
                             :top-ratio="topRatio"
                             :zoom-level="zoomLevel"
                             :tile-mode="true"
@@ -77,6 +79,8 @@
                         <OtherCharacter
                             v-if="!isOwn"
                             :layers="ownerCharLayers"
+                            :back-deco="ownerChar.backDeco"
+                            :front-deco="ownerChar.frontDeco"
                             :top-ratio="topRatio"
                             :local-x="ownerPosition.x"
                             :local-y="ownerPosition.y"
@@ -309,14 +313,18 @@ const tilesScaleStyle = computed(() => {
 // 서 있는 자리랑 화면에 보이는 자리가 어긋나 보이는 문제가 있었음)
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 // 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
-const { getAvatarPartImage } = useAvatarPartCatalog()
-const localCharLayers = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage))
+const { getAvatarPartImage, getDecoLayer } = useAvatarPartCatalog()
+// getCharacterLayers가 {layers, backDeco, frontDeco}를 돌려주도록 바뀜(데코가 다른 파츠와 스프라이트
+// 치수가 달라서 layers 배열에 안 섞임 — useCharacter.ts 참고)
+const localChar = computed(() => getCharacterLayers(currentUserData.value?.character, getAvatarPartImage, getDecoLayer))
+const localCharLayers = computed(() => localChar.value.layers)
 
 // 방 주인 아바타(!isOwn일 때만 렌더) — 스폰 지점에서 대각선으로 0.5칸(타일 좌표 기준) 띄워서
 // 방문자 스폰 위치랑 겹치지 않게 함. 정지 상태라 topZAt/충돌판정 없이 스폰 지점의 층(z)을 그대로 씀.
 // ⚠️ mapSpawn은 타일 좌표라서(useIsoMap.ts의 tileToLocal 주석 참고) 그대로 캐릭터 위치(로컬
 // 좌표)에 못 씀 — 오프셋을 타일 좌표 기준으로 먼저 더하고 나서 변환해야 함
-const ownerCharLayers = computed(() => getCharacterLayers(props.ownerCharacter, getAvatarPartImage))
+const ownerChar = computed(() => getCharacterLayers(props.ownerCharacter, getAvatarPartImage, getDecoLayer))
+const ownerCharLayers = computed(() => ownerChar.value.layers)
 const ownerPosition = computed(() => tileToLocal(mapSpawn.value.x + 0.5, mapSpawn.value.y - 0.5))
 const ownerCharZ = computed(() => mapSpawn.value.z)
 const ownerCharZIndex = computed(() => -4 * Math.round(ownerPosition.value.y) + 4 + 4 * ownerCharZ.value)

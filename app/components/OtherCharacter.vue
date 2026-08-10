@@ -4,6 +4,15 @@
             <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
         <div class="oc-body" :style="bodyStyle" @click.stop="$emit('avatar-click', $event)">
+            <!-- 데코(몸 앞/뒤) — CharacterMoving.vue와 동일한 이유로 top/bottom 분할 없이 통짜로 렌더.
+                 ⚠️ 앞/뒤는 DOM 순서가 아니라 z-index로 정함(캐릭터가 뒷모습(row===3)일 때 반전돼야
+                 하기 때문 — CharacterMoving.vue의 같은 주석 참고) -->
+            <div v-if="backDeco" class="oc-deco-viewport" :style="{ zIndex: backDecoZIndex }">
+                <img class="oc-deco-sprite" :src="backDeco" :style="decoImgStyle" />
+            </div>
+            <div v-if="frontDeco" class="oc-deco-viewport" :style="{ zIndex: frontDecoZIndex }">
+                <img class="oc-deco-sprite" :src="frontDeco" :style="decoImgStyle" />
+            </div>
             <div class="oc-slice-top">
                 <img
                     v-for="layer in layers"
@@ -52,6 +61,10 @@ const props = defineProps({
     // 이 값이 바뀔 때마다(타임스탬프 펄스) 점프 연출을 한 번 재생함 — CharacterMoving.vue의
     // jumping(boolean)과 달리 계속 켜져있는 상태가 아니라 "한 번 튀는" 신호라 이 방식으로 받음
     jumpPulse: { type: Number, default: null },
+    // 데코(useCharacter.ts getCharacterLayers가 계산해서 넘겨줌) — 한 번에 최대 하나만 장착되므로
+    // 앞/뒤 중 실제로 있는 쪽 하나만 채워져 있고 나머진 null
+    backDeco: { type: String, default: null },
+    frontDeco: { type: String, default: null },
 })
 
 // 아바타 몸통/닉네임을 클릭하면 부모(RoomMap.vue)에 알려서 프로필 카드를 띄우게 함 — userId만
@@ -158,6 +171,15 @@ const botImgStyle = computed(() => {
     return `top:${-(2 * frame.value.row + 1) * h}px; left:${-128 * frame.value.col}px; height:${8 * h}px; width:384px;`
 })
 
+// 데코는 몸통과 셀 높이가 달라서(178 vs 128) 자기만의 top 계산을 씀 — col은 몸통과 동일
+const decoImgStyle = computed(() =>
+    `top:${-178 * frame.value.row}px; left:${-128 * frame.value.col}px;`)
+
+// row===3(KeyW, 뒷모습)일 때만 앞/뒤 데코의 z-index를 서로 바꿈 — 템플릿 주석 참고
+const isBackView = computed(() => frame.value.row === 3)
+const backDecoZIndex = computed(() => isBackView.value ? 1 : -1)
+const frontDecoZIndex = computed(() => isBackView.value ? -1 : 1)
+
 let animInterval = null
 // 멈췄을 때(direction이 null) 기본값(아래를 보는 row 0)으로 되돌리는 대신, 마지막으로 걷던
 // 방향을 그대로 보고 서 있게 하기 위해 따로 기억해둠 — CharacterMoving.vue(내 캐릭터)와 동일한 처리
@@ -234,6 +256,25 @@ onUnmounted(() => {
     position: absolute;
     width: 384px;
     height: 512px;
+    top: 0;
+    left: -128px;
+}
+
+/* 데코 — CharacterMoving.vue의 .char-deco-viewport/.char-deco-sprite와 동일한 치수/이유 */
+.oc-deco-viewport {
+    position: absolute;
+    top: -50px;
+    left: 0;
+    width: 128px;
+    height: 178px;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.oc-deco-sprite {
+    position: absolute;
+    width: 384px;
+    height: 712px;
     top: 0;
     left: -128px;
 }

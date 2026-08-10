@@ -8,6 +8,8 @@ export interface AvatarPartDef {
     part: string
     variant: number
     image: string
+    // 'deco' 파트에만 있음 — 몸 앞/뒤 어디에 그릴지(server/api/getAvatarPartCatalog.ts에서 items.meta 기준으로 계산해서 내려줌)
+    layer?: 'front' | 'back'
 }
 
 export function useAvatarPartCatalog() {
@@ -28,5 +30,13 @@ export function useAvatarPartCatalog() {
         return found?.image ?? `/character/${part}/${variant}.png`
     }
 
-    return { AVATAR_PART_CATALOG, getAvatarPartImage }
+    // 데코 아이템의 앞/뒤 레이어 설정 — 관리자가 상점에 등록할 때 고른 값(items.meta). 카탈로그에
+    // 없으면(레거시 관례 경로로만 존재하는 데코는 없다고 봐도 되지만 방어적으로) 기본값 'back'
+    function getDecoLayer(variant: string | number): 'front' | 'back' {
+        const v = Number(variant)
+        const found = AVATAR_PART_CATALOG.value.find(d => d.part === 'deco' && d.variant === v)
+        return found?.layer === 'front' ? 'front' : 'back'
+    }
+
+    return { AVATAR_PART_CATALOG, getAvatarPartImage, getDecoLayer }
 }

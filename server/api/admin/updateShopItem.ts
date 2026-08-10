@@ -14,7 +14,7 @@ async function checkAdmin(userid: number) {
 // icon/layers도 uploadShopIcon.ts / uploadMapItemLayers.ts로 먼저 업로드한 URL만 받음(createShopItem.ts와 동일)
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { id, name, description, price, active, icon, layers, isDefault, blocksMovement } = body
+    const { id, name, description, price, active, icon, layers, isDefault, blocksMovement, decoLayer } = body
     const userid = await requireUserId(event)
     await checkAdmin(userid)
 
@@ -35,6 +35,10 @@ export default eventHandler(async (event) => {
     // 지형 전용 — 다른 카테고리는 무조건 false로 고정(생성 시점과 동일한 규칙)
     if (existing.category === 'terrain') {
         patch.blocksMovement = blocksMovement === true
+    }
+    // 데코 전용 — 몸 앞/뒤 어느 레이어에 그릴지(생성 시점과 동일한 규칙)
+    if (existing.category === 'avatar_deco') {
+        patch.meta = JSON.stringify({ layer: decoLayer === 'front' ? 'front' : 'back' })
     }
 
     if (existing.category === 'map_item') {

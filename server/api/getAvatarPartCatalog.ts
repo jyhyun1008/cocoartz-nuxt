@@ -1,7 +1,7 @@
 import { db } from '../utils/db'
 import { items } from '../db/schema'
 import { inArray, and, isNotNull } from 'drizzle-orm'
-import { AVATAR_CATEGORIES, avatarPartFromCategory } from '../../lib/shopCategories'
+import { AVATAR_CATEGORIES, avatarPartFromCategory, decoLayerOf } from '../../lib/shopCategories'
 
 // getTerrainCatalog.ts와 같은 이유 — 관리자가 상점 페이지에서 캐릭터 파츠 원본 스프라이트시트를
 // 직접 업로드한(items.icon) 아바타 아이템만 내려줌. icon이 없는(=가입 시 기본 지급되는 레거시
@@ -14,6 +14,7 @@ export default eventHandler(async () => {
         const part = avatarPartFromCategory(row.category)
         const variant = Number(row.itemKey)
         if (!part || !Number.isFinite(variant) || !row.icon) return []
-        return [{ part, variant, image: row.icon }]
+        // 데코만 앞/뒤 레이어 정보가 의미 있음(items.meta에 저장 — WindowSettings.vue 등록 폼 참고)
+        return [{ part, variant, image: row.icon, ...(part === 'deco' ? { layer: decoLayerOf(row.meta) } : {}) }]
     })
 })

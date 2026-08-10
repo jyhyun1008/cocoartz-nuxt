@@ -431,10 +431,23 @@
                                 <label v-if="item.category === 'terrain'" style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
                                     <input type="checkbox" v-model="shopEditForm.blocksMovement" /> 캐릭터 통과 불가(막힘)
                                 </label>
+                                <template v-if="item.category === 'avatar_deco'">
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                                        <input type="radio" value="back" v-model="shopEditForm.decoLayer" /> 몸 뒤 레이어
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                                        <input type="radio" value="front" v-model="shopEditForm.decoLayer" /> 몸 앞 레이어
+                                    </label>
+                                </template>
                             </div>
 
                             <template v-if="avatarPartFromCategory(item.category)">
                                 <label class="admin-label">파츠 이미지 <span class="admin-label-hint">itemKey(파츠 variant 번호)는 등록 후 못 바꿔요 — 이미지만 다시 올릴 수 있어요</span></label>
+                                <p v-if="item.category === 'avatar_deco'" class="admin-label-hint" style="margin:-4px 0 6px">
+                                    데코는 다른 파츠(768×1024)보다 세로로 100px 더 큰 <b>768×1424</b> 스프라이트시트예요(3열×4행, 셀 256×356 —
+                                    각 행 맨 위 100px이 머리 위 여유 공간). <NuxtLink to="/character/deco-guide.png" target="_blank" style="color:var(--accent)">가이드 이미지</NuxtLink>를
+                                    참고해서 그 여백에 맞춰 그려주세요.
+                                </p>
                                 <div class="admin-icon-row">
                                     <AvatarPartIcon
                                         :part="avatarPartFromCategory(item.category)" :variant="item.itemKey" :size="56"
@@ -535,11 +548,23 @@
                     <label v-if="newShopItem.category === 'terrain'" style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
                         <input type="checkbox" v-model="newShopItem.blocksMovement" /> 캐릭터 통과 불가(막힘)
                     </label>
+                    <template v-if="newShopItem.category === 'avatar_deco'">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                            <input type="radio" value="back" v-model="newShopItem.decoLayer" /> 몸 뒤 레이어
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem">
+                            <input type="radio" value="front" v-model="newShopItem.decoLayer" /> 몸 앞 레이어
+                        </label>
+                    </template>
                 </div>
                 <p v-if="newShopItem.isDefault" class="admin-label-hint">앞으로 가입하는 유저에게 자동으로 인벤토리로 지급돼요. 기존 유저한테도 주려면 저장 후 <code>npm run db:seed-shop-items</code>를 다시 돌리세요.</p>
 
                 <template v-if="avatarPartFromCategory(newShopItem.category)">
-                    <label class="admin-label">파츠 이미지 <span class="admin-label-hint">768×1024, 정면·측면·후면 3열×4행 프레임시트(캐릭터 시트와 같은 형식)</span></label>
+                    <label v-if="newShopItem.category === 'avatar_deco'" class="admin-label">
+                        파츠 이미지 <span class="admin-label-hint">768×1424, 3열×4행 프레임시트(셀 256×356 — 다른 파츠보다 세로로 100px 큼, 각 행 맨 위 100px이 머리 위 여유 공간).
+                        <NuxtLink to="/character/deco-guide.png" target="_blank" style="color:var(--accent)">가이드 이미지</NuxtLink> 참고</span>
+                    </label>
+                    <label v-else class="admin-label">파츠 이미지 <span class="admin-label-hint">768×1024, 정면·측면·후면 3열×4행 프레임시트(캐릭터 시트와 같은 형식)</span></label>
                     <div class="admin-icon-row">
                         <AvatarPartIcon
                             v-if="newShopItem.itemKey"
@@ -755,7 +780,7 @@
 </template>
 
 <script setup>
-import { avatarPartFromCategory } from '../../lib/shopCategories'
+import { avatarPartFromCategory, decoLayerOf } from '../../lib/shopCategories'
 
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
@@ -1096,7 +1121,7 @@ const filteredShopItems = computed(() =>
 
 // 새 아이템 등록
 function emptyShopForm() {
-    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, icon: '', layers: [] }
+    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [] }
 }
 const newShopItem = reactive(emptyShopForm())
 const newShopItemError = ref('')
@@ -1172,6 +1197,7 @@ async function submitNewShopItem() {
                 active: newShopItem.active,
                 isDefault: newShopItem.isDefault,
                 blocksMovement: newShopItem.blocksMovement,
+                decoLayer: newShopItem.category === 'avatar_deco' ? newShopItem.decoLayer : undefined,
                 icon: newShopItem.icon || null,
                 layers: newShopItem.category === 'map_item' ? newShopItem.layers : undefined,
             },
@@ -1186,7 +1212,7 @@ async function submitNewShopItem() {
 
 // 인라인 수정
 const editingShopItemId = ref(null)
-const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, icon: '', layers: [] })
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [] })
 const shopEditError = ref('')
 const shopEditSaving = ref(false)
 const shopEditIconFileInput = ref(null)
@@ -1212,6 +1238,7 @@ function toggleEditShopItem(item) {
     shopEditForm.active = item.active
     shopEditForm.isDefault = item.isDefault
     shopEditForm.blocksMovement = !!item.blocksMovement
+    shopEditForm.decoLayer = item.category === 'avatar_deco' ? decoLayerOf(item.meta) : 'back'
     shopEditForm.icon = item.icon ?? ''
     shopEditForm.layers = [] // 새로 6장 올릴 때만 채워짐 — 비어있으면 update 쪽에서 기존 값 유지
 }
@@ -1255,6 +1282,7 @@ async function submitEditShopItem(item) {
                 active: shopEditForm.active,
                 isDefault: shopEditForm.isDefault,
                 blocksMovement: item.category === 'terrain' ? shopEditForm.blocksMovement : undefined,
+                decoLayer: item.category === 'avatar_deco' ? shopEditForm.decoLayer : undefined,
                 icon: item.category === 'map_item' ? undefined : (shopEditForm.icon || null),
                 layers: item.category === 'map_item' && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
             },

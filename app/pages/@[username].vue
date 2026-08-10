@@ -125,10 +125,31 @@ function isEquipped(item) {
     const part = avatarPartFromCategory(item.category)
     return !!part && equippedConfig.value[part] === Number(item.itemKey)
 }
+// outfit(한벌옷)/deco(데코)는 body/hair 등과 달리 "안 낌"도 유효한 상태라 있음/없음을 토글할 수
+// 있어야 함 — 이미 장착 중인 걸 다시 누르면 해제(unequipAvatarItem)되게 함. 나머지 필수 슬롯은
+// 항상 뭔가 껴있어야 해서 이미 장착 중인 걸 눌러도 그냥 무시(기존 그대로)
+const UNEQUIPPABLE_PARTS = ['outfit', 'deco']
 const equippingId = ref(null)
 async function equipItem(item) {
     const part = avatarPartFromCategory(item.category)
-    if (!part || equippingId.value || isEquipped(item)) return
+    if (!part || equippingId.value) return
+    if (isEquipped(item)) {
+        if (!UNEQUIPPABLE_PARTS.includes(part)) return
+        equippingId.value = item.itemid
+        try {
+            await $fetch(`${apiBaseUrl}/api/unequipAvatarItem`, {
+                method: 'POST',
+                body: { userid: userId.value, category: item.category },
+            })
+            invalidateCurrentUserData()
+            await ensureCurrentUserDataLoaded()
+        } catch (err) {
+            alert(err?.data?.message ?? '해제에 실패했습니다')
+        } finally {
+            equippingId.value = null
+        }
+        return
+    }
     equippingId.value = item.itemid
     try {
         await $fetch(`${apiBaseUrl}/api/equipAvatarItem`, {
@@ -389,7 +410,7 @@ function switchFollowListTab(type) {
                         <div
                             v-for="item in visibleInventory" :key="item.itemid" class="shop-card"
                             :class="{ 'shop-card-clickable': avatarPartFromCategory(item.category), 'shop-card-equipped': isEquipped(item) }"
-                            :title="avatarPartFromCategory(item.category) ? (isEquipped(item) ? '장착 중' : '눌러서 장착') : ''"
+                            :title="avatarPartFromCategory(item.category) ? (isEquipped(item) ? (UNEQUIPPABLE_PARTS.includes(avatarPartFromCategory(item.category)) ? '눌러서 해제' : '장착 중') : '눌러서 장착') : ''"
                             @click="avatarPartFromCategory(item.category) && equipItem(item)"
                         >
                             <div class="shop-card-icon">

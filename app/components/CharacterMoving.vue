@@ -4,6 +4,19 @@
             <div v-if="bubbleText" class="speech-bubble" v-html="renderBubbleText(bubbleText)"></div>
         </Transition>
         <div id="character" :style="characterScale">
+            <!-- 데코(몸 앞/뒤) — 다른 파츠보다 세로로 100px(스케일 반영 시 50px) 더 큰 별도 스프라이트라
+                 top/bottom 슬라이스 분할 없이 통짜 이미지 하나로 머리 위 여유 공간까지 그대로 보여줌.
+                 ⚠️ 몸 앞/뒤는 DOM 순서가 아니라 z-index로 정함(둘 다 여기 나란히 둠) — 캐릭터가
+                 위쪽(KeyW, row=3, 뒷모습)을 볼 때는 앞/뒤가 반대로 뒤집혀야 하기 때문. 예를 들어
+                 "몸 뒤" 데코(등 뒤 날개 등)는 캐릭터가 정면/측면을 볼 땐 몸통에 가려져야 정상이지만,
+                 뒷모습(등을 보여주는 자세)에서는 그 등에 붙은 게 카메라 쪽으로 와서 오히려 몸통보다
+                 앞에 보여야 함 — applyFrame이 row===3일 때 두 데코의 z-index를 서로 바꿔줌 -->
+            <div v-if="props.backDeco" class="char-deco-viewport" :ref="el => { if (el) charDecoBackContainerEl = el }">
+                <img :ref="el => { if (el) charDecoBackEl = el }" class="char-deco-sprite" :src="props.backDeco" />
+            </div>
+            <div v-if="props.frontDeco" class="char-deco-viewport" :ref="el => { if (el) charDecoFrontContainerEl = el }">
+                <img :ref="el => { if (el) charDecoFrontEl = el }" class="char-deco-sprite" :src="props.frontDeco" />
+            </div>
             <div class="char-slice char-slice-top" :style="charTopSliceStyle">
                 <img
                     v-for="(layer, i) in props.layers"
@@ -45,6 +58,10 @@ const props = defineProps({
     userId: { type: Number, default: null },
     // 스페이스바 점프 — 별도 점프 스프라이트가 없어서 CSS로 살짝 튀어오르는 연출만 재생함
     jumping: { type: Boolean, default: false },
+    // 데코(useCharacter.ts getCharacterLayers가 계산해서 넘겨줌) — 한 번에 최대 하나만 장착되므로
+    // 앞/뒤 중 실제로 있는 쪽 하나만 채워져 있고 나머진 null
+    backDeco: { type: String, default: null },
+    frontDeco: { type: String, default: null },
 })
 
 const { bubbles } = useSpeechBubbles()
@@ -93,6 +110,7 @@ const characterScale = computed(() => {
         return { position: 'relative', zIndex: props.zIndex ?? 'auto' }
     }
     return {
+        position: 'relative',
         transform: `scale(${props.zoomLevel})`,
         transformOrigin: 'center 48px',
     }
@@ -100,6 +118,10 @@ const characterScale = computed(() => {
 
 const charTopRefs = []
 const charBotRefs = []
+let charDecoBackEl = null
+let charDecoFrontEl = null
+let charDecoBackContainerEl = null
+let charDecoFrontContainerEl = null
 
 const charBottomH = computed(() => {
     if (props.tileMode) return 64
@@ -133,6 +155,16 @@ function applyFrame({ row, col }) {
     const h = charBottomH.value
     const botStyle = `top:${-(2 * row + 1) * h}px; left:${-128 * col}px; height:${8 * h}px; width:384px;`
     charBotRefs.forEach(el => el?.setAttribute('style', botStyle))
+
+    // 데코는 몸통과 셀 높이가 달라서(178 vs 128) 자기만의 top 계산을 씀 — col(좌우/방향)은 몸통과 동일
+    const decoStyle = `top:${-178 * row}px; left:${-128 * col}px;`
+    charDecoBackEl?.setAttribute('style', decoStyle)
+    charDecoFrontEl?.setAttribute('style', decoStyle)
+
+    // row===3(KeyW, 뒷모습)일 때만 앞/뒤 데코의 z-index를 서로 바꿈 — 위 템플릿 주석 참고
+    const isBackView = row === 3
+    charDecoBackContainerEl?.style.setProperty('z-index', isBackView ? '1' : '-1')
+    charDecoFrontContainerEl?.style.setProperty('z-index', isBackView ? '-1' : '1')
 }
 
 onMounted(() => {
@@ -248,6 +280,27 @@ onMounted(() => {
     position: absolute;
     width: 384px;
     height: 512px;
+    top: 0px;
+    left: -128px;
+}
+
+/* 데코 — 몸통 스프라이트보다 세로로 50px(스케일 반영) 더 큰 별도 치수라 top/bottom 분할 없이
+   통짜 하나로 렌더링함. #character 기준 -50px 위로 올려서 머리 위 여유 공간이 위쪽으로 보이게 하고,
+   나머지 128px는 몸통과 같은 자리(발 위치 기준선 동일)에 맞춤 */
+.char-deco-viewport {
+    position: absolute;
+    top: -50px;
+    left: 0;
+    width: 128px;
+    height: 178px;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.char-deco-sprite {
+    position: absolute;
+    width: 384px;
+    height: 712px;
     top: 0px;
     left: -128px;
 }

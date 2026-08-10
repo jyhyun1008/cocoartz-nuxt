@@ -15,7 +15,7 @@ async function checkAdmin(userid: number) {
 // 먼저 호출해서(관리자 페이지가 파일 선택 즉시 호출) 그 결과 URL을 여기로 넘겨받는 구조
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { category, name, description, price, active, icon, isDefault, blocksMovement } = body
+    const { category, name, description, price, active, icon, isDefault, blocksMovement, decoLayer } = body
     const userid = await requireUserId(event)
     await checkAdmin(userid)
 
@@ -31,6 +31,8 @@ export default eventHandler(async (event) => {
     const finalIsDefault = isDefault === true
     // 지형 전용 — 캐릭터가 못 지나감(예: 물). 다른 카테고리는 의미 없는 값이라 무조건 false로 고정
     const finalBlocksMovement = category === 'terrain' && blocksMovement === true
+    // 데코 전용 — 몸 앞/뒤 어느 레이어에 그릴지. items.meta에 저장(map_item의 layers와 같은 자리 재사용)
+    const finalMeta = category === 'avatar_deco' ? JSON.stringify({ layer: decoLayer === 'front' ? 'front' : 'back' }) : undefined
 
     if (category === 'map_item') {
         const layers = body.layers
@@ -61,6 +63,7 @@ export default eventHandler(async (event) => {
     const [created] = await db.insert(items).values({
         category, itemKey, name: trimmedName, description: finalDescription, icon: icon || null,
         price: finalPrice, active: finalActive, isDefault: finalIsDefault, blocksMovement: finalBlocksMovement,
+        meta: finalMeta,
     }).returning()
     return created
 })
