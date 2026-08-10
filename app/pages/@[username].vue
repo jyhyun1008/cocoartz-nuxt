@@ -103,7 +103,10 @@ const { data: inventoryData } = await useAsyncData(
     () => (isOwn.value && userId.value)
         ? $fetch(`${apiBaseUrl}/api/getMyInventory`, { method: 'POST', body: { userid: userId.value } })
         : [],
-    { watch: [isOwn] },
+    // getMyInventory는 세션 쿠키가 있어야 하는데 SSR 중 $fetch는 쿠키를 안 실어 보내서(위
+    // useCurrentUserData.ts와 같은 문제) 강제새로고침 때 서버 내부에서만 401이 나고 그게 브라우저
+    // 네트워크 탭엔 안 잡힌 채로 빈 인벤토리가 굳어버림 — server:false로 클라이언트에서만 fetch
+    { watch: [isOwn], server: false },
 )
 const inventory = computed(() => inventoryData.value ?? [])
 const visibleInventory = computed(() => inventory.value.filter(i => i.category === invSubTab.value))
