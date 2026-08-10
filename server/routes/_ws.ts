@@ -120,8 +120,21 @@ export function broadcastUserUpdate(userId: number, user: any) {
 // 알면 되는 게 아니라 서버 전체 어디에 있든 다 알아야 하니 broadcastToRoom이 아니라
 // broadcastToAll을 씀. 연합 게시판은 createPost.ts가 애초에 이 함수를 안 불러서(원격에서
 // 계속 들어오는 글까지 합치면 사실상 항상 켜져 있는 셈이라 의미가 없음) 여기까지 안 옴.
-export function broadcastNewPost(roomPath: string) {
-  broadcastToAll({ type: 'new_post', roomPath })
+//
+// excludeUserId: 글을 쓴 본인은 "새 글이 있다"는 알림을 받을 이유가 없음(자기가 방금 썼으니
+// 당연히 알고 있음) — 그래서 그 유저의 연결(계정당 하나만 허용되니 있어도 최대 1개)만 쏙 빼고
+// 나머지 전체에 보냄. 예전엔 본인한테도 그대로 갔었고, 클라이언트 쪽에서 "지금 보고 있는 채널"
+// 기준으로 사이드바 동그라미만 숨겼는데, 그 사이 파비콘 배지는 잠깐이라도 켜졌다가 제대로 안
+// 꺼지는 경우가 있어서(끄는 것도 결국 또 다른 비동기 클라이언트 로직에 의존하니) 아예 본인한테는
+// 안 보내는 쪽이 더 확실함
+export function broadcastNewPost(roomPath: string, excludeUserId?: number) {
+  let excludeId: string | undefined
+  if (excludeUserId != null) {
+    for (const [peerId, info] of peerMap) {
+      if (info.userId === excludeUserId) { excludeId = peerId; break }
+    }
+  }
+  broadcastToAll({ type: 'new_post', roomPath }, excludeId)
 }
 
 // 연합 게시판(연합 타임라인) 전용 실시간 스트리밍 — 위 broadcastNewPost(사이드바 안 읽음 동그라미)와

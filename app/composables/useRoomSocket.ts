@@ -7,6 +7,12 @@ let _apiBaseUrl = ''
 // 막아야 함 — 안 막으면 끊긴 쪽이 곧장 다시 join해서 방금 새로 접속한 쪽을 도로 쫓아내는
 // 핑퐁이 벌어짐. 유저가 명시적으로(예: 새로고침) 다시 시도하기 전까지는 조용히 끊긴 채로 둠
 let _suppressReconnect = false
+// 마지막으로 실제 join한 방 정보 — 연결이 (강퇴가 아니라) 네트워크 끊김/idle timeout 등으로
+// 조용히 끊겼다가 자동 재연결됐을 때, 서버 쪽엔 이 연결에 대한 peerMap/rooms 기록이 전혀 없는
+// 새 상태로 시작되므로 이 정보로 자동 재참가시킴(아래 connect()의 onopen 참고). 이게 없으면
+// 재연결은 되는데 "그 방에 있다"는 사실 자체를 서버가 모르는 채로 조용히 남아서, 위치 동기화는
+// 물론 방 기반 브로드캐스트(연합 게시판 실시간 스트리밍 등)도 다시 join할 때까지 계속 못 받음
+let _lastJoinParams: { roomPath: string; userId: number; x: number; y: number; z: number } | null = null
 
 // 아무 동작(이동/채팅) 없이 가만히 있으면 리버스 프록시/방화벽이 "조용한" 연결을 끊어버리는
 // 경우가 있음 — 그러면 서버는 진짜로 나간 걸로 처리해서 user_left를 쏘고, 클라이언트는 3초
@@ -131,6 +137,9 @@ export function useRoomSocket() {
     _ws.onopen = () => {
       if (_heartbeatTimer) clearInterval(_heartbeatTimer)
       _heartbeatTimer = setInterval(() => rawSend({ type: 'ping' }), HEARTBEAT_INTERVAL_MS)
+      // 끊겼다가 자동 재연결된 경우 자동으로 마지막 방에 다시 join — 최초 접속 시엔
+      // RoomMap.vue의 onMounted가 joinRoom을 직접 불러줘서 이 시점엔 아직 null이라 안 겹침
+      if (_lastJoinParams) rawSend({ type: 'join', ..._lastJoinParams })
     }
     _ws.onclose = () => {
       _ws = null
@@ -148,6 +157,7 @@ export function useRoomSocket() {
   }
 
   function joinRoom(roomPath: string, userId: number, x = 0, y = 0, z = 0) {
+    _lastJoinParams = { roomPath, userId, x, y, z }
     otherUsersInRoom.value = []
     realtimeChats.value = []
     rawSend({ type: 'join', roomPath, userId, x, y, z })

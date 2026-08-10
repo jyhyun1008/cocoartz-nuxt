@@ -33,8 +33,10 @@ export default eventHandler(async (event) => {
                     .catch((e) => console.error('[createPost] 연합 게시판 스트리밍 실패', e))
             } else {
                 // 사이드바 채널명 옆 안 읽음 표시(악센트색 동그라미) — 연합 게시판은 원격 유입까지
-                // 합치면 사실상 항상 켜져 있는 셈이라 의미가 없어서 여기서만 씀
-                broadcastNewPost(room.path)
+                // 합치면 사실상 항상 켜져 있는 셈이라 의미가 없어서 여기서만 씀. 글쓴이 본인은
+                // 제외(자기가 방금 쓴 글이니 알림받을 이유가 없음 — 파비콘 배지까지 같이 영향받아서
+                // 본인한테 안 보내는 쪽으로 서버에서 아예 걸러둠)
+                broadcastNewPost(room.path, userid)
             }
         }
     }
