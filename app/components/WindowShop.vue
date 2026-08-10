@@ -41,10 +41,16 @@
                         <NuxtImg v-else-if="item.icon" :src="item.icon" />
                         <i v-else class="hgi hgi-stroke hgi-package" />
                     </div>
-                    <div class="shop-card-name">{{ item.name }}</div>
-                    <!-- 설명이 없어도(v-if로 아예 안 그리면 min-height가 적용될 요소 자체가 없어져서
-                         설명 있는 카드와 없는 카드끼리 높이가 어긋남) 항상 그려서 2줄 높이를 맞춤 -->
-                    <p class="shop-card-desc">{{ item.description }}</p>
+                    <!-- 이름/설명 둘 다 1줄로 자르고, 마우스 올렸을 때 다 못 보여준 글자가 있으면
+                         (실제로 넘칠 때만) 음원 사이트 노래 제목처럼 좌우로 흐르게 함 -->
+                    <div class="shop-card-name" @mouseenter="handleMarqueeEnter" @mouseleave="handleMarqueeLeave">
+                        <span class="marquee-text">{{ item.name }}</span>
+                    </div>
+                    <!-- 설명이 없어도(v-if로 아예 안 그리면 높이가 적용될 요소 자체가 없어져서 설명
+                         있는 카드와 없는 카드끼리 높이가 어긋남) 항상 그려서 1줄 높이를 맞춤 -->
+                    <p class="shop-card-desc" @mouseenter="handleMarqueeEnter" @mouseleave="handleMarqueeLeave">
+                        <span class="marquee-text">{{ item.description }}</span>
+                    </p>
                     <div class="shop-card-price"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ item.price }}</div>
                     <div v-if="isStackable(item)" class="shop-owned-count">{{ item.owned }}개 보유</div>
 
@@ -107,15 +113,44 @@ const { data: balanceData, refresh: refreshBalance } = await useAsyncData(
 )
 const balance = computed(() => balanceData.value?.balance ?? 0)
 
+// 키를 userId로 물려야 함 — 예전엔 고정 문자열 키('shop-catalog')라, 로그인 전(또는 다른 계정)
+// 상태에서 상점을 한 번이라도 연 세션이면 Nuxt가 그 결과(모든 아이템 owned:0)를 그대로 캐싱해두고,
+// 이후 실제로 로그인해서(또는 계정이 바뀌어서) 다시 상점을 열어도 새로고침 없이는 그 캐시를 그대로
+// 재사용해버려서 이미 보유한 아이템까지 계속 "구매" 버튼으로 보였음(프로필 페이지 등에서 이미
+// 한 번 고쳤던 것과 동일한 패턴 — 여긴 빠져있었음)
 const { data: catalogData, refresh: refreshCatalog } = await useAsyncData(
-    'shop-catalog',
+    () => `shop-catalog-${userId.value ?? 'guest'}`,
     () => $fetch(`${apiBaseUrl}/api/getShopCatalog`, { method: 'POST', body: { userid: userId.value } }),
+    { watch: [userId] },
 )
 const catalog = computed(() => catalogData.value ?? [])
 
 const visibleItems = computed(() => catalog.value.filter(i => i.category === subTab.value))
 
 function isStackable(item) { return isStackableCategory(item.category) }
+
+// 이름/설명이 1줄 폭을 넘칠 때만(딱 안 잘리는 짧은 텍스트는 건드릴 필요가 없으니) 마우스를 올린
+// 순간 실제로 넘치는 픽셀만큼만 좌우로 흐르게 함 — CSS만으로는 "진짜로 넘쳤는지"를 알 방법이
+// 없어서(넘치든 안 넘치든 그냥 애니메이션을 걸면 안 넘치는 것까지 괜히 흔들림) 호버 시점에 실제
+// scrollWidth/clientWidth 차이를 재서 그 값만큼만 CSS 변수로 넘겨줌
+function handleMarqueeEnter(e) {
+    const wrap = e.currentTarget
+    const text = wrap.querySelector('.marquee-text')
+    if (!text) return
+    const overflow = text.scrollWidth - wrap.clientWidth
+    if (overflow <= 0) return
+    const duration = Math.min(12, Math.max(3, overflow / 40))
+    text.style.setProperty('--marquee-distance', `${-overflow}px`)
+    text.style.setProperty('--marquee-duration', `${duration}s`)
+    text.classList.add('is-marquee')
+}
+function handleMarqueeLeave(e) {
+    const text = e.currentTarget.querySelector('.marquee-text')
+    if (!text) return
+    text.classList.remove('is-marquee')
+    text.style.removeProperty('--marquee-distance')
+    text.style.removeProperty('--marquee-duration')
+}
 
 const quantities = reactive({})
 
@@ -234,20 +269,42 @@ async function buy(item) {
 }
 .shop-card-icon img { width: 100%; height: 100%; object-fit: contain; }
 
-.shop-card-name { font-weight: 700; font-size: 0.88rem; }
+/* 이름/설명 둘 다 무조건 1줄 — 넘치는 텍스트는 잘라서 ...으로, 마우스를 올렸을 때만(JS가 실제로
+   넘칠 때만 .is-marquee를 붙임) 노래 제목처럼 옆으로 흐름. width:100%가 있어야 overflow:hidden
+   기준이 되는 실제 폭이 생김(안 그러면 콘텐츠 크기에 맞춰 늘어나서 절대 안 넘침) */
+.shop-card-name {
+    width: 100%;
+    font-weight: 700;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
 
 .shop-card-desc {
+    width: 100%;
     margin: 0;
     font-size: 0.72rem;
     color: rgba(var(--fg-rgb),0.45);
     line-height: 1.3;
-    /* 설명이 길면 카드 높이가 아이템마다 들쭉날쭉해지니 2줄까지만 보여주고 나머진 ...으로 자름.
-       min-height도 2줄 높이로 고정해서, 짧은 설명(1줄)인 카드도 옆 카드랑 높이가 안 어긋나게 함 */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
-    min-height: calc(1.3em * 2);
+    /* 설명이 없어도(빈 문자열) 옆 카드랑 높이가 안 어긋나게 1줄 높이를 고정해둠 */
+    min-height: 1.3em;
+}
+
+.shop-card-name .marquee-text,
+.shop-card-desc .marquee-text {
+    display: inline-block;
+    white-space: nowrap;
+}
+.marquee-text.is-marquee {
+    animation: shop-marquee-scroll var(--marquee-duration, 6s) linear infinite;
+}
+/* 시작/끝에서 살짝 멈췄다가 흐르고, 끝나면 다음 반복 시작점(0%)으로 바로 스냅 — 음원 사이트
+   재생목록의 긴 제목이 흐르는 것과 같은 "쭉 흐르다 처음으로 되돌아가는" 루프 느낌 */
+@keyframes shop-marquee-scroll {
+    0%, 10% { transform: translateX(0); }
+    90%, 100% { transform: translateX(var(--marquee-distance, 0px)); }
 }
 
 .shop-card-price {
