@@ -119,6 +119,13 @@ const equippedConfig = computed(() => {
     try {
         if (currentUserData.value?.character) cfg = { ...cfg, ...JSON.parse(currentUserData.value.character) }
     } catch {}
+    // equipAvatarItem.ts는 outfit 장착 시 저장된 config에서 bottom/top을 지워서 상호배타를
+    // 표현하는데, 여기서 DEFAULT_CHARACTER를 다시 깔아버리면 지워진 자리에 기본 하의/상의(1번)가
+    // 부활해서 한벌옷과 하의/상의가 동시에 "장착 중"으로 표시됨 — outfit이 있으면 항상 미장착 취급
+    if (cfg.outfit) {
+        cfg.bottom = null
+        cfg.top = null
+    }
     return cfg
 })
 function isEquipped(item) {
