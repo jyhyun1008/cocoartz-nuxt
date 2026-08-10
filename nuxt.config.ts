@@ -70,8 +70,12 @@ export default defineNuxtConfig({
     },
     // 실시간 WS/채팅/지도 앱이라 API 응답까지 캐싱하면 오래된 데이터가 보일 수 있음.
     // 정적 빌드 산출물(JS/CSS)만 프리캐시하고, 타일/캐릭터 이미지만 별도로 캐시.
+    // navigateFallback은 SPA/SSG처럼 "/"가 빌드 시점에 정적 html로 나오는 경우를 위한 옵션인데,
+    // 이 앱은 SSR이라 "/"가 정적 파일로 프리캐시되지 않음 — 켜두면 서비스워커가 모든 페이지 이동마다
+    // 이 폴백을 쓰려다 "/"가 프리캐시 목록에 없어서 매번 non-precached-url 에러를 던졌음(콘솔 확인됨).
+    // 오프라인 전용 폴백 페이지를 따로 안 두는 이상 SSR에선 의미가 없어서 아예 뺌 — 온라인일 땐
+    // 어차피 네트워크로 정상 이동하니 동작엔 영향 없음.
     workbox: {
-      navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html}'],
       runtimeCaching: [
         {

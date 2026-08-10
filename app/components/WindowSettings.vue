@@ -386,6 +386,13 @@
                     >{{ c.label }}</button>
                 </div>
 
+                <!-- 인라인 수정 폼에서 쓰는 숨김 파일 입력 — 한 번에 하나의 아이템만 수정 상태(editingShopItemId)일
+                     수 있으니 v-for 루프 안에 아이템마다 두지 않고 여기 하나씩만 둠(v-for 안에서 ref="문자열"을
+                     쓰면 Vue가 자동으로 배열로 묶어버려서 예전엔 함수 ref로 우회했었는데, 그 방식이 avatar-part
+                     쪽 "다시 올리기" 버튼에서 클릭이 씹히는 문제가 있어서 아예 루프 밖으로 뺌) -->
+                <input type="file" ref="shopEditIconFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleShopEditIconFile" />
+                <input type="file" ref="shopEditLayersFileInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none" @change="handleShopEditLayersFile" />
+
                 <div class="admin-channel-list">
                     <template v-for="item in filteredShopItems" :key="item.id">
                         <div class="admin-channel-item">
@@ -434,7 +441,6 @@
                                         :src-override="shopEditForm.icon"
                                     />
                                     <template v-if="objectStorageEnabled">
-                                        <input type="file" :ref="(el) => shopEditIconFileInput.value = el" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleShopEditIconFile" />
                                         <button class="admin-add-btn" style="margin-left:0" @click="shopEditIconFileInput?.click()" :disabled="shopEditIconUploading">
                                             {{ shopEditIconUploading ? '업로드 중...' : '다시 올리기' }}
                                         </button>
@@ -451,7 +457,6 @@
                                     </div>
                                     <input v-model="shopEditForm.icon" placeholder="https://example.com/icon.png" class="post-input" style="flex:1" />
                                     <template v-if="objectStorageEnabled">
-                                        <input type="file" :ref="(el) => shopEditIconFileInput.value = el" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleShopEditIconFile" />
                                         <button class="admin-add-btn" style="margin-left:0" @click="shopEditIconFileInput?.click()" :disabled="shopEditIconUploading">
                                             {{ shopEditIconUploading ? '업로드 중...' : '업로드' }}
                                         </button>
@@ -475,7 +480,6 @@
                                         <i v-else class="hgi hgi-stroke hgi-image-02"></i>
                                     </div>
                                     <template v-if="objectStorageEnabled">
-                                        <input type="file" :ref="(el) => shopEditLayersFileInput.value = el" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none" @change="handleShopEditLayersFile" />
                                         <button class="admin-add-btn" style="margin-left:0" @click="shopEditLayersFileInput?.click()" :disabled="shopEditLayersUploading">
                                             {{ shopEditLayersUploading ? '업로드·합성 중...' : '6장 새로 선택' }}
                                         </button>
