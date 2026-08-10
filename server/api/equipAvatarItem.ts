@@ -28,6 +28,17 @@ export default eventHandler(async (event) => {
     try { config = user?.character ? JSON.parse(user.character) : {} } catch { config = {} }
     config[part] = Number(itemKey)
 
+    // outfit(한벌옷)은 bottom+top을 대신하는 상호 배타 슬롯 — useCharacter.ts의 getCharacterLayers가
+    // 렌더링 시점에 outfit 있으면 bottom/top을 무시하긴 하지만, 저장된 값 자체도 서로 지워줘야
+    // (1) outfit을 벗었을 때 예전에 입고 있던 것과 무관한 엉뚱한 상하의가 부활하지 않고,
+    // (2) 인벤토리 화면에서 "지금 장착 중"인 아이템 표시(isEquipped)가 실제 보이는 모습과 맞음
+    if (part === 'outfit') {
+        delete config.bottom
+        delete config.top
+    } else if (part === 'bottom' || part === 'top') {
+        delete config.outfit
+    }
+
     const [updatedUser] = await db.update(users).set({ character: JSON.stringify(config) })
         .where(eq(users.id, userid))
         .returning()
