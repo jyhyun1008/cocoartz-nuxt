@@ -57,17 +57,18 @@
                                 <i class="hgi hgi-stroke hgi-globe-02"></i>
                                 <!-- 코코아츠 서버끼리 연합한 글의 summary는 진짜 CW가 아니라 그쪽 게시판 글
                                      제목이라(우리도 CW 없이 제목을 그 자리에 실어보냄 — publishPost.ts),
-                                     경고 아이콘 없이 그냥 제목처럼 보여줌 -->
+                                     경고 아이콘 없이 그냥 제목처럼 보여줌. 제목은 원래 한 줄이어야 하니
+                                     혹시 원본에 줄바꿈이 있어도 한 줄로 합침(singleLine) -->
                                 <template v-if="entry.post.summary && entry.post.summaryIsTitle">
-                                    <span v-html="entry.post.summary"></span>
+                                    <span class="title-text" v-html="singleLine(entry.post.summary)"></span>
                                 </template>
                                 <template v-else-if="entry.post.summary">
                                     <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
-                                    <span v-html="entry.post.summary"></span>
+                                    <span class="title-text" v-html="singleLine(entry.post.summary)"></span>
                                 </template>
                                 <span
                                     v-else
-                                    class="preview-text"
+                                    class="title-text preview-text"
                                     v-html="stripHtmlKeepEmoji(entry.post.content, entry.post.quoteUrl || entry.post.linkUrl, entry.post.quoteUrl ? '[인용]' : '[링크]')"
                                 ></span>
                             </div>
@@ -718,6 +719,15 @@ function postThumbnail(content) {
     return match ? match[1] : null
 }
 
+// summaryIsTitle로 취급하는 원격 CW 텍스트는 "게시글 제목"인데, 원본 CW는 마스토돈/미스키 등에서
+// 여러 줄로 써도 되는 자유 텍스트라 <br>/개행이 그대로 들어있는 경우가 있음 — 그걸 그대로
+// v-html하면 white-space:nowrap을 걸어놔도 <br>은 무시하고 강제로 줄바꿈돼서(제목 자리인데 2줄이
+// 되어 옆 요소랑 뒤엉켜 보이는 버그로 이어짐) 한 줄로 강제 합침
+function singleLine(html) {
+    if (!html) return ''
+    return html.replace(/<br\s*\/?>/gi, ' ').replace(/\n+/g, ' ')
+}
+
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 싶어서, 그 img 태그만 플레이스홀더로
 // 빼놨다가 나머지 태그를 다 지운 뒤 다시 끼워넣음 — v-html로 렌더링해야 실제 이미지로 보임
 // embedUrl(인용/링크 대상 URL)이 있으면 본문 속 그 <a href>를 통째로 작은 칩으로 바꿔서
@@ -1157,6 +1167,18 @@ onMounted(() => {
     font-size: 0.98rem;
     color: rgba(var(--fg-rgb),0.9);
 }
+/* 위 overflow/ellipsis는 컨테이너(.post-card-title, flex row)에 걸어봐야 실제 텍스트를 담은
+   자식(span)이 flex item 기본값(min-width:auto)이라 안 줄어들어서 안 먹힘(글자+커스텀 이모지가
+   섞이면 특히 심함 — 자기 콘텐츠 폭만큼 그냥 넘쳐서 옆 요소랑 뒤엉켜 보였음). 텍스트를 담은
+   span 쪽에 직접 ellipsis 처리를 걸고 min-width:0으로 줄어들 수 있게 해야 진짜로 한 줄 자름 */
+.post-card-title .title-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.post-card-title > i { flex-shrink: 0; }
 
 .post-card-meta {
     display: flex;

@@ -53,17 +53,18 @@
                                 <div class="post-card-title">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>
                                     <!-- 코코아츠 서버끼리 연합한 글의 summary는 진짜 CW가 아니라 그쪽 게시판
-                                         글 제목이라(publishPost.ts 참고) 경고 아이콘 없이 제목처럼 보여줌 -->
+                                         글 제목이라(publishPost.ts 참고) 경고 아이콘 없이 제목처럼 보여줌.
+                                         제목은 한 줄이어야 하니 원본에 줄바꿈이 있어도 한 줄로 합침(singleLine) -->
                                     <template v-if="p.summary && p.summaryIsTitle">
-                                        <span v-html="p.summary"></span>
+                                        <span class="title-text" v-html="singleLine(p.summary)"></span>
                                     </template>
                                     <template v-else-if="p.summary">
                                         <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
-                                        <span v-html="p.summary"></span>
+                                        <span class="title-text" v-html="singleLine(p.summary)"></span>
                                     </template>
                                     <span
                                         v-else
-                                        class="preview-text"
+                                        class="title-text preview-text"
                                         v-html="stripHtmlKeepEmoji(p.content, p.quoteUrl || p.linkUrl, p.quoteUrl ? '[인용]' : '[링크]')"
                                     ></span>
                                 </div>
@@ -486,6 +487,13 @@ watch(timelinePostFeed, (feed) => {
         remoteItems.value = [entry.post, ...remoteItems.value]
     }
 })
+
+// summaryIsTitle로 취급하는 원격 CW 텍스트는 "게시글 제목"인데, 원본 CW는 마스토돈/미스키 등에서
+// 여러 줄로 써도 되는 자유 텍스트라 <br>/개행이 그대로 들어있는 경우가 있음(WindowBoard.vue와 동일 이유)
+function singleLine(html) {
+    if (!html) return ''
+    return html.replace(/<br\s*\/?>/gi, ' ').replace(/\n+/g, ' ')
+}
 
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 나머지 태그만 지움 (WindowBoard.vue와 동일 로직)
 // embedUrl(인용/링크 대상 URL)이 있으면 본문 속 그 <a href>를 통째로 작은 칩으로 바꿔서
