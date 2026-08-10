@@ -117,9 +117,13 @@
         <!-- 원격 글 상세 -->
         <div v-else-if="currentView === 'remote-detail' && currentRemotePost" id="board-wrapper">
             <div class="post-detail">
+                <!-- 상세보기는 목록 카드처럼 좁게 자를 필요가 없어서(공간 충분) 한 줄 말줄임(ellipsis)은
+                     빼고, "이름 + 님이 재게시했습니다"를 하나의 flex item으로만 묶어 흐름이 안 끊기게 함 -->
                 <div v-if="currentRemotePost.boostedByName || currentRemotePost.boostedByHandle" class="boost-banner">
                     <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
-                    <span v-if="currentRemotePost.boostedByName" v-html="currentRemotePost.boostedByName"></span><span v-else>{{ currentRemotePost.boostedByHandle }}</span>님이 재게시했습니다
+                    <span class="boost-banner-text boost-banner-text-wrap">
+                        <span v-if="currentRemotePost.boostedByName" v-html="currentRemotePost.boostedByName"></span><span v-else>{{ currentRemotePost.boostedByHandle }}</span>님이 재게시했습니다
+                    </span>
                 </div>
                 <div class="post-meta">
                     <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
