@@ -123,6 +123,8 @@ export function useRoomSocket() {
       unreadRooms.value = { ...unreadRooms.value, [data.roomPath]: true }
 
     } else if (data.type === 'federated_new_post') {
+      // 임시 진단 로그 — 여기가 찍히면 최소한 클라이언트까지는 메시지가 도착한 것
+      console.log('[useRoomSocket] federated_new_post 수신', data.entry)
       federatedPostFeed.value = [...federatedPostFeed.value, data.entry].slice(-FEDERATED_FEED_CAP)
     }
   }

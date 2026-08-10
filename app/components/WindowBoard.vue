@@ -633,10 +633,14 @@ const hasMoreToShow = computed(() => hasMoreFeed.value)
 // 필요 없는 이유는 마운트 시점 이전 것들은 이미 loadFirstPage로 받아왔기 때문
 const { federatedPostFeed } = useRoomSocket()
 watch(federatedPostFeed, (feed) => {
+    // 임시 진단 로그 — 여기가 안 찍히면 워처 자체가 안 도는 것(컴포넌트 상태/조건 문제),
+    // 찍히는데 화면에 안 보이면 그 아래(중복판정/렌더링) 쪽 문제로 좁혀짐
+    console.log('[WindowBoard] federatedPostFeed 변경 감지', { isFederated: props.isFederated, len: feed.length })
     if (!props.isFederated || !feed.length) return
     const entry = feed[feed.length - 1]
     if (!entry?.post) return
     const alreadyThere = feedItems.value.some((e) => e.kind === entry.kind && e.post?.id === entry.post.id)
+    console.log('[WindowBoard] 새 항목', entry.kind, entry.post.id, alreadyThere ? '(이미 있음, 스킵)' : '(맨 앞에 추가)')
     if (alreadyThere) return
     feedItems.value = [entry, ...feedItems.value]
 })

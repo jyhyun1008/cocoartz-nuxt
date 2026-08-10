@@ -163,6 +163,10 @@ function entryText(entry: { kind: 'local' | 'remote'; post: any }): string {
 
 export async function broadcastFederatedBoardPost(roomPath: string, entry: { kind: 'local' | 'remote'; post: any }) {
   const room = rooms.get(roomPath)
+  // 임시 진단 로그 — 실시간 스트리밍이 도착 안 한다는 제보 확인용. room이 없거나(=서버가 그
+  // roomPath에 아무도 없다고 알고 있음, 재연결 후 재join 안 된 경우 등) peers가 0이면 여기서
+  // 바로 드러남. 원인 확인되면 지워도 됨.
+  console.log(`[broadcastFederatedBoardPost] roomPath=${roomPath} peers=${room?.size ?? 0}`)
   if (!room) return
   const author = entryAuthor(entry)
   const text = entryText(entry)
@@ -170,6 +174,7 @@ export async function broadcastFederatedBoardPost(roomPath: string, entry: { kin
   for (const [, info] of room) {
     // 손님(비로그인)은 뮤트 목록 자체가 없으니 그대로 보냄
     if (!info.authenticated) {
+      console.log(`[broadcastFederatedBoardPost] → guest userId=${info.userId} 전송`)
       sendTo(info.peer, { type: 'federated_new_post', entry })
       continue
     }
@@ -180,10 +185,14 @@ export async function broadcastFederatedBoardPost(roomPath: string, entry: { kin
       getEmojiMuteLookup(info.userId),
     ])
     const levels = [muteLookup.levelOf(author), wordMuteLookup.levelOf(text), emojiMuteLookup.levelOf(text)]
-    if (levels.includes('hard')) continue  // 이 유저한테는 아예 안 보냄
+    if (levels.includes('hard')) {
+      console.log(`[broadcastFederatedBoardPost] → userId=${info.userId} 하드뮤트로 스킵`)
+      continue  // 이 유저한테는 아예 안 보냄
+    }
 
     const muted = levels.includes('soft') ? ('soft' as const) : undefined
     const payload = muted ? { ...entry, post: { ...entry.post, muted } } : entry
+    console.log(`[broadcastFederatedBoardPost] → userId=${info.userId} 전송${muted ? '(소프트뮤트 게이트)' : ''}`)
     sendTo(info.peer, { type: 'federated_new_post', entry: payload })
   }
 }
