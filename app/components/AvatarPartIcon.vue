@@ -17,9 +17,9 @@ import { DECO_SPRITE_W, DECO_SPRITE_H, DECO_CELL_W, DECO_CELL_H, DECO_HEADROOM }
 // 아이콘 파일이 필요 없어서, 새 variant를 추가해도 아이콘이 자동으로 생김.
 //
 // 데코(part==='deco')는 원본이 다른 파츠보다 세로로 100px 더 큰(768x1424, 셀 256x356) 별도
-// 치수라 정사각형 크롭 공식을 그대로 못 씀 — 상점/인벤토리 그리드가 전부 정사각형 아이콘
-// 박스를 전제하고 있어서, 박스 자체를 키우는 대신 세로 기준으로 축소(contain)해서 정사각형
-// 안에 여백(레터박스)과 함께 전체 프레임(머리 위 여유 공간 포함)이 다 보이게 함
+// 치수라 정사각형 크롭 공식을 그대로 못 씀. 머리 위 여유 공간(DECO_HEADROOM) 전체를 다 보여주면
+// 정사각형 박스 안에서 양옆 레터박스가 너무 커 보여서(256/356 비율), 여유 공간 중 일부만
+// 보여주는 쪽으로 더 바짝 크롭함 — DECO_ICON_VISIBLE_HEADROOM 참고
 const props = defineProps({
     part: { type: String, required: true }, // 'hair' | 'top' | 'bottom' | 'shoes' | 'face' | 'body' | 'outfit' | 'deco'
     variant: { type: [String, Number], required: true },
@@ -38,23 +38,33 @@ const CELL = 256 // 정면(row0) 대기(col1) 프레임 — 한 칸이 256x256
 
 const isDeco = computed(() => props.part === 'deco')
 
-// 데코는 셀 높이(356) 기준으로 축소해서 정사각형 박스 안에 전체 프레임이 들어오게 함(가로는
-// 남는 만큼 레터박스). 나머지 파츠는 원래처럼 정사각형 셀(256) 기준
-const scale = computed(() => props.size / (isDeco.value ? DECO_CELL_H : CELL))
+// 데코 아이콘에서 실제로 보여줄 머리 위 여유 공간 — 전체(100px)를 다 보여주면 정사각형 박스 안에서
+// 폭 대비 너무 홀쭉해 보여서(가로 256 : 세로 356), 일부만 보여주는 걸로 타협함. 이 값을 늘리면
+// 키 큰 데코가 더 잘 보이는 대신 레터박스(양옆 여백)가 커지고, 줄이면 레터박스는 줄지만 여유
+// 공간 위쪽은 크롭돼서 안 보임
+const DECO_ICON_VISIBLE_HEADROOM = 30
+const DECO_ICON_CROP_H = CELL + DECO_ICON_VISIBLE_HEADROOM // 286
+
+// 데코는 위 크롭 높이 기준으로 축소해서 정사각형 박스 안에 들어오게 함(가로는 남는 만큼만
+// 레터박스). 나머지 파츠는 원래처럼 정사각형 셀(256) 기준
+const scale = computed(() => props.size / (isDeco.value ? DECO_ICON_CROP_H : CELL))
 
 const wrapperStyle = computed(() => ({
     width: `${props.size}px`,
     height: `${props.size}px`,
 }))
 
-// col=1이라 왼쪽으로 한 칸만큼, row=0이라 위쪽은 그대로. 데코는 셀 폭(256)이 셀 높이(356)보다
-// 좁아서 축소 후 폭이 박스보다 작아지므로 남는 폭만큼 가운데 정렬해줌(centerOffset)
+// col=1이라 왼쪽으로 한 칸만큼. 데코는 셀 폭(256)이 크롭 높이(286)보다 좁아서 축소 후 폭이
+// 박스보다 작아지므로 남는 폭만큼 가운데 정렬해줌(centerOffset). row=0 크롭 구간의 위쪽
+// (여유 공간 중 안 보여주기로 한 만큼, DECO_HEADROOM - DECO_ICON_VISIBLE_HEADROOM)은 잘라내고
+// "발 위치" 기준선(크롭 구간 아래쪽)은 그대로 유지함
 const targetLayerStyle = computed(() => {
     if (isDeco.value) {
         const cellW = DECO_CELL_W * scale.value
         const centerOffset = (props.size - cellW) / 2
+        const hiddenHeadroom = DECO_HEADROOM - DECO_ICON_VISIBLE_HEADROOM
         return {
-            top: '0px',
+            top: `-${hiddenHeadroom * scale.value}px`,
             left: `${centerOffset - cellW}px`,
             width: `${DECO_SPRITE_W * scale.value}px`,
             height: `${DECO_SPRITE_H * scale.value}px`,
@@ -69,16 +79,17 @@ const targetLayerStyle = computed(() => {
     }
 })
 
-// 데코 뒤에 겹쳐 보여주는 기본 바디 레이어 — 데코와 같은 scale(셀 높이 356 기준)을 쓰다 보니
-// 바디의 셀 폭(256)도 정사각형 파츠 때와 다른 비율로 축소되므로, targetLayerStyle의 데코와
-// 똑같은 방식으로 가운데 정렬을 다시 계산함. "발 위치" 기준선이 데코와 같아지도록 데코 프레임의
-// 여유 공간(DECO_HEADROOM)만큼 아래로 내려서 정렬함
+// 데코 뒤에 겹쳐 보여주는 기본 바디 레이어 — 데코와 같은 scale을 쓰다 보니 바디의 셀 폭(256)도
+// 정사각형 파츠 때와 다른 비율로 축소되므로, targetLayerStyle의 데코와 똑같은 방식으로 가운데
+// 정렬을 다시 계산함. "발 위치" 기준선이 데코와 같아지도록 데코가 보여주는 여유 공간
+// (DECO_ICON_VISIBLE_HEADROOM)만큼만 아래로 내려서 정렬함(전체 DECO_HEADROOM이 아님 — 크롭에서
+// 잘려나간 만큼은 바디도 똑같이 화면 밖으로 밀려나야 기준선이 맞음)
 const bodyLayerStyle = computed(() => {
     if (!isDeco.value) return targetLayerStyle.value
     const cellW = CELL * scale.value
     const centerOffset = (props.size - cellW) / 2
     return {
-        top: `${DECO_HEADROOM * scale.value}px`,
+        top: `${DECO_ICON_VISIBLE_HEADROOM * scale.value}px`,
         left: `${centerOffset - cellW}px`,
         width: `${SPRITE_W * scale.value}px`,
         height: `${SPRITE_H * scale.value}px`,
