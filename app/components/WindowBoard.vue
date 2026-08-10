@@ -175,9 +175,17 @@
                                 @select="(e) => { insertPostMarkdown(e, ''); showPostEmojiPicker = false }"
                             />
                         </div>
+                        <template v-if="objectStorageEnabled">
+                            <input type="file" ref="postAttachmentFileInput" style="display:none" @change="handlePostAttachmentFile" />
+                            <button class="toolbar-btn" @click="postAttachmentFileInput?.click()" :disabled="postAttachmentUploading" title="파일 첨부">
+                                <i v-if="!postAttachmentUploading" class="hgi hgi-stroke hgi-attachment-01"></i>
+                                <span v-else class="toolbar-hint">업로드 중...</span>
+                            </button>
+                        </template>
                         <span class="toolbar-sep"></span>
                         <span class="toolbar-hint">마크다운 지원</span>
                     </div>
+                    <p v-if="postAttachmentError" class="admin-error">{{ postAttachmentError }}</p>
                     <textarea
                         ref="postEditorRef"
                         v-model="newContent"
@@ -827,6 +835,36 @@ function insertPostMarkdown(before, after) {
     })
 }
 
+// 파일 첨부 — 이미지면 바로 보이게 ![]()로, 그 외 파일은 다운로드 링크로 [📎 파일명]() 삽입
+const { enabled: objectStorageEnabled, ensureLoaded: ensureObjectStorageStatusLoaded } = useObjectStorageStatus()
+const postAttachmentFileInput = ref(null)
+const postAttachmentUploading = ref(false)
+const postAttachmentError = ref('')
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
+
+async function handlePostAttachmentFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    postAttachmentUploading.value = true
+    postAttachmentError.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const result = await $fetch(`${apiBaseUrl}/api/uploadAttachment`, { method: 'POST', body: formData })
+        const ext = result.filename.split('.').pop()?.toLowerCase() ?? ''
+        // 유니코드 이모지(📎) 대신 다른 버튼들과 통일된 hgi 아이콘 폰트로 — 마크다운 링크 앞에
+        // raw HTML을 그대로 둠(로컬 글 렌더링은 marked.parse를 그대로 v-html하므로 인라인 HTML이 그대로 먹힘)
+        const markdown = IMAGE_EXTENSIONS.includes(ext)
+            ? `![${result.filename}](${result.url})`
+            : `<i class="hgi hgi-stroke hgi-attachment-01"></i> [${result.filename}](${result.url})`
+        insertPostMarkdown(`${markdown}\n`, '')
+    } catch (err) {
+        postAttachmentError.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    postAttachmentUploading.value = false
+    e.target.value = ''
+}
+
 async function openPost(postid) {
     const data = await $fetch(`${apiBaseUrl}/api/getPostById`, {
         method: 'POST',
@@ -1056,6 +1094,7 @@ async function toggleLike() {
 
 onMounted(() => {
     ensureCustomEmojisLoaded()
+    ensureObjectStorageStatusLoaded()
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return

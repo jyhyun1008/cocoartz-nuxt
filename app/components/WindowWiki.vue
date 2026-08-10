@@ -135,9 +135,17 @@
                                 @select="(e) => { insertMarkdown(e, ''); showEmojiPicker = false }"
                             />
                         </div>
+                        <template v-if="objectStorageEnabled">
+                            <input type="file" ref="wikiAttachmentFileInput" style="display:none" @change="handleWikiAttachmentFile" />
+                            <button class="toolbar-btn" @click="wikiAttachmentFileInput?.click()" :disabled="wikiAttachmentUploading" title="파일 첨부">
+                                <i v-if="!wikiAttachmentUploading" class="hgi hgi-stroke hgi-attachment-01"></i>
+                                <span v-else class="toolbar-hint">업로드 중...</span>
+                            </button>
+                        </template>
                         <span class="toolbar-sep"></span>
                         <span class="toolbar-hint">마크다운 지원</span>
                     </div>
+                    <p v-if="wikiAttachmentError" class="admin-error">{{ wikiAttachmentError }}</p>
                     <textarea
                         ref="editorRef"
                         v-model="editContent"
@@ -258,6 +266,7 @@ const emojiBtnRef = ref(null)
 
 onMounted(() => {
     ensureCustomEmojisLoaded()
+    ensureObjectStorageStatusLoaded()
     document.addEventListener('click', (e) => {
         // 이모지 피커는 <body>로 teleport돼서 wrap의 DOM 자손이 아니므로 따로 예외 처리해야 함
         if (e.target.closest('.emoji-picker-popover')) return
@@ -335,6 +344,36 @@ function insertMarkdown(before, after) {
         el.focus()
         el.setSelectionRange(start + before.length, start + before.length + selected.length)
     })
+}
+
+// 파일 첨부 — WindowBoard.vue와 동일한 방식(이미지는 ![]()로 인라인, 그 외엔 [📎 파일명]() 링크)
+const { enabled: objectStorageEnabled, ensureLoaded: ensureObjectStorageStatusLoaded } = useObjectStorageStatus()
+const wikiAttachmentFileInput = ref(null)
+const wikiAttachmentUploading = ref(false)
+const wikiAttachmentError = ref('')
+const WIKI_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
+
+async function handleWikiAttachmentFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    wikiAttachmentUploading.value = true
+    wikiAttachmentError.value = ''
+    try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const result = await $fetch(`${apiBaseUrl}/api/uploadAttachment`, { method: 'POST', body: formData })
+        const ext = result.filename.split('.').pop()?.toLowerCase() ?? ''
+        // 유니코드 이모지(📎) 대신 다른 버튼들과 통일된 hgi 아이콘 폰트로 — 위키 렌더링도
+        // marked.parse를 그대로 v-html하므로 인라인 HTML이 그대로 먹힘
+        const markdown = WIKI_IMAGE_EXTENSIONS.includes(ext)
+            ? `![${result.filename}](${result.url})`
+            : `<i class="hgi hgi-stroke hgi-attachment-01"></i> [${result.filename}](${result.url})`
+        insertMarkdown(`${markdown}\n`, '')
+    } catch (err) {
+        wikiAttachmentError.value = err?.data?.message ?? '업로드에 실패했습니다'
+    }
+    wikiAttachmentUploading.value = false
+    e.target.value = ''
 }
 
 async function submitPage() {
