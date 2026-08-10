@@ -75,6 +75,8 @@ function buildPresence() {
 function removePeer(peerId: string) {
   const info = peerMap.get(peerId)
   if (!info) return
+  // 임시 진단 로그 — 이 방에서 언제/왜 빠지는지 추적용
+  console.log(`[ws:removePeer] userId=${info.userId} roomPath=${info.roomPath}`)
   const room = rooms.get(info.roomPath)
   if (room) {
     room.delete(peerId)
@@ -257,6 +259,11 @@ export default defineWebSocketHandler({
       if (!rooms.has(roomPath)) rooms.set(roomPath, new Map())
       rooms.get(roomPath)!.set(peer.id, info)
       peerMap.set(peer.id, info)
+
+      // 임시 진단 로그 — federated_new_post의 peers=0 원인 추적용. 여기가 안 찍히면 join
+      // 메시지 자체가 서버에 도착 안 한 것(또는 그 사이 어디선가 return), 찍히면 join은 정상
+      // 처리된 것이라 그 뒤에 뭔가(재연결로 새 peer.id가 생겼는데 예전 걸로 착각하는 등)가 원인
+      console.log(`[ws:join] userId=${userId} authenticated=${authenticated} roomPath=${roomPath} → 이 방 peers=${rooms.get(roomPath)!.size}`)
 
       // Send room state (other users) to the new joiner — dir을 같이 내려줘야 이미 멈춰서
       // 서 있는 유저도 마지막으로 보던 방향 그대로 보임(안 그러면 항상 기본 방향인 아래로 보임)

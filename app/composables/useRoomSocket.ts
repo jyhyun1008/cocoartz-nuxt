@@ -139,11 +139,14 @@ export function useRoomSocket() {
     _ws.onopen = () => {
       if (_heartbeatTimer) clearInterval(_heartbeatTimer)
       _heartbeatTimer = setInterval(() => rawSend({ type: 'ping' }), HEARTBEAT_INTERVAL_MS)
+      // 임시 진단 로그 — federated_new_post peers=0 원인 추적용
+      console.log('[useRoomSocket] WS open', _lastJoinParams ? `→ 재join 전송: ${JSON.stringify(_lastJoinParams)}` : '(아직 join한 적 없음)')
       // 끊겼다가 자동 재연결된 경우 자동으로 마지막 방에 다시 join — 최초 접속 시엔
       // RoomMap.vue의 onMounted가 joinRoom을 직접 불러줘서 이 시점엔 아직 null이라 안 겹침
       if (_lastJoinParams) rawSend({ type: 'join', ..._lastJoinParams })
     }
     _ws.onclose = () => {
+      console.log('[useRoomSocket] WS close', _suppressReconnect ? '(재연결 억제됨)' : '(3초 후 재연결 예정)')
       _ws = null
       if (_heartbeatTimer) {
         clearInterval(_heartbeatTimer)
