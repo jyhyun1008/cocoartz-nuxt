@@ -88,9 +88,18 @@
                     <p class="admin-label-hint" style="margin:-4px 0 10px">
                         fediverse(마스토돈/미스키 등) 계정을 팔로우하면 <NuxtLink to="/timeline" style="color:var(--accent)">타임라인</NuxtLink>에 글이 모여요.
                     </p>
+                    <p v-if="emailVerificationRequired && !emailVerified" class="admin-error">
+                        <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 팔로우는 상대 서버로 실제 요청이 나가서, 이메일 인증을 완료해야 할 수 있어요.
+                    </p>
                     <div class="admin-icon-row">
-                        <input v-model="remoteFollowHandle" placeholder="user@mastodon.social" class="post-input" style="flex:1" @keydown.enter="submitRemoteFollow" />
-                        <button class="admin-add-btn" style="margin-left:0" @click="submitRemoteFollow" :disabled="!remoteFollowHandle.trim() || remoteFollowSaving">
+                        <input
+                            v-model="remoteFollowHandle" placeholder="user@mastodon.social" class="post-input" style="flex:1"
+                            :disabled="emailVerificationRequired && !emailVerified" @keydown.enter="submitRemoteFollow"
+                        />
+                        <button
+                            class="admin-add-btn" style="margin-left:0" @click="submitRemoteFollow"
+                            :disabled="!remoteFollowHandle.trim() || remoteFollowSaving || (emailVerificationRequired && !emailVerified)"
+                        >
                             {{ remoteFollowSaving ? '팔로우 중...' : '팔로우' }}
                         </button>
                     </div>

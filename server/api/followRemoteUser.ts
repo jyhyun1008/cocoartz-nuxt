@@ -5,6 +5,7 @@ import { ensureActor } from '../utils/ap/ensureActor'
 import { resolveWebfinger, fetchActor, buildFollowActivity, actorUrl, buildActorDisplayInfo } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
 import { requireUserId } from '../utils/session'
+import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
 
 export default eventHandler(async (event) => {
     const { handle } = await readBody(event)
@@ -13,6 +14,12 @@ export default eventHandler(async (event) => {
 
     const [user] = await db.select().from(users).where(eq(users.id, userid))
     if (!user) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
+
+    // 팔로우는 항상 상대 서버로 실제 Follow 액티비티가 나감 — createPost.ts 등과 동일한 이메일 인증 게이트
+    const verificationRequired = await isEmailVerificationRequired()
+    if (verificationRequired && !isVerified(user, verificationRequired)) {
+        throw createError({ statusCode: 403, message: '이메일 인증을 완료해야 원격 계정을 팔로우할 수 있어요' })
+    }
 
     const cleanHandle = String(handle || '').trim().replace(/^@/, '')
     if (!cleanHandle.includes('@')) {

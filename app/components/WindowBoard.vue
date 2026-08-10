@@ -209,6 +209,7 @@
                     <button class="like-btn" :class="{ liked: currentPost.isLiked }" @click="toggleLike">
                         ♥ {{ currentPost.likeCount }}
                     </button>
+                    <span v-if="likeError" class="admin-error" style="padding:4px 8px">{{ likeError }}</span>
                     <span v-if="currentPost.boostCount" class="boost-count" title="fediverse 부스트"><i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i> {{ currentPost.boostCount }}</span>
                     <div class="post-meta-actions">
                         <div class="share-btn-wrap">
@@ -427,6 +428,7 @@
                     <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
                         ♥ {{ currentRemotePost.liked ? '좋아요 취소' : '좋아요' }}
                     </button>
+                    <span v-if="likeError" class="admin-error" style="padding:4px 8px">{{ likeError }}</span>
                 </div>
 
                 <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
@@ -902,10 +904,17 @@ async function refreshRemoteReplies() {
 
 async function toggleRemoteLike() {
     if (!currentRemotePost.value) return
-    const result = await $fetch(`${apiBaseUrl}/api/likeRemoteFeedPost`, {
-        method: 'POST',
-        body: { id: currentRemotePost.value.id, userid: userId.value },
-    })
+    likeError.value = ''
+    let result
+    try {
+        result = await $fetch(`${apiBaseUrl}/api/likeRemoteFeedPost`, {
+            method: 'POST',
+            body: { id: currentRemotePost.value.id, userid: userId.value },
+        })
+    } catch (e) {
+        likeError.value = e?.data?.message ?? '좋아요 처리에 실패했습니다'
+        return
+    }
     currentRemotePost.value.liked = result.liked
 }
 
@@ -936,6 +945,7 @@ async function submitRemoteReply() {
 const postError = ref('')
 const commentError = ref('')
 const remoteReplyError = ref('')
+const likeError = ref('')
 
 async function submitPost() {
     if (!newTitle.value.trim() || !newContent.value.trim()) return
@@ -1019,10 +1029,17 @@ async function toggleReaction(emoji) {
 
 async function toggleLike() {
     if (!currentPost.value) return
-    const result = await $fetch(`${apiBaseUrl}/api/likePost`, {
-        method: 'POST',
-        body: { postid: currentPost.value.id, userid: userId.value },
-    })
+    likeError.value = ''
+    let result
+    try {
+        result = await $fetch(`${apiBaseUrl}/api/likePost`, {
+            method: 'POST',
+            body: { postid: currentPost.value.id, userid: userId.value },
+        })
+    } catch (e) {
+        likeError.value = e?.data?.message ?? '좋아요 처리에 실패했습니다'
+        return
+    }
     currentPost.value.isLiked = result.liked
     currentPost.value.likeCount += result.liked ? 1 : -1
 }

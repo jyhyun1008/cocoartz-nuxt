@@ -198,6 +198,7 @@
                     <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
                         ♥ {{ currentRemotePost.liked ? '좋아요 취소' : '좋아요' }}
                     </button>
+                    <span v-if="likeError" class="admin-error" style="padding:4px 8px">{{ likeError }}</span>
                 </div>
 
                 <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
@@ -292,9 +293,9 @@ defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
 
-// 원격 팔로우 계정 글에 댓글을 달면 replyToFollowingFeedPost.ts가 항상 그 계정 서버로 실제
-// 배포함 — 연합 게시판(WindowBoard.vue)과 동일한 이유로 이메일 인증한 유저만 가능하게 막아둠.
-// 여기도 작성 단계에서 미리 알 수 있게 배너 + 입력 비활성화로 보여줌
+// 원격 팔로우 계정 글에 댓글/좋아요를 하면 항상 그 계정 서버로 실제 배포됨 — 연합 게시판과 동일한
+// 이유로 이메일 인증한 유저만 가능하게 막아둠. 여기도 작성 단계에서 미리 알 수 있게 배너 + 입력
+// 비활성화로 보여줌
 const { data: emailVerificationData } = await useAsyncData(
     'timeline-email-verification-status',
     () => userId.value
@@ -592,12 +593,21 @@ async function refreshRemoteReplies() {
     }).catch(() => [])
 }
 
+const likeError = ref('')
+
 async function toggleRemoteLike() {
     if (!currentRemotePost.value) return
-    const result = await $fetch(`${apiBaseUrl}/api/likeFollowingFeedPost`, {
-        method: 'POST',
-        body: { id: currentRemotePost.value.feedPostId, userid: userId.value },
-    })
+    likeError.value = ''
+    let result
+    try {
+        result = await $fetch(`${apiBaseUrl}/api/likeFollowingFeedPost`, {
+            method: 'POST',
+            body: { id: currentRemotePost.value.feedPostId, userid: userId.value },
+        })
+    } catch (e) {
+        likeError.value = e?.data?.message ?? '좋아요 처리에 실패했습니다'
+        return
+    }
     currentRemotePost.value.liked = result.liked
 }
 
