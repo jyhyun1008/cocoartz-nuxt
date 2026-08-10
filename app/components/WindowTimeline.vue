@@ -48,7 +48,9 @@
                             <div class="external-post-body">
                                 <div v-if="p.boostedByName || p.boostedByHandle" class="boost-banner">
                                     <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
-                                    <span v-if="p.boostedByName" v-html="p.boostedByName"></span><span v-else>{{ p.boostedByHandle }}</span>님이 재게시했습니다
+                                    <span class="boost-banner-text">
+                                        <span v-if="p.boostedByName" v-html="p.boostedByName"></span><span v-else>{{ p.boostedByHandle }}</span>님이 재게시했습니다
+                                    </span>
                                 </div>
                                 <div class="post-card-title">
                                     <i class="hgi hgi-stroke hgi-globe-02"></i>

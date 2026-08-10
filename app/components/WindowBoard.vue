@@ -51,7 +51,9 @@
                         <div class="external-post-body">
                             <div v-if="entry.post.boostedByName || entry.post.boostedByHandle" class="boost-banner">
                                 <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
-                                <span v-if="entry.post.boostedByName" v-html="entry.post.boostedByName"></span><span v-else>{{ entry.post.boostedByHandle }}</span>님이 재게시했습니다
+                                <span class="boost-banner-text">
+                                    <span v-if="entry.post.boostedByName" v-html="entry.post.boostedByName"></span><span v-else>{{ entry.post.boostedByHandle }}</span>님이 재게시했습니다
+                                </span>
                             </div>
                             <div class="post-card-title">
                                 <i class="hgi hgi-stroke hgi-globe-02"></i>
@@ -1296,8 +1298,19 @@ onMounted(() => {
     gap: 6px;
     font-size: 0.78rem;
     color: rgba(var(--fg-rgb),0.5);
+    overflow: hidden;
 }
-.boost-banner .hgi-arrow-reload-horizontal { color: #7cc4ff; }
+.boost-banner .hgi-arrow-reload-horizontal { color: #7cc4ff; flex-shrink: 0; }
+/* .post-card-title .title-text와 같은 이유 — 아이콘 옆 텍스트(이름 + "님이 재게시했습니다")를
+   하나의 flex item으로 묶고 min-width:0을 줘야 진짜로 한 줄로 줄어들며 잘림(안 그러면 이름이
+   길거나 커스텀 이모지가 섞였을 때 자기 폭만큼 넘쳐서 2줄로 쪼개져 보였음) */
+.boost-banner-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
 
 .remote-server-badge {
     width: 34px;
