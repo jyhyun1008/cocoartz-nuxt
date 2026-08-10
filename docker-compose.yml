@@ -6,11 +6,11 @@ services:
       POSTGRES_USER: cocoartz
       POSTGRES_PASSWORD: cocoartz
       POSTGRES_DB: cocoartz
-    # db는 app 컨테이너에서 내부 도커 네트워크(db:5432)로만 접속하면 되므로
-    # 호스트에 포트를 열어둘 필요가 없어서 아예 뺐습니다. 외부에서 DB에 직접 붙어야 하면
-    # (예: pgAdmin/TablePlus) 아래처럼 원하는 호스트 포트로 열어주세요.
-    # ports:
-    #   - "15432:5432"
+    # db는 app 컨테이너에서 내부 도커 네트워크(db:5432)로만 접속하면 되지만, 로컬 개발 중엔
+    # 호스트에서 직접 drizzle-kit(db:generate/db:push)을 돌려야 해서 .env의
+    # DATABASE_URL(localhost:5432)에 맞춰 포트를 열어둡니다. 운영 배포 시엔 다시 주석 처리해도 됩니다.
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 

@@ -59,6 +59,14 @@ export const servers = pgTable('servers', {
     // saveDefaultUserMap.ts로 저장. 유저가 자기 방을 한 번이라도 저장하면 그 뒤로는 이 템플릿과
     // 무관하게 본인 맵(users.map)을 씀.
     defaultUserMap: text(),
+    // 서버 자체를 대표하는 시스템 AP 액터(유저 개인 액터와 별개) — 마스토돈의 "Authorized fetch"
+    // (시큐어 모드) 등 일부 원격 서버는 액터 프로필 조회 같은 단순 GET 요청까지도 서명을 요구해서,
+    // 서명 없이 보내던 fetchActor/fetchObject(server/utils/ap/activitypub.ts)가 거절당하는 문제가
+    // 있었음. 특정 유저 행동과 무관한(서명 검증 중 상대 공개키를 가져오는 등) 서버 대 서버 호출이라
+    // 유저 개인 액터를 빌려 쓰기 애매해서 서버 전용으로 따로 둠. null이면 처음 필요할 때
+    // ensureInstanceActor()가 자동 생성함(server/utils/ap/instanceActor.ts)
+    instanceActorPublicKey: text(),
+    instanceActorPrivateKey: text(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })
 

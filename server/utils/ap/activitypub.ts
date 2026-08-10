@@ -1,5 +1,7 @@
 import { isPublicUrl } from './urlUtils'
 import { renderActorName } from './sanitize'
+import { buildSignedHeaders } from './crypto'
+import { ensureInstanceActor } from './instanceActor'
 
 export const AP_CONTENT_TYPE = 'application/activity+json'
 export const AS_CONTEXT = 'https://www.w3.org/ns/activitystreams'
@@ -46,7 +48,7 @@ export function buildActorObject(domain: string, actor: {
     // 필드 자체가 없어서 배너를 올려도 다른 서버(마스토돈 등)에는 전혀 안 나갔음
     banner?: string | null
     publicKey: string
-    type?: 'Person' | 'Service'
+    type?: 'Person' | 'Service' | 'Application'
 }) {
     const base = actor.id
     return {
@@ -195,13 +197,33 @@ export function buildUndoActivity(actorId: string, activity: unknown) {
     }
 }
 
+// 마스토돈의 "Authorized fetch"(시큐어 모드) 등 일부 원격 서버는 액터/오브젝트 조회 같은 단순
+// GET 요청까지도 서명을 요구함(서명 없이 보내면 401 "Request not signed") — 그래서 서버 자체를
+// 대표하는 시스템 액터(server/utils/ap/instanceActor.ts)로 이 GET 요청 자체에 서명해서 보냄.
+// 인스턴스 액터 생성/서명이 어떤 이유로든 실패해도(예: DB 일시 장애) 서명 없이 시도는 해보게
+// 조용히 폴백함 — 서명을 요구 안 하는(대다수) 서버는 어차피 이 헤더 유무와 무관하게 잘 응답함.
+async function buildOutboundGetHeaders(url: string): Promise<Record<string, string>> {
+    const base = { Accept: AP_CONTENT_TYPE }
+    try {
+        const keypair = await ensureInstanceActor()
+        if (!keypair) return base
+        const config = useRuntimeConfig()
+        const domain = config.domain as string
+        const keyId = `https://${domain}/actor#main-key`
+        return { ...buildSignedHeaders(keypair.privateKey, keyId, 'GET', url), ...base }
+    } catch {
+        return base
+    }
+}
+
 export async function fetchActor(url: string): Promise<Record<string, unknown> | null> {
     if (!isPublicUrl(url)) {
         console.warn(`[fetchActor] 차단: ${url}`)
         return null
     }
     try {
-        const res = await fetch(url, { headers: { Accept: AP_CONTENT_TYPE } })
+        const headers = await buildOutboundGetHeaders(url)
+        const res = await fetch(url, { headers })
         if (!res.ok) return null
         return await res.json() as Record<string, unknown>
     } catch {
@@ -223,14 +245,15 @@ export function buildActorDisplayInfo(actorData: Record<string, unknown>, actorU
 }
 
 // 부스트(Announce)의 대상처럼, 임의의 원격 오브젝트(Note 등)를 URL로 직접 가져올 때 사용 —
-// fetchActor와 완전히 동일한 패턴(서명 없는 GET + SSRF 차단)
+// fetchActor와 완전히 동일한 패턴(서명된 GET + SSRF 차단)
 export async function fetchObject(url: string): Promise<Record<string, unknown> | null> {
     if (!isPublicUrl(url)) {
         console.warn(`[fetchObject] 차단: ${url}`)
         return null
     }
     try {
-        const res = await fetch(url, { headers: { Accept: AP_CONTENT_TYPE } })
+        const headers = await buildOutboundGetHeaders(url)
+        const res = await fetch(url, { headers })
         if (!res.ok) return null
         return await res.json() as Record<string, unknown>
     } catch {
