@@ -23,6 +23,15 @@ export const users = pgTable('users', {
     // null이 아니고 미래 시각이면 그때까지 일시정지 중. 지나면 별도 해제 없이 자동으로 풀림
     suspendedUntil: timestamp({ withTimezone: true }),
     suspendReason: text(),
+    // 이메일 인증(server/utils/emailVerification.ts) — null이면 미인증. 단, SMTP 자체가
+    // 꺼져있는 서버에선 인증 메일을 보낼 방법이 없으니 이 값과 무관하게 항상 "인증됨"으로 취급함
+    // (강제 게이트가 아니라 "인증 안 하면 배지만 뜸" 정도의 소프트한 기능이라, SMTP 미설정
+    // 서버의 가입자가 영영 미인증 상태에 갇히는 걸 막기 위함)
+    emailVerifiedAt: timestamp({ withTimezone: true }),
+    emailVerificationToken: text(),
+    emailVerificationTokenExpiresAt: timestamp({ withTimezone: true }),
+    // 재전송 버튼 스팸/남용 방지용 쿨다운 판정에만 씀
+    emailVerificationSentAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     lastLogin: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

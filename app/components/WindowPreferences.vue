@@ -23,6 +23,22 @@
                 </div>
             </div>
 
+            <!-- 이메일 인증 — 이 서버가 SMTP를 설정해서 인증을 요구할 때만(required) 뜸.
+                 로그인/글쓰기를 막는 강제 게이트가 아니라 배지 + 재전송 버튼만 있는 소프트한 안내 -->
+            <div v-if="isLoggedIn && emailVerificationRequired && !emailVerified" class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">이메일 인증</span>
+                </div>
+                <div class="pref-theme-row">
+                    <span class="pref-theme-label"><i class="hgi hgi-stroke hgi-alert-02" style="color:#ff9f43"></i> 아직 이메일 인증을 안 하셨어요</span>
+                    <button class="pref-theme-btn" type="button" :disabled="resendSaving || resendCooldown" @click="resendVerification">
+                        {{ resendSaving ? '전송 중...' : (resendCooldown ? '전송됨' : '인증 메일 재전송') }}
+                    </button>
+                </div>
+                <p v-if="resendError" class="admin-error" style="margin-top:8px">{{ resendError }}</p>
+                <p v-if="resendSent" class="admin-label-hint" style="margin-top:8px">가입 시 보낸 메일함(스팸함 포함)을 확인해주세요. 새로 전송했어요.</p>
+            </div>
+
             <!-- 팔로우 승인 -->
             <template v-if="isLoggedIn">
                 <div class="admin-section">
@@ -242,6 +258,43 @@ defineEmits(['close'])
 
 const { userId, isLoggedIn } = useCurrentUser()
 const { theme, toggle: toggleTheme } = useTheme()
+
+// 이메일 인증 상태 — required가 false면(서버가 SMTP를 아예 안 씀) 배지 자체를 안 띄움
+const { data: emailVerificationData } = await useAsyncData(
+    'email-verification-status',
+    () => userId.value
+        ? $fetch(`${apiBaseUrl}/api/getEmailVerificationStatus`, { method: 'POST', body: { userid: userId.value } })
+        : Promise.resolve({ required: false, verified: true }),
+    { watch: [userId] },
+)
+const emailVerificationRequired = computed(() => emailVerificationData.value?.required ?? false)
+const emailVerified = computed(() => emailVerificationData.value?.verified ?? true)
+
+const resendSaving = ref(false)
+const resendError = ref('')
+const resendSent = ref(false)
+const resendCooldown = ref(false)
+let resendCooldownTimer = null
+
+async function resendVerification() {
+    if (resendSaving.value || resendCooldown.value) return
+    resendSaving.value = true
+    resendError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/resendVerificationEmail`, {
+            method: 'POST',
+            body: { userid: userId.value },
+        })
+        resendSent.value = true
+        resendCooldown.value = true
+        if (resendCooldownTimer) clearTimeout(resendCooldownTimer)
+        resendCooldownTimer = setTimeout(() => { resendCooldown.value = false }, 60_000)
+    } catch (e) {
+        resendError.value = e?.data?.message ?? '재전송에 실패했습니다'
+    } finally {
+        resendSaving.value = false
+    }
+}
 
 const { data: pendingFollowsData, refresh: refreshPendingFollows } = await useAsyncData(
     'pending-follows',

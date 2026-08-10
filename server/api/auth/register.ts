@@ -4,6 +4,7 @@ import { eq, or, count } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { sendMail } from '../../utils/mailer'
 import { createAuthSession } from '../../utils/session'
+import { isEmailVerificationRequired, issueAndSendVerificationEmail } from '../../utils/emailVerification'
 
 export default eventHandler(async (event) => {
     const { username, email, password } = await readBody(event)
@@ -71,6 +72,15 @@ export default eventHandler(async (event) => {
         await db.insert(userItems)
             .values(starterItems.map(i => ({ userid: newUser.id, itemid: i.id, count: 1 })))
             .onConflictDoNothing()
+    }
+
+    // 이메일 인증 메일 — SMTP를 설정해둔 서버에서만 의미가 있어서(안 그러면 영영 미인증 상태에
+    // 갇힘), 아예 꺼져있으면 토큰 발급/발송 자체를 스킵함. 실패해도 가입 자체엔 영향 없음(소프트 기능)
+    if (await isEmailVerificationRequired()) {
+        void issueAndSendVerificationEmail(
+            { id: newUser.id, email: email.trim(), username: newUser.username },
+            config.domain as string,
+        ).catch((e) => console.error('[register] 이메일 인증 메일 발송 실패', e))
     }
 
     if (!approved) {
