@@ -437,6 +437,24 @@ const followingFeed = computed(() =>
     [...localItems.value, ...remoteItems.value].sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()),
 )
 
+// 개인 타임라인 실시간 스트리밍(server/routes/_ws.ts의 broadcastTimelineNewPost) — 새로고침 없이
+// 맨 앞에 바로 꽂아 넣음. WindowBoard.vue의 federatedPostFeed 처리와 동일한 패턴(배열 자체를
+// 히스토리로 재생하지 않고 "바뀔 때마다 맨 뒤(방금 도착한 것)만" 봄)이라, kind에 따라
+// localItems/remoteItems 중 맞는 쪽에만 꽂아 넣어야 followingFeed 병합·정렬이 그대로 맞음
+const { timelinePostFeed } = useRoomSocket()
+watch(timelinePostFeed, (feed) => {
+    if (!feed.length) return
+    const entry = feed[feed.length - 1]
+    if (!entry?.post) return
+    if (entry.kind === 'local') {
+        if (localItems.value.some((p) => p.id === entry.post.id)) return
+        localItems.value = [entry.post, ...localItems.value]
+    } else {
+        if (remoteItems.value.some((p) => p.id === entry.post.id)) return
+        remoteItems.value = [entry.post, ...remoteItems.value]
+    }
+})
+
 // 제목/미리보기 줄에서도 커스텀 이모지(:shortcode:)는 살리고 나머지 태그만 지움 (WindowBoard.vue와 동일 로직)
 // embedUrl(인용/링크 대상 URL)이 있으면 본문 속 그 <a href>를 통째로 작은 칩으로 바꿔서
 // 목록 미리보기에 원본 URL이 그대로 노출되지 않게 함 — 본문에 그 링크가 안 보이는 경우(예:

@@ -62,6 +62,11 @@ export function useRoomSocket() {
   // 긴 세션에서 계속 쌓이지 않게 오래된 것부터 잘라내도 무방함(최근 N개만 유지)
   const federatedPostFeed = useState<Array<{ kind: 'local' | 'remote'; post: any }>>('ws-federated-post-feed', () => [])
   const FEDERATED_FEED_CAP = 50
+  // 개인 팔로잉 타임라인 실시간 스트리밍(server/routes/_ws.ts의 broadcastTimelineNewPost) —
+  // federatedPostFeed와 동일한 패턴(WindowTimeline.vue가 배열 맨 뒤(최근 것)만 보고 자기
+  // localItems/remoteItems 맨 앞에 꽂아 넣음)이라 방 개념 없이 유저 단위로만 옴
+  const timelinePostFeed = useState<Array<{ kind: 'local' | 'remote'; post: any }>>('ws-timeline-post-feed', () => [])
+  const TIMELINE_FEED_CAP = 50
 
   function handleMessage(event: MessageEvent) {
     let data: any
@@ -123,9 +128,10 @@ export function useRoomSocket() {
       unreadRooms.value = { ...unreadRooms.value, [data.roomPath]: true }
 
     } else if (data.type === 'federated_new_post') {
-      // 임시 진단 로그 — 여기가 찍히면 최소한 클라이언트까지는 메시지가 도착한 것
-      console.log('[useRoomSocket] federated_new_post 수신', data.entry)
       federatedPostFeed.value = [...federatedPostFeed.value, data.entry].slice(-FEDERATED_FEED_CAP)
+
+    } else if (data.type === 'timeline_new_post') {
+      timelinePostFeed.value = [...timelinePostFeed.value, data.entry].slice(-TIMELINE_FEED_CAP)
     }
   }
 
@@ -139,14 +145,11 @@ export function useRoomSocket() {
     _ws.onopen = () => {
       if (_heartbeatTimer) clearInterval(_heartbeatTimer)
       _heartbeatTimer = setInterval(() => rawSend({ type: 'ping' }), HEARTBEAT_INTERVAL_MS)
-      // 임시 진단 로그 — federated_new_post peers=0 원인 추적용
-      console.log('[useRoomSocket] WS open', _lastJoinParams ? `→ 재join 전송: ${JSON.stringify(_lastJoinParams)}` : '(아직 join한 적 없음)')
       // 끊겼다가 자동 재연결된 경우 자동으로 마지막 방에 다시 join — 최초 접속 시엔
       // RoomMap.vue의 onMounted가 joinRoom을 직접 불러줘서 이 시점엔 아직 null이라 안 겹침
       if (_lastJoinParams) rawSend({ type: 'join', ..._lastJoinParams })
     }
     _ws.onclose = () => {
-      console.log('[useRoomSocket] WS close', _suppressReconnect ? '(재연결 억제됨)' : '(3초 후 재연결 예정)')
       _ws = null
       if (_heartbeatTimer) {
         clearInterval(_heartbeatTimer)
@@ -226,6 +229,7 @@ export function useRoomSocket() {
     unreadRooms: readonly(unreadRooms),
     markRoomRead,
     federatedPostFeed: readonly(federatedPostFeed),
+    timelinePostFeed: readonly(timelinePostFeed),
     connect,
     joinRoom,
     sendPosition,

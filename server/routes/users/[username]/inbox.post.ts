@@ -8,7 +8,7 @@ import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderAct
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 import { refreshRemoteActorCache } from '../../../utils/remoteActorCache'
 import { extractQuoteUrl, extractFirstLink } from '../../../utils/ap/linkExtract'
-import { broadcastFederatedBoardPost } from '../../_ws'
+import { broadcastFederatedBoardPost, broadcastTimelineNewPost } from '../../_ws'
 
 const MAX_FOLLOWERS_PER_USER = 5000
 const MAX_FOLLOWS_PER_DOMAIN_PER_HOUR = 30
@@ -203,6 +203,33 @@ async function handleReject(body: Record<string, unknown>, user: LocalUser) {
     ))
 }
 
+// remoteFeedPosts 행 하나를 개인 타임라인 실시간 스트리밍(broadcastTimelineNewPost)용 post
+// 모양으로 변환 — server/api/getFollowingFeed.ts의 remotePosts 매핑과 완전히 동일하게 맞춰야
+// 프론트(WindowTimeline.vue)가 첫 페이지 로딩분과 실시간분을 같은 코드로 다룰 수 있음
+function remoteFeedEntryToPost(row: typeof remoteFeedPosts.$inferSelect) {
+    return {
+        id: `remote-${row.id}`,
+        feedPostId: row.id,
+        objectId: row.objectId,
+        content: row.content,
+        summary: row.summary,
+        quoteUrl: row.quoteUrl,
+        linkUrl: row.linkUrl,
+        createdAt: row.boostedByActorUrl ? row.createdAt : row.published,
+        sortDate: row.boostedByActorUrl ? row.createdAt : row.published,
+        isRemote: true,
+        liked: false,
+        sourceActorUrl: row.sourceActorUrl,
+        sourceHandle: row.sourceHandle,
+        sourceName: row.sourceName,
+        sourceIconUrl: row.sourceIconUrl,
+        boostedByActorUrl: row.boostedByActorUrl,
+        boostedByName: row.boostedByName,
+        boostedByHandle: row.boostedByHandle,
+        boostedByIconUrl: row.boostedByIconUrl,
+    }
+}
+
 // 이 유저가 팔로우 중인 원격 계정이 새 글(원본 글, 답글 아님)을 올렸을 때 개인 팔로잉 피드에 저장
 // 개인 타임라인(getFollowingFeed)에는 공개 범위와 무관하게 다 보여줌 — 팔로우 중인 계정 글은
 // 홈 공개/팔로워 공개여도 (팔로우 관계 덕분에 애초에 inbox로 배달된 것이므로) 그대로 노출.
@@ -228,7 +255,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
     const quoteUrl = extractQuoteUrl(object)
     const linkUrl = extractFirstLink(content, quoteUrl)
 
-    await db.insert(remoteFeedPosts).values({
+    const [insertedFeedPost] = await db.insert(remoteFeedPosts).values({
         userid: user.id,
         sourceActorUrl: actorUrl_,
         sourceHandle: follow.targetHandle,
@@ -241,8 +268,10 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         linkUrl,
         isPublic,
         published,
-    })
+    }).returning()
     console.log(`[inbox] 원격 글 개인 피드 저장: ${objectId} → @${user.username}`)
+    void broadcastTimelineNewPost(user.id, { kind: 'remote', post: remoteFeedEntryToPost(insertedFeedPost) })
+        .catch((e) => console.error('[inbox] 개인 타임라인 스트리밍 실패', e))
 
     // 공개 글이면 유저 구분 없는 서버 공용 연합 타임라인에도 반영(연합 게시판용) — 다른 로컬 유저가
     // 같은 계정을 팔로우해서 동시에 들어와도 objectId unique라 중복 없이 한 번만 저장됨
@@ -480,7 +509,7 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
     const quoteUrl = extractQuoteUrl(object)
     const linkUrl = extractFirstLink(content, quoteUrl)
 
-    await db.insert(remoteFeedPosts).values({
+    const [insertedFeedPost] = await db.insert(remoteFeedPosts).values({
         userid: user.id,
         sourceActorUrl: attributedTo,
         sourceHandle: authorHandle,
@@ -497,8 +526,10 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
         linkUrl,
         isPublic,
         published,
-    })
+    }).returning()
     console.log(`[inbox] 원격 부스트 개인 피드 저장: ${follow.targetHandle} → ${objectId}`)
+    void broadcastTimelineNewPost(user.id, { kind: 'remote', post: remoteFeedEntryToPost(insertedFeedPost) })
+        .catch((e) => console.error('[inbox] 개인 타임라인 스트리밍 실패', e))
 
     if (isPublic) {
         const [inserted] = await db.insert(remoteTimelinePosts).values({

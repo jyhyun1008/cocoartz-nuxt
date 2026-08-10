@@ -75,8 +75,6 @@ function buildPresence() {
 function removePeer(peerId: string) {
   const info = peerMap.get(peerId)
   if (!info) return
-  // 임시 진단 로그 — 이 방에서 언제/왜 빠지는지 추적용
-  console.log(`[ws:removePeer] userId=${info.userId} roomPath=${info.roomPath}`)
   const room = rooms.get(info.roomPath)
   if (room) {
     room.delete(peerId)
@@ -165,10 +163,6 @@ function entryText(entry: { kind: 'local' | 'remote'; post: any }): string {
 
 export async function broadcastFederatedBoardPost(roomPath: string, entry: { kind: 'local' | 'remote'; post: any }) {
   const room = rooms.get(roomPath)
-  // 임시 진단 로그 — 실시간 스트리밍이 도착 안 한다는 제보 확인용. room이 없거나(=서버가 그
-  // roomPath에 아무도 없다고 알고 있음, 재연결 후 재join 안 된 경우 등) peers가 0이면 여기서
-  // 바로 드러남. 원인 확인되면 지워도 됨.
-  console.log(`[broadcastFederatedBoardPost] roomPath=${roomPath} peers=${room?.size ?? 0}`)
   if (!room) return
   const author = entryAuthor(entry)
   const text = entryText(entry)
@@ -176,7 +170,6 @@ export async function broadcastFederatedBoardPost(roomPath: string, entry: { kin
   for (const [, info] of room) {
     // 손님(비로그인)은 뮤트 목록 자체가 없으니 그대로 보냄
     if (!info.authenticated) {
-      console.log(`[broadcastFederatedBoardPost] → guest userId=${info.userId} 전송`)
       sendTo(info.peer, { type: 'federated_new_post', entry })
       continue
     }
@@ -187,16 +180,42 @@ export async function broadcastFederatedBoardPost(roomPath: string, entry: { kin
       getEmojiMuteLookup(info.userId),
     ])
     const levels = [muteLookup.levelOf(author), wordMuteLookup.levelOf(text), emojiMuteLookup.levelOf(text)]
-    if (levels.includes('hard')) {
-      console.log(`[broadcastFederatedBoardPost] → userId=${info.userId} 하드뮤트로 스킵`)
-      continue  // 이 유저한테는 아예 안 보냄
-    }
+    if (levels.includes('hard')) continue  // 이 유저한테는 아예 안 보냄
 
     const muted = levels.includes('soft') ? ('soft' as const) : undefined
     const payload = muted ? { ...entry, post: { ...entry.post, muted } } : entry
-    console.log(`[broadcastFederatedBoardPost] → userId=${info.userId} 전송${muted ? '(소프트뮤트 게이트)' : ''}`)
     sendTo(info.peer, { type: 'federated_new_post', entry: payload })
   }
+}
+
+// 개인 팔로잉 타임라인(WindowTimeline.vue) 실시간 스트리밍 — 위 연합 게시판(방 단위)과 달리
+// "특정 유저 한 명"에게만 쏨(그 유저를 팔로우하는 사람들 + 본인, 호출하는 쪽에서 대상을 정해서
+// 한 명씩 부름). entry 모양은 getFollowingFeed.ts가 내려주는 것과 동일하게 맞춰서 프론트가
+// 그대로 재사용할 수 있게 함.
+// - 로컬 글: server/api/createPost.ts가 최상위 글(답글 아님)을 만들었을 때, 작성자의 팔로워
+//   전원 + 작성자 본인에게 각각 호출(본인도 포함하는 이유는 getFollowingFeed.ts가 자기 글도
+//   항상 타임라인에 같이 보여주기 때문 — 다른 탭에 타임라인을 띄워두고 있었다면 거기도 바로 반영됨)
+// - 원격 글: server/routes/users/[username]/inbox.post.ts가 원격 팔로우 계정의 새 글/부스트를
+//   그 특정 유저의 개인 피드(remoteFeedPosts)에 실제로 새로 저장했을 때, 그 유저 한 명에게만 호출
+//
+// 연합 게시판 스트리밍과 동일하게, 받는 사람 기준 뮤트(계정/단어/이모지)를 서버에서 걸러서 보냄
+export async function broadcastTimelineNewPost(userId: number, entry: { kind: 'local' | 'remote'; post: any }) {
+  const targets = [...peerMap.values()].filter((info) => info.userId === userId && info.authenticated)
+  if (!targets.length) return
+
+  const author = entryAuthor(entry)
+  const text = entryText(entry)
+  const [muteLookup, wordMuteLookup, emojiMuteLookup] = await Promise.all([
+    getMuteLookup(userId),
+    getWordMuteLookup(userId),
+    getEmojiMuteLookup(userId),
+  ])
+  const levels = [muteLookup.levelOf(author), wordMuteLookup.levelOf(text), emojiMuteLookup.levelOf(text)]
+  if (levels.includes('hard')) return  // 뮤트한 계정/단어/이모지가 걸리면 본인 타임라인에도 실시간으로는 안 띄움
+
+  const muted = levels.includes('soft') ? ('soft' as const) : undefined
+  const payload = muted ? { ...entry, post: { ...entry.post, muted } } : entry
+  for (const info of targets) sendTo(info.peer, { type: 'timeline_new_post', entry: payload })
 }
 
 export default defineWebSocketHandler({
@@ -259,11 +278,6 @@ export default defineWebSocketHandler({
       if (!rooms.has(roomPath)) rooms.set(roomPath, new Map())
       rooms.get(roomPath)!.set(peer.id, info)
       peerMap.set(peer.id, info)
-
-      // 임시 진단 로그 — federated_new_post의 peers=0 원인 추적용. 여기가 안 찍히면 join
-      // 메시지 자체가 서버에 도착 안 한 것(또는 그 사이 어디선가 return), 찍히면 join은 정상
-      // 처리된 것이라 그 뒤에 뭔가(재연결로 새 peer.id가 생겼는데 예전 걸로 착각하는 등)가 원인
-      console.log(`[ws:join] userId=${userId} authenticated=${authenticated} roomPath=${roomPath} → 이 방 peers=${rooms.get(roomPath)!.size}`)
 
       // Send room state (other users) to the new joiner — dir을 같이 내려줘야 이미 멈춰서
       // 서 있는 유저도 마지막으로 보던 방향 그대로 보임(안 그러면 항상 기본 방향인 아래로 보임)
