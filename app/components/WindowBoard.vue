@@ -1040,7 +1040,11 @@ onMounted(() => {
    정사각형 썸네일 카드 */
 .board-gallery {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    /* 1fr는 기본적으로 minmax(auto,1fr)이라 트랙 최소폭이 content(특히 줄바꿈 없는 텍스트)의
+       min-content로 정해짐 — 닉네임처럼 안 끊기는 텍스트가 있으면 카드가 화면보다 넓어져서
+       모바일에서 가로 스크롤이 생겼음. minmax(0,1fr)로 최소폭을 0으로 못박아야 grid item 안의
+       overflow:hidden/ellipsis가 실제로 트랙 폭 기준으로 작동함 */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -1054,6 +1058,7 @@ onMounted(() => {
     transition: background 0.1s, border-color 0.1s;
     background: rgba(var(--fg-rgb),0.03);
     border: 1px solid rgba(var(--fg-rgb),0.06);
+    min-width: 0;
 }
 
 .gallery-card:hover { background: rgba(var(--fg-rgb),0.06); border-color: rgba(var(--fg-rgb),0.12); }

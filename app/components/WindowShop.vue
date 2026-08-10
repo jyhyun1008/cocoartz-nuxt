@@ -42,7 +42,9 @@
                         <i v-else class="hgi hgi-stroke hgi-package" />
                     </div>
                     <div class="shop-card-name">{{ item.name }}</div>
-                    <p v-if="item.description" class="shop-card-desc">{{ item.description }}</p>
+                    <!-- 설명이 없어도(v-if로 아예 안 그리면 min-height가 적용될 요소 자체가 없어져서
+                         설명 있는 카드와 없는 카드끼리 높이가 어긋남) 항상 그려서 2줄 높이를 맞춤 -->
+                    <p class="shop-card-desc">{{ item.description }}</p>
                     <div class="shop-card-price"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ item.price }}</div>
                     <div v-if="isStackable(item)" class="shop-owned-count">{{ item.owned }}개 보유</div>
 
