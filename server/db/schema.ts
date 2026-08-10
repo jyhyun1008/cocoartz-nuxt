@@ -362,6 +362,12 @@ export const remoteFeedPosts = pgTable('remote_feed_posts', {
     linkUrl: text(),
     // 원격 글의 CW(content warning)/서두 텍스트. 없으면 null → 목록에서 본문 미리보기로 대체 표시
     summary: text(),
+    // true면 summary가 진짜 CW가 아니라 "게시글 제목"임 — 코코아츠는 서로 연합해도 CW 기능이 없어서
+    // 자기 게시판 글 제목을 그대로 summary(AP의 CW 자리)에 실어보내는데(publishPost.ts), 받는 쪽도
+    // 코코아츠 서버면 그걸 진짜 CW로 취급해 내용을 가려버리면 연합 타임라인이 온통 "열람주의"
+    // 게이트로 뒤덮여 보임. 발신 액터의 서버가 nodeinfo상 코코아츠로 확인될 때만 true로 저장해서,
+    // 프론트에서 CW 게이트 대신 평범한 제목처럼(안 가리고) 보여줌
+    summaryIsTitle: boolean().default(false).notNull(),
     // to/cc에 AS_PUBLIC이 있었는지 (전체공개/조용히 공개 여부). 개인 타임라인(getFollowingFeed)은
     // 팔로우 관계로 받은 글이라 공개범위 무관하게 다 보여주지만, 연합 게시판(getRemoteFeedPosts)은
     // 모두가 보는 공개 게시판이라 이 값이 true인 글만 노출해야 함
@@ -395,6 +401,9 @@ export const remoteTimelinePosts = pgTable('remote_timeline_posts', {
     quoteUrl: text(),
     linkUrl: text(),
     summary: text(),
+    // remoteFeedPosts.summaryIsTitle과 동일한 이유 — 코코아츠 서버끼리 연합할 때 CW를 게시글
+    // 제목으로 취급하기 위한 플래그
+    summaryIsTitle: boolean().default(false).notNull(),
     published: timestamp({ withTimezone: true }).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (table) => [

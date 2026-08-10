@@ -8,6 +8,7 @@ import { sanitizeHtml, extractImageAttachmentsHtml, renderCustomEmoji, renderAct
 import { checkRateLimit } from '../../../utils/ap/rateLimit'
 import { refreshRemoteActorCache } from '../../../utils/remoteActorCache'
 import { extractQuoteUrl, extractFirstLink } from '../../../utils/ap/linkExtract'
+import { isCocoArtzInstance } from '../../../utils/ap/instanceSoftware'
 import { broadcastFederatedBoardPost, broadcastTimelineNewPost } from '../../_ws'
 
 const MAX_FOLLOWERS_PER_USER = 5000
@@ -213,6 +214,7 @@ function remoteFeedEntryToPost(row: typeof remoteFeedPosts.$inferSelect) {
         objectId: row.objectId,
         content: row.content,
         summary: row.summary,
+        summaryIsTitle: row.summaryIsTitle,
         quoteUrl: row.quoteUrl,
         linkUrl: row.linkUrl,
         createdAt: row.boostedByActorUrl ? row.createdAt : row.published,
@@ -250,6 +252,10 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
     const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag) + extractImageAttachmentsHtml(object.attachment)
     if (!content) return
     const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
+    // 코코아츠는 서로 연합해도 CW 기능이 없어서 자기 게시글 제목을 summary(AP의 CW 자리)에 그대로
+    // 실어보냄(publishPost.ts) — 발신 서버가 코코아츠로 확인되면 이 summary를 진짜 CW가 아니라
+    // 게시글 제목으로 취급해서 프론트가 내용을 안 가리고 보여주게 함(WindowBoard.vue/WindowTimeline.vue)
+    const summaryIsTitle = summary ? await isCocoArtzInstance(new URL(actorUrl_).hostname) : false
     const isPublic = isPublicAudience(object, activity)
     const published = new Date((object.published as string) || Date.now())
     const quoteUrl = extractQuoteUrl(object)
@@ -264,6 +270,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
         objectId,
         content,
         summary,
+        summaryIsTitle,
         quoteUrl,
         linkUrl,
         isPublic,
@@ -285,6 +292,7 @@ async function handleCreateFromFollowedAccount(object: Record<string, unknown>, 
             objectId,
             content,
             summary,
+            summaryIsTitle,
             quoteUrl,
             linkUrl,
             published,
@@ -504,6 +512,9 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
     const content = renderCustomEmoji(sanitizeHtml(object.content as string || ''), object.tag) + extractImageAttachmentsHtml(object.attachment)
     if (!content) return
     const summary = typeof object.summary === 'string' ? renderCustomEmoji(sanitizeHtml(object.summary), object.tag).trim() || null : null
+    // 부스트는 "원 작성자"(attributedTo)의 서버가 코코아츠인지가 기준 — summary를 실제로 지정한 쪽은
+    // 부스트한 사람(actorUrl_)이 아니라 원 글쓴이이므로
+    const summaryIsTitle = summary ? await isCocoArtzInstance(new URL(attributedTo).hostname) : false
     const isPublic = isPublicAudience(object)
     const published = new Date((object.published as string) || Date.now())
     const quoteUrl = extractQuoteUrl(object)
@@ -522,6 +533,7 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
         objectId,
         content,
         summary,
+        summaryIsTitle,
         quoteUrl,
         linkUrl,
         isPublic,
@@ -545,6 +557,7 @@ async function handleAnnounceFromFollowedAccount(objectId: string, actorUrl_: st
             objectId,
             content,
             summary,
+            summaryIsTitle,
             quoteUrl,
             linkUrl,
             published,

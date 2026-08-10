@@ -70,6 +70,7 @@ export default eventHandler(async (event) => {
         objectId: r.objectId, // 댓글 목록 조회(getRemoteFeedPostReplies)용
         content: r.content,
         summary: r.summary,
+        summaryIsTitle: r.summaryIsTitle,
         quoteUrl: r.quoteUrl,
         linkUrl: r.linkUrl,
         // 표시용 날짜도 정렬 기준과 맞춤 — 재게시면 재게시 받은 시각, 아니면 원본 작성일

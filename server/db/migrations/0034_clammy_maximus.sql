@@ -1,0 +1,2 @@
+ALTER TABLE "remote_feed_posts" ADD COLUMN "summaryIsTitle" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "remote_timeline_posts" ADD COLUMN "summaryIsTitle" boolean DEFAULT false NOT NULL;

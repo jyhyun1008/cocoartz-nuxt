@@ -55,7 +55,13 @@
                             </div>
                             <div class="post-card-title">
                                 <i class="hgi hgi-stroke hgi-globe-02"></i>
-                                <template v-if="entry.post.summary">
+                                <!-- 코코아츠 서버끼리 연합한 글의 summary는 진짜 CW가 아니라 그쪽 게시판 글
+                                     제목이라(우리도 CW 없이 제목을 그 자리에 실어보냄 — publishPost.ts),
+                                     경고 아이콘 없이 그냥 제목처럼 보여줌 -->
+                                <template v-if="entry.post.summary && entry.post.summaryIsTitle">
+                                    <span v-html="entry.post.summary"></span>
+                                </template>
+                                <template v-else-if="entry.post.summary">
                                     <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
                                     <span v-html="entry.post.summary"></span>
                                 </template>
@@ -363,13 +369,17 @@
                     </div>
                 </div>
 
-                <div v-if="currentRemotePost.summary && !showRemoteContent" class="remote-cw-gate">
+                <!-- 코코아츠 서버끼리 연합한 글은 summary가 진짜 CW가 아니라 게시판 글 제목이라
+                     (publishPost.ts 참고) 가리지 않고 제목처럼 그대로 보여줌 -->
+                <div v-if="currentRemotePost.summary && currentRemotePost.summaryIsTitle" class="post-title-large" v-html="currentRemotePost.summary"></div>
+
+                <div v-if="currentRemotePost.summary && !currentRemotePost.summaryIsTitle && !showRemoteContent" class="remote-cw-gate">
                     <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
                     <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
                 </div>
                 <template v-else>
                     <div class="post-content md-content" v-html="stripEmbeddedLink(currentRemotePost.content, currentRemotePost.quoteUrl || currentRemotePost.linkUrl)"></div>
-                    <button v-if="currentRemotePost.summary" class="cw-hide-btn" @click="showRemoteContent = false">
+                    <button v-if="currentRemotePost.summary && !currentRemotePost.summaryIsTitle" class="cw-hide-btn" @click="showRemoteContent = false">
                         <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
                     </button>
                 </template>

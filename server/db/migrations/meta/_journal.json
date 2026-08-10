@@ -239,6 +239,13 @@
       "when": 1786343028038,
       "tag": "0033_warm_forgotten_one",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1786351141057,
+      "tag": "0034_clammy_maximus",
+      "breakpoints": true
     }
   ]
 }
