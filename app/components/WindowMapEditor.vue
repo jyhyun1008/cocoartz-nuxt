@@ -51,6 +51,8 @@
                         :flip-x="!!item.flip"
                         :flip-back="!!item.flipBack"
                         :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
+                        :layer-opacities="getCropGrowth(getItemDef(item.itemid), item.plantedAt)?.layerOpacities ?? []"
+                        :shadow-trail="!getItemDef(item.itemid)?.crop"
                         :editable="placementMode === 'select'"
                         :selected="selectedEditIndex === idx"
                         @select="selectedEditIndex = idx"
@@ -286,7 +288,7 @@ const emit = defineEmits(['saved', 'cancel'])
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId: currentUserId } = useCurrentUser()
-const { ITEM_CATALOG, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
+const { ITEM_CATALOG, getItemDef, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 
 const isUserMode = computed(() => props.userId != null)
 
@@ -302,10 +304,13 @@ const { data: inventoryData } = await useAsyncData(
 )
 // itemKey(=ITEM_CATALOG/맵 배치에 쓰는 id)를 키로 보유 개수를 모음 — getMyInventory가 돌려주는
 // itemid는 items 테이블의 자기 PK라, 레거시 아이템처럼 itemKey랑 다를 수 있어서 itemKey로 다시 매핑함
+// category='functional'도 같이 셈 — 농사 작물(밀 등)은 map_item이 아니라 functional로 등록되지만
+// 배치 방식(보유 개수만큼만 놓기)은 완전히 동일함(getMapItemCatalog.ts 참고)
+const MAP_PLACEABLE_CATEGORIES = new Set(['map_item', 'functional'])
 const ownedCounts = computed(() => {
     const map = new Map()
     for (const row of inventoryData.value ?? []) {
-        if (row.category !== 'map_item') continue
+        if (!MAP_PLACEABLE_CATEGORIES.has(row.category)) continue
         const id = Number(row.itemKey)
         if (Number.isFinite(id)) map.set(id, row.count)
     }
@@ -339,6 +344,8 @@ const { data: shopCatalogData } = await useAsyncData(
 
 // 팔레트에 실제로 보여줄 아이템 — 개인 방은 하나라도 가진 것만, defaultTemplate은 기본 지급만,
 // 방(관리자, roomId 모드)은 카탈로그 전체
+// 작물(def.crop)은 "자기 프로필 개인 홈 맵"에서만 심을 수 있음 — 방(관리자 공용 공간)이나 가입 시
+// 기본 템플릿에 심어두면 plantedAt/수확 로직이 애초에 개인 인벤토리 기준이라 앞뒤가 안 맞음
 const paletteItems = computed(() => {
     if (props.defaultTemplate) {
         const defaultIds = new Set(
@@ -347,9 +354,9 @@ const paletteItems = computed(() => {
                 .map(r => Number(r.itemKey))
                 .filter(Number.isFinite),
         )
-        return ITEM_CATALOG.value.filter(def => defaultIds.has(def.id))
+        return ITEM_CATALOG.value.filter(def => defaultIds.has(def.id) && !def.crop)
     }
-    if (!isUserMode.value) return ITEM_CATALOG.value
+    if (!isUserMode.value) return ITEM_CATALOG.value.filter(def => !def.crop)
     return ITEM_CATALOG.value.filter(def => (ownedCounts.value.get(def.id) ?? 0) > 0)
 })
 
@@ -515,6 +522,10 @@ function handleCellClick(x, y) {
         const idx = editItems.value.findIndex(
             it => it.position.x === x && it.position.y === y && (it.position.z ?? 0) === z
         )
+        // 작물이면 지금 심는 시각을 찍어둠 — 성장 단계 계산(useItemCatalog.ts getCropGrowth)의
+        // 기준점. 작물이 아닌 일반 장식 아이템은 이 필드 자체가 없음(undefined로 두면 JSON에서
+        // 그냥 빠짐 — mapInfo에 불필요한 null이 안 쌓임)
+        const plantedAt = getItemDef(selectedItem.value)?.crop ? Date.now() : undefined
         if (isErasing.value) {
             if (idx !== -1) editItems.value.splice(idx, 1)
         } else if (idx !== -1) {
@@ -522,10 +533,10 @@ function handleCellClick(x, y) {
             // 소모하는 거라 여유분을 확인함 — 기존 것을 빼는 건 항상 자유(제자리로 돌아오는 거니까)
             const replacing = editItems.value[idx].itemid !== selectedItem.value
             if (replacing && availableCount(selectedItem.value) <= 0) return
-            editItems.value[idx] = { position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value }
+            editItems.value[idx] = { position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value, plantedAt }
         } else {
             if (availableCount(selectedItem.value) <= 0) return  // 보유 개수 다 씀 — 인벤토리 반영(개인 방만 제한됨)
-            editItems.value.push({ position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value })
+            editItems.value.push({ position: { x, y, z }, itemid: selectedItem.value, flip: selectedFlip.value, flipBack: selectedFlipBack.value, plantedAt })
         }
         return
     }

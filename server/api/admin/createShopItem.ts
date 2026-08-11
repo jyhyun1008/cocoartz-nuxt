@@ -15,7 +15,7 @@ async function checkAdmin(userid: number) {
 // 먼저 호출해서(관리자 페이지가 파일 선택 즉시 호출) 그 결과 URL을 여기로 넘겨받는 구조
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { category, name, description, price, active, icon, isDefault, blocksMovement, decoLayer } = body
+    const { category, name, description, price, active, icon, isDefault, blocksMovement, decoLayer, isCrop } = body
     const userid = await requireUserId(event)
     await checkAdmin(userid)
 
@@ -34,17 +34,30 @@ export default eventHandler(async (event) => {
     // 데코 전용 — 몸 앞/뒤 어느 레이어에 그릴지. items.meta에 저장(map_item의 layers와 같은 자리 재사용)
     const finalMeta = category === 'avatar_deco' ? JSON.stringify({ layer: decoLayer === 'front' ? 'front' : 'back' }) : undefined
 
-    if (category === 'map_item') {
+    // 맵에 6장 레이어로 배치되는 아이템 — map_item(순수 장식) 또는 functional+isCrop(농사 작물)일 때.
+    // 둘 다 itemKey를 손으로 못 정하고 DB가 발급한 자기 id를 그대로 문자열로 씀(레거시 하드코딩
+    // 카탈로그의 1·2와 절대 안 겹치게 하기 위함) — createShopItem 호출 한 번으로 등록·id 확정까지 끝남.
+    const isMapPlaceable = category === 'map_item' || (category === 'functional' && isCrop === true)
+    if (isMapPlaceable) {
         const layers = body.layers
         if (!Array.isArray(layers) || layers.length !== 6 || layers.some((l) => typeof l !== 'string' || !l)) {
             throw createError({ statusCode: 400, message: '레이어 이미지 6장이 필요합니다(uploadMapItemLayers 먼저 호출)' })
         }
 
-        // itemKey는 손으로 못 정함 — DB가 발급한 자기 id를 그대로 문자열로 씀(레거시 하드코딩
-        // 카탈로그의 1·2와 절대 안 겹치게 하기 위함). 유니크 인덱스 충돌 방지용 임시값을 먼저 넣음
+        // 작물 전용 성장 설정 — growSeconds(초)는 필수, 보상 범위는 안 주면 기본 20~30
+        let meta: Record<string, unknown> = { layers }
+        if (category === 'functional') {
+            const growSeconds = Math.max(1, Math.floor(Number(body.growSeconds) || 0))
+            if (!growSeconds) throw createError({ statusCode: 400, message: '작물의 성장 시간(초)을 입력해주세요' })
+            const rewardMin = Math.max(0, Math.floor(Number(body.rewardMin) || 0)) || 20
+            const rewardMax = Math.max(rewardMin, Math.floor(Number(body.rewardMax) || 0) || 30)
+            meta = { layers, growSeconds, rewardMin, rewardMax }
+        }
+
+        // 유니크 인덱스 충돌 방지용 임시값을 먼저 넣고, 발급된 id로 itemKey를 확정함
         const [created] = await db.insert(items).values({
             category, itemKey: `tmp-${createId()}`, name: trimmedName, description: finalDescription,
-            icon: icon || null, price: finalPrice, active: finalActive, isDefault: finalIsDefault, meta: JSON.stringify({ layers }),
+            icon: icon || null, price: finalPrice, active: finalActive, isDefault: finalIsDefault, meta: JSON.stringify(meta),
         }).returning()
 
         const [final] = await db.update(items)

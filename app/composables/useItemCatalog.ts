@@ -12,6 +12,30 @@ export interface MapItemDef {
     // (튜너: https://claude.ai/code/artifact/3d5c1fed-...) 지금은 아무 아이템도 명시적으로 안 씀 —
     // 새 아이템이 기본 공식으로 이상하게 나올 때만 여기 값을 직접 넣어서 덮어쓰면 됨
     flipBackOffsets?: number[]
+    // 있으면 "심어서 키우는 작물"(농사 시스템) — 자기 프로필 개인 홈 맵에만 배치 가능하고,
+    // 배치 시점(plantedAt)부터 growSeconds가 지나면 다 자람. getCropGrowth()가 이 값과 plantedAt을
+    // 받아서 지금 몇 번째 레이어까지 보여야 할지 계산함
+    crop?: {
+        growSeconds: number
+        rewardMin: number
+        rewardMax: number
+    }
+}
+
+// 작물의 지금 성장 상태 — 심은 시각(plantedAt, epoch ms)과 지금 시각(nowMs)을 보고 판단.
+// 규칙(농작물 기획): 성장 시간의 앞 절반은 맨 아래 레이어(6.png, layers 배열 마지막 칸) 1장만,
+// 뒤 절반은 마지막 2장(5·6.png), 다 자라면 전부 보임 — layerOpacities는 MapItem.vue layers 배열과
+// 같은 순서(0=1.png ... 마지막=6.png)의 0/1 배열이라 그대로 :layer-opacities에 넘기면 됨.
+// 레이어 수가 6장이 아닌 작물이 생기더라도 "마지막 1장 → 마지막 2장 → 전체"는 그대로 성립함.
+export function getCropGrowth(def: MapItemDef | undefined, plantedAt: number | undefined, nowMs: number = Date.now()) {
+    if (!def?.crop || typeof plantedAt !== 'number') return null
+    const growMs = def.crop.growSeconds * 1000
+    const elapsedMs = Math.max(0, nowMs - plantedAt)
+    const n = def.layers.length
+    const revealCount = elapsedMs >= growMs ? n : (elapsedMs >= growMs / 2 ? Math.min(2, n) : Math.min(1, n))
+    const layerOpacities = def.layers.map((_, i) => (i >= n - revealCount ? 1 : 0))
+    const isFullyGrown = elapsedMs >= growMs
+    return { isFullyGrown, layerOpacities, remainingMs: Math.max(0, growMs - elapsedMs) }
 }
 
 // 상점 기능 이전부터 코드에 박혀있던 레거시 아이템 — 새 맵 아이템은 이제 관리자 페이지

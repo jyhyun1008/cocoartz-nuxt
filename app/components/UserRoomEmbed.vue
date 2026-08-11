@@ -55,6 +55,8 @@
                             :flip-x="!!item.flip"
                             :flip-back="!!item.flipBack"
                             :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
+                            :layer-opacities="cropGrowthFor(item)?.layerOpacities ?? []"
+                            :shadow-trail="!getItemDef(item.itemid)?.crop"
                             :title="item.title"
                             :link="item.link"
                             interactive
@@ -109,6 +111,11 @@
         <button v-if="isOwn && !isEditMode" id="ure-edit-btn" @click="isEditMode = true">
             ✎ 방 꾸미기
         </button>
+
+        <!-- 작물 수확 피드백 — RoomMap.vue의 코인 토스트와 같은 방식 -->
+        <div v-if="harvestToastAmount !== null" class="ure-harvest-toast">
+            +{{ harvestToastAmount }} {{ server?.currencyName ?? '코코아' }}
+        </div>
     </div>
 </template>
 
@@ -125,7 +132,9 @@ const props = defineProps({
 
 const emit = defineEmits(['map-saved'])
 
-const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
+const { getItemDef, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
+const config = useRuntimeConfig()
+const apiBaseUrl = config.public.apiBaseUrl
 
 // 이 유저가 자기 방을 한 번도 안 꾸며서 props.mapData가 null이면, 코드에 하드코딩된 6x6 기본 맵
 // 대신 관리자가 설정한 "가입 시 기본 방" 템플릿(관리자 설정 > 서버 정보 > 기본 개인 방)을 먼저
@@ -231,6 +240,61 @@ const mapInfo = computed(() => {
 const displayTiles = computed(() => mapInfo.value?.[0] ?? [])
 // 예전 개인 방 맵은 [tiles] 1칸짜리라 mapInfo[1]이 없을 수 있음 — 그럴 땐 그냥 빈 배열(아이템 없음)
 const mapItems = computed(() => mapInfo.value?.[1] ?? [])
+
+// ─── 작물(농사 시스템) 성장/수확 ──────────────────────────
+// 심어진 시각(plantedAt)부터 지금까지 지난 시간으로 성장 단계(레이어 불투명도)를 계산함. 시간이
+// 흘러야 바뀌는 값이라 30초마다 nowTick만 갱신해서 관련 computed를 다시 돌게 함(초 단위로 딱 맞출
+// 필요는 없는 1시간짜리 성장이라 이 정도 해상도면 충분 — 매 프레임/1초 타이머는 낭비).
+const nowTick = ref(Date.now())
+let growthTimer = null
+function cropGrowthFor(item) {
+    return getCropGrowth(getItemDef(item.itemid), item.plantedAt, nowTick.value)
+}
+
+// 캐릭터가 실제로 서 있는 칸(toCollisionTile)에 다 자란 작물이 있으면 자동으로 수확함 — 코인
+// 수집(RoomMap.vue의 checkCoinCollection)과 같은 "칸이 바뀔 때만 검사" 방식. 본인 방일 때만
+// 동작함(tryHarvestAt 맨 위의 !props.isOwn 가드) — 다른 유저 프로필에 놀러왔을 때 방 주인 것까지
+// 내가 대신 수확해서 내 인벤토리/재화가 바뀌는 걸 막기 위함(농사는 철저히 자기 인벤토리 기준)
+const harvestToastAmount = ref(null)
+let harvestToastTimer = null
+function showHarvestToast(amount) {
+    harvestToastAmount.value = amount
+    clearTimeout(harvestToastTimer)
+    harvestToastTimer = setTimeout(() => { harvestToastAmount.value = null }, 1500)
+}
+
+const harvestingKeys = new Set()
+async function tryHarvestAt(tx, ty) {
+    if (!props.isOwn) return
+    for (const item of mapItems.value) {
+        const growth = cropGrowthFor(item)
+        if (!growth?.isFullyGrown) continue
+        if (item.position.x !== tx || item.position.y !== ty) continue
+        const key = `${item.position.x}-${item.position.y}-${item.position.z ?? 0}-${item.itemid}-${item.plantedAt}`
+        if (harvestingKeys.has(key)) continue  // 응답 오기 전에 같은 칸을 왔다갔다해도 중복 요청 안 함
+        harvestingKeys.add(key)
+        try {
+            const res = await $fetch(`${apiBaseUrl}/api/harvestCrop`, {
+                method: 'POST',
+                body: {
+                    serverid: server?.id,
+                    itemid: item.itemid,
+                    position: item.position,
+                    plantedAt: item.plantedAt,
+                },
+            })
+            if (res?.ok) {
+                showHarvestToast(res.amount)
+                emit('map-saved', null)  // 맵이 서버에서 바뀌었으니(수확한 작물 제거) 부모가 다시 불러오게 함
+            }
+        } catch {
+            // 실패(이미 수확됨/아직 안 자람 등)는 조용히 무시 — 배지가 이미 사라졌을 수도 있으니
+        } finally {
+            harvestingKeys.delete(key)
+        }
+        return  // 한 칸엔 보통 작물 하나 — 찾았으면 더 볼 필요 없음
+    }
+}
 // 개인 방 배경 — RoomMap.vue와 같은 방식(mapInfo[3]을 실제 이미지로 풀어서 #ure-container에 씀)
 const { getMapBackgroundImage } = useMapBackgroundCatalog()
 const mapBgStyle = computed(() => ({ backgroundImage: `url(${getMapBackgroundImage(mapInfo.value?.[3])})` }))
@@ -284,6 +348,16 @@ function computeCharZ(px, py) {
     const { tx, ty } = toCollisionTile(px, py)
     return topZAt(tx, ty) ?? 0
 }
+
+// 캐릭터가 서 있는 칸이 실제로 바뀔 때만 수확 판정 — RoomMap.vue의 checkCoinCollection과 같은
+// "칸 이동 시에만 검사"(제자리 잔이동으로는 중복 트리거 안 됨) 방식
+const lastHarvestTile = ref({ x: null, y: null })
+watch(localPosition, () => {
+    const { tx, ty } = toCollisionTile(localPosition.value.x, localPosition.value.y)
+    if (tx === lastHarvestTile.value.x && ty === lastHarvestTile.value.y) return
+    lastHarvestTile.value = { x: tx, y: ty }
+    tryHarvestAt(tx, ty)
+})
 
 const sortedTiles = computed(() => {
     return [...displayTiles.value].sort((a, b) => {
@@ -447,6 +521,13 @@ onMounted(() => {
     ensureUserLoaded()
     restorePosition(props.username)  // 브라우저에서만 도는 게 보장되니 여기서 localStorage를 안전하게 읽음
 
+    growthTimer = setInterval(() => { nowTick.value = Date.now() }, 30000)
+    // 처음 들어왔을 때 이미 서 있는 칸에 다 자란 작물이 있을 수도 있으니(예: 다른 탭에서 심고 옴)
+    // 마운트 시점에도 한 번 검사해둠 — 이후엔 칸을 옮길 때마다 위 watch(localPosition)가 담당
+    const { tx, ty } = toCollisionTile(localPosition.value.x, localPosition.value.y)
+    lastHarvestTile.value = { x: tx, y: ty }
+    tryHarvestAt(tx, ty)
+
     window.addEventListener('keydown', (e) => {
         if (e.isSynthetic) return  // 조이스틱/점프 버튼이 걷기 애니메이션만 재생시키려고 쏘는 합성 이벤트 — 이동은 moveStep이 직접 처리하므로 여기선 무시
         if (isEditMode.value) return
@@ -579,6 +660,11 @@ onMounted(() => {
     jumpBtnEl?.addEventListener('touchend', onJumpBtnTouchEnd, { passive: true })
     jumpBtnEl?.addEventListener('touchcancel', onJumpBtnTouchEnd, { passive: true })
 })
+
+onUnmounted(() => {
+    clearInterval(growthTimer)
+    clearTimeout(harvestToastTimer)
+})
 </script>
 
 <style>
@@ -703,6 +789,32 @@ onMounted(() => {
     height: 10px;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.55);
+}
+
+/* 작물 수확 토스트 — RoomMap.vue의 #coin-toast와 같은 연출(작은 임베드 안이라 top%만 조정) */
+.ure-harvest-toast {
+    position: absolute;
+    left: 50%;
+    top: 14px;
+    transform: translateX(-50%);
+    background: linear-gradient(145deg, #ffe17d, #f4b400);
+    color: #7a4a00;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 400;
+    animation: ure-harvest-toast-fade 1.5s ease forwards;
+}
+
+@keyframes ure-harvest-toast-fade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(6px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 @media (max-width: 768px) {

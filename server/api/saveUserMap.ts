@@ -19,10 +19,11 @@ async function validateMapItems(userid: number, mapJson: string) {
         placedCounts.set(id, (placedCounts.get(id) ?? 0) + 1)
     }
 
-    // 놓인 아이템 종류마다 items/userItems를 따로 조회하던 걸(최대 2*N번) 배치 조회 2번으로 합침
+    // 놓인 아이템 종류마다 items/userItems를 따로 조회하던 걸(최대 2*N번) 배치 조회 2번으로 합침.
+    // map_item(장식) + functional(농사 작물 등, getMapItemCatalog.ts와 동일하게 취급) 둘 다 대상
     const itemKeys = [...placedCounts.keys()].map(String)
     const itemRows = await db.select({ id: items.id, itemKey: items.itemKey }).from(items)
-        .where(and(eq(items.category, 'map_item'), inArray(items.itemKey, itemKeys)))
+        .where(and(inArray(items.category, ['map_item', 'functional']), inArray(items.itemKey, itemKeys)))
     const itemIdByKey = new Map(itemRows.map(r => [r.itemKey, r.id]))
 
     for (const itemid of placedCounts.keys()) {

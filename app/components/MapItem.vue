@@ -160,6 +160,10 @@ const props = defineProps({
     // 재화 시스템 — 이 아이템 위에 코인 말풍선을 띄울지(RoomMap.vue가 로컬 랜덤 타이머로 켬,
     // 나한테만 보이는 연출). 지나가면 자동 수집되니 클릭 대상은 아님
     coin: { type: Boolean, default: false },
+    // 작물(농사 시스템) 전용 — layers와 같은 순서의 0~1 배열로 레이어별 불투명도를 개별 지정함.
+    // 비워두면(기본) 전부 1(항상 다 보임) — 기존 장식용 아이템은 이 prop을 안 써서 동작이 그대로임.
+    // useItemCatalog.ts의 getCropGrowth()가 성장 단계에 맞춰 이 배열을 계산해줌
+    layerOpacities: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['select'])
@@ -350,12 +354,19 @@ function flipBackSuffix() {
     return props.flipBack ? ' rotate(180deg)' : ''
 }
 
+// 작물 레이어 불투명도 — layerOpacities를 안 주면(일반 장식 아이템) 항상 1
+function opacityFor(i) {
+    const v = props.layerOpacities[i]
+    return v === undefined ? 1 : v
+}
+
 function layerStyle(i) {
     const y = -baseShiftFor(i) + extraTop.value - flipBackOffsetFor(i)
     return {
         zIndex: (props.layers.length - i) * Z_GROUP_SIZE.value,
         height: `${layerHeight.value}px`,
         transform: `translateY(${y.toFixed(2)}px)${flipBackSuffix()}`,
+        opacity: opacityFor(i),
     }
 }
 
@@ -365,7 +376,7 @@ function layerStyle(i) {
 function echoStyle(i, e) {
     const h = layerHeight.value
     const downOffset = h * props.shadowStepRatio * e
-    const opacity = props.shadowOpacity
+    const opacity = props.shadowOpacity * opacityFor(i)
     const y = -baseShiftFor(i) + extraTop.value + downOffset - flipBackOffsetFor(i)
     return {
         zIndex: (props.layers.length - i) * Z_GROUP_SIZE.value - e,

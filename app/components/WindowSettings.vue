@@ -461,7 +461,7 @@
                                     <span v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 이미지를 못 바꿔요.</span>
                                 </div>
                             </template>
-                            <template v-else-if="item.category !== 'map_item'">
+                            <template v-else-if="item.category !== 'map_item' && !isCropItem(item)">
                                 <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
                                 <div class="admin-icon-row">
                                     <div class="admin-icon-preview">
@@ -499,6 +499,16 @@
                                     </template>
                                     <p v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 레이어를 못 바꿔요.</p>
                                 </div>
+                                <template v-if="isCropItem(item)">
+                                    <label class="admin-label">성장 시간(초) <span class="admin-label-hint">심은 뒤 다 자랄 때까지 — 예: 3600 = 1시간</span></label>
+                                    <input v-model.number="shopEditForm.growSeconds" type="number" min="1" class="post-input" style="max-width:140px" />
+                                    <label class="admin-label">수확 보상(재화) <span class="admin-label-hint">이 범위에서 랜덤 지급</span></label>
+                                    <div class="admin-color-row">
+                                        <input v-model.number="shopEditForm.rewardMin" type="number" min="0" class="post-input" style="max-width:100px" placeholder="최소" />
+                                        <span>~</span>
+                                        <input v-model.number="shopEditForm.rewardMax" type="number" min="0" class="post-input" style="max-width:100px" placeholder="최대" />
+                                    </div>
+                                </template>
                             </template>
 
                             <p v-if="shopEditError" class="admin-error">{{ shopEditError }}</p>
@@ -525,11 +535,16 @@
                     </optgroup>
                 </select>
 
-                <template v-if="newShopItem.category && newShopItem.category !== 'map_item'">
+                <label v-if="newShopItem.category === 'functional'" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;margin:4px 0">
+                    <input type="checkbox" v-model="newShopItem.isCrop" /> 맵에 심는 작물로 만들기
+                    <span class="admin-label-hint">(농사 시스템 — 프로필 개인 홈 맵에 심어서 시간이 지나면 다 자라고, 밟으면 수확)</span>
+                </label>
+
+                <template v-if="newShopItem.category && !newItemNeedsLayers">
                     <label class="admin-label">itemKey <span class="admin-label-hint">아바타/지형=이미지를 새로 올릴 거면 안 쓰는 번호로(겹치는 번호가 있으면 등록이 막혀요), 기능/소모품=자유 문자열</span></label>
                     <input v-model="newShopItem.itemKey" placeholder="예: 2" class="post-input" />
                 </template>
-                <p v-else-if="newShopItem.category === 'map_item'" class="admin-label-hint">map_item은 itemKey를 저장할 때 자동으로 지정해요.</p>
+                <p v-else-if="newItemNeedsLayers" class="admin-label-hint">itemKey를 저장할 때 자동으로 지정해요.</p>
 
                 <label class="admin-label">이름</label>
                 <input v-model="newShopItem.name" placeholder="상점에 보일 이름" class="post-input" />
@@ -582,7 +597,7 @@
                         <span v-else class="admin-label-hint">오브젝트 스토리지 미설정 — itemKey로 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로를 그대로 씀(이미 그 파일이 배포돼있어야 함)</span>
                     </div>
                 </template>
-                <template v-else-if="newShopItem.category && newShopItem.category !== 'map_item'">
+                <template v-else-if="newShopItem.category && !newItemNeedsLayers">
                     <label class="admin-label">아이콘 <span class="admin-label-hint">선택</span></label>
                     <div class="admin-icon-row">
                         <div class="admin-icon-preview">
@@ -599,7 +614,7 @@
                     </div>
                 </template>
 
-                <template v-if="newShopItem.category === 'map_item'">
+                <template v-if="newItemNeedsLayers">
                     <label class="admin-label">레이어 이미지 6장 <span class="admin-label-hint">1~6 순서로 한 번에 선택 — 실제로 맵에 놓였을 때처럼 겹친 아이콘을 자동으로 만들어요</span></label>
                     <template v-if="objectStorageEnabled">
                         <div class="admin-icon-row">
@@ -613,7 +628,18 @@
                             <span v-if="newShopItem.layers.length" class="admin-label-hint">{{ newShopItem.layers.length }}장 업로드됨</span>
                         </div>
                     </template>
-                    <p v-else class="admin-label-hint">오브젝트 스토리지가 설정되지 않아 맵 아이템을 등록할 수 없어요.</p>
+                    <p v-else class="admin-label-hint">오브젝트 스토리지가 설정되지 않아 이 아이템을 등록할 수 없어요.</p>
+
+                    <template v-if="isNewCrop">
+                        <label class="admin-label">성장 시간(초) <span class="admin-label-hint">심은 뒤 다 자랄 때까지 — 예: 3600 = 1시간</span></label>
+                        <input v-model.number="newShopItem.growSeconds" type="number" min="1" class="post-input" style="max-width:140px" />
+                        <label class="admin-label">수확 보상(재화) <span class="admin-label-hint">이 범위에서 랜덤 지급</span></label>
+                        <div class="admin-color-row">
+                            <input v-model.number="newShopItem.rewardMin" type="number" min="0" class="post-input" style="max-width:100px" placeholder="최소" />
+                            <span>~</span>
+                            <input v-model.number="newShopItem.rewardMax" type="number" min="0" class="post-input" style="max-width:100px" placeholder="최대" />
+                        </div>
+                    </template>
                 </template>
 
                 <p v-if="newShopItemError" class="admin-error">{{ newShopItemError }}</p>
@@ -1119,9 +1145,25 @@ const filteredShopItems = computed(() =>
     shopCategoryFilter.value === 'all' ? shopItems.value : shopItems.value.filter((i) => i.category === shopCategoryFilter.value)
 )
 
+// meta에 layers 배열이 있는 functional 아이템 = 농사 작물(맵에 심어서 키우는 기능 아이템).
+// 순수 기능 아이템(예: 나중에 생길 소모품성 기능)은 layers가 없어서 이 판정에 안 걸림
+function cropMetaOf(item) {
+    try {
+        const m = JSON.parse(item?.meta || '{}')
+        return Array.isArray(m?.layers) ? m : null
+    } catch { return null }
+}
+function isCropItem(item) {
+    return item.category === 'functional' && !!cropMetaOf(item)
+}
+
 // 새 아이템 등록
 function emptyShopForm() {
-    return { category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [] }
+    return {
+        category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [],
+        // 작물(농사 시스템) 전용 — category가 functional일 때만 의미 있음
+        isCrop: false, growSeconds: 60, rewardMin: 20, rewardMax: 30,
+    }
 }
 const newShopItem = reactive(emptyShopForm())
 const newShopItemError = ref('')
@@ -1176,12 +1218,18 @@ function handleNewMapLayersFile(e) {
     return uploadLayersFor(e, newShopItem, newShopItemError, mapLayersUploading)
 }
 
+// map_item이거나, functional인데 "작물로 만들기"를 켠 경우 — 둘 다 itemKey를 자동 배정하고
+// 레이어 6장이 필요함(createShopItem.ts의 isMapPlaceable과 같은 판정)
+const isNewCrop = computed(() => newShopItem.category === 'functional' && newShopItem.isCrop)
+const newItemNeedsLayers = computed(() => newShopItem.category === 'map_item' || isNewCrop.value)
+
 async function submitNewShopItem() {
     newShopItemError.value = ''
     if (!newShopItem.category) { newShopItemError.value = '카테고리를 선택해주세요'; return }
     if (!newShopItem.name.trim()) { newShopItemError.value = '이름을 입력해주세요' ; return }
-    if (newShopItem.category !== 'map_item' && !newShopItem.itemKey.trim()) { newShopItemError.value = 'itemKey를 입력해주세요'; return }
-    if (newShopItem.category === 'map_item' && newShopItem.layers.length !== 6) { newShopItemError.value = '레이어 6장을 먼저 업로드해주세요'; return }
+    if (!newItemNeedsLayers.value && !newShopItem.itemKey.trim()) { newShopItemError.value = 'itemKey를 입력해주세요'; return }
+    if (newItemNeedsLayers.value && newShopItem.layers.length !== 6) { newShopItemError.value = '레이어 6장을 먼저 업로드해주세요'; return }
+    if (isNewCrop.value && !newShopItem.growSeconds) { newShopItemError.value = '성장 시간(초)을 입력해주세요'; return }
 
     newShopItemSaving.value = true
     try {
@@ -1199,7 +1247,11 @@ async function submitNewShopItem() {
                 blocksMovement: newShopItem.blocksMovement,
                 decoLayer: newShopItem.category === 'avatar_deco' ? newShopItem.decoLayer : undefined,
                 icon: newShopItem.icon || null,
-                layers: newShopItem.category === 'map_item' ? newShopItem.layers : undefined,
+                layers: newItemNeedsLayers.value ? newShopItem.layers : undefined,
+                isCrop: isNewCrop.value,
+                growSeconds: isNewCrop.value ? newShopItem.growSeconds : undefined,
+                rewardMin: isNewCrop.value ? newShopItem.rewardMin : undefined,
+                rewardMax: isNewCrop.value ? newShopItem.rewardMax : undefined,
             },
         })
         Object.assign(newShopItem, emptyShopForm())
@@ -1212,7 +1264,7 @@ async function submitNewShopItem() {
 
 // 인라인 수정
 const editingShopItemId = ref(null)
-const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [] })
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [], growSeconds: 60, rewardMin: 20, rewardMax: 30 })
 const shopEditError = ref('')
 const shopEditSaving = ref(false)
 const shopEditIconFileInput = ref(null)
@@ -1241,6 +1293,10 @@ function toggleEditShopItem(item) {
     shopEditForm.decoLayer = item.category === 'avatar_deco' ? decoLayerOf(item.meta) : 'back'
     shopEditForm.icon = item.icon ?? ''
     shopEditForm.layers = [] // 새로 6장 올릴 때만 채워짐 — 비어있으면 update 쪽에서 기존 값 유지
+    const cropMeta = cropMetaOf(item)
+    shopEditForm.growSeconds = cropMeta?.growSeconds ?? 60
+    shopEditForm.rewardMin = cropMeta?.rewardMin ?? 20
+    shopEditForm.rewardMax = cropMeta?.rewardMax ?? 30
 }
 
 async function handleShopEditIconFile(e) {
@@ -1283,8 +1339,11 @@ async function submitEditShopItem(item) {
                 isDefault: shopEditForm.isDefault,
                 blocksMovement: item.category === 'terrain' ? shopEditForm.blocksMovement : undefined,
                 decoLayer: item.category === 'avatar_deco' ? shopEditForm.decoLayer : undefined,
-                icon: item.category === 'map_item' ? undefined : (shopEditForm.icon || null),
-                layers: item.category === 'map_item' && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
+                icon: (item.category === 'map_item' || isCropItem(item)) ? undefined : (shopEditForm.icon || null),
+                layers: (item.category === 'map_item' || isCropItem(item)) && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
+                growSeconds: isCropItem(item) ? shopEditForm.growSeconds : undefined,
+                rewardMin: isCropItem(item) ? shopEditForm.rewardMin : undefined,
+                rewardMax: isCropItem(item) ? shopEditForm.rewardMax : undefined,
             },
         })
         editingShopItemId.value = null
