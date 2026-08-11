@@ -493,7 +493,7 @@ function switchFollowListTab(type) {
                 <div class="profile-section">
                     <div class="section-label">
                         <i class="hgi hgi-stroke hgi-grid"></i>
-                        작성한 글 <span class="section-count">{{ topLevelPosts.length }}</span>
+                        작성한 글 <span v-if="!userData?.isRemote" class="section-count">{{ topLevelPosts.length }}</span>
                         <!-- 리모트 계정은 전체 글이 아니라 우리 서버 연합 타임라인에 떴던 글만 모은
                         best-effort 목록이라 별도로 안내 -->
                         <span v-if="userData?.isRemote" class="pp-remote-note">(이 서버 연합 타임라인에서 확인된 글만)</span>
