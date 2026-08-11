@@ -6,7 +6,7 @@ function play(path: string) {
     if (!import.meta.client) return
     try {
         const audio = new Audio(path)
-        audio.volume = 0.5
+        audio.volume = 0.25
         void audio.play().catch(() => {})
     } catch {}
 }
