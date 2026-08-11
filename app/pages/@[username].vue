@@ -115,7 +115,10 @@ const visibleInventory = computed(() => inventory.value.filter(i => i.category =
 // 테두리로 표시). 새 저장소 없이 이미 있던 users.character를 그대로 씀 — 가입 시 기본 파츠를
 // 전원이 이미 보유 상태로 지급받아둬서(server/db/seedShopItems.ts) 이행 문제가 따로 없음.
 const { userData: currentUserData, invalidate: invalidateCurrentUserData, ensureLoaded: ensureCurrentUserDataLoaded } = useCurrentUserData()
-ensureCurrentUserDataLoaded()
+// RoomMap.vue/UserRoomEmbed.vue와 같은 문제: await 없이 그냥 호출만 하면 SSR 렌더링이 이
+// 요청을 기다려주지 않아서(응답 오기 전에 이미 렌더 끝남) 새로고침 시 장착 아이템이 잠깐
+// 기본값으로 보였다가 나중에 바뀌는 깜빡임이 생김 — top-level await로 렌더 전에 끝나게 함
+await ensureCurrentUserDataLoaded()
 
 const equippedConfig = computed(() => {
     let cfg = { ...DEFAULT_CHARACTER }

@@ -37,6 +37,10 @@ const props = defineProps({
 const { toggle: toggleMobileNav } = useMobileNav()
 const { isLoggedIn } = useCurrentUser()
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
+// RoomMap.vue/UserRoomEmbed.vue와 같은 문제: onMounted(클라이언트 전용) 안에서 부르면 SSR
+// 땐 이 데이터 없이 렌더돼서 새로고침 시 관리자 아이콘 등이 잠깐 빠졌다가 나타나는 깜빡임이
+// 생김 — top-level await로 옮겨서 SSR이 이 fetch를 기다리게 함
+await ensureUserLoaded()
 
 const fullPath = '/'
 const infoPath = '/info'
@@ -44,10 +48,6 @@ const membersPath = '/members'
 const settingsPath = '/settings'
 
 const isAdmin = computed(() => !!currentUserData.value?.isAdmin)
-
-onMounted(() => {
-    ensureUserLoaded()
-})
 </script>
 
 <style>

@@ -434,6 +434,10 @@ const tilesScaleStyle = computed(() => {
 // 통일했음. 예전엔 여기만 우클릭 드래그로도 맵을 움직일 수 있었는데, 그러면서 캐릭터가 실제
 // 서 있는 자리랑 화면에 보이는 자리가 어긋나 보이는 문제가 있었음)
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
+// ⚠️ onMounted(클라이언트 전용) 안에서 부르던 걸 여기 top-level await로 옮김 — RoomMap.vue와 동일한
+// 이유(새로고침할 때마다 옷이 잠깐 기본값으로 보였다가 돌아오던 버그의 원인). SSR도 세션 쿠키를
+// 그대로 넘기니(useCurrentUserData.ts) 여기서 기다려도 로그인 판정은 정확함
+await ensureUserLoaded()
 // 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
 const { getAvatarPartImage, getDecoLayer } = useAvatarPartCatalog()
 // getCharacterLayers가 {layers, backDeco, frontDeco}를 돌려주도록 바뀜(데코가 다른 파츠와 스프라이트
@@ -566,7 +570,7 @@ function stopMoveRepeatIfEmpty() {
 }
 
 onMounted(() => {
-    ensureUserLoaded()
+    // 캐릭터 데이터는 이제 위쪽 top-level await로 마운트 전에 이미 로드돼있음
     restorePosition(props.username)  // 브라우저에서만 도는 게 보장되니 여기서 localStorage를 안전하게 읽음
 
     growthTimer = setInterval(() => { nowTick.value = Date.now() }, 30000)

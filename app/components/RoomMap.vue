@@ -326,6 +326,13 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
+// ⚠️ onMounted(클라이언트 전용) 안에서 부르던 걸 여기 top-level await로 옮김 — 예전엔 SSR 시점엔
+// 캐릭터 데이터가 전혀 없어서 서버가 내려주는 초기 HTML에 항상 기본 파츠로 그려졌고, 그 뒤
+// onMounted에서야 fetch가 시작돼 응답이 오면 그제서야 실제 옷으로 바뀌는 게 보였음 — 새로고침할
+// 때마다 옷이 잠깐(때로는 눈에 띄게) 기본값으로 "초기화"됐다가 돌아오는 것처럼 보인 원인이 이거였음.
+// SSR도 useRequestFetch로 세션 쿠키를 그대로 넘기니(useCurrentUserData.ts 참고) 여기서 기다려도
+// 로그인 여부 판정은 정확함 — 캐릭터 데이터까지 다 받아온 뒤에야 첫 렌더가 나가게 됨.
+await ensureUserLoaded()
 // 관리자가 상점 페이지에서 업로드한 파츠 스프라이트시트가 있으면 그걸, 없으면 기본 관례 경로를 씀
 const { getAvatarPartImage, getDecoLayer } = useAvatarPartCatalog()
 // getCharacterLayers가 {layers, backDeco, frontDeco}를 돌려주도록 바뀜(데코가 다른 파츠와 스프라이트
@@ -1163,8 +1170,8 @@ onMounted(() => {
     charZ.value = computeCharZ(position.x, position.y)
     updateMapPosition(position)
 
-    // 현재 유저 캐릭터 데이터 로드
-    ensureUserLoaded()
+    // 현재 유저 캐릭터 데이터는 이제 위쪽 top-level await로 마운트 전에 이미 로드돼있음(중복 호출 불필요 —
+    // ensureLoaded 자체도 이미 loaded면 바로 반환하니 여기 남겨놔도 해는 없지만 혼동 방지로 제거함)
 
     // WebSocket 연결 및 룸 참가
     connect(apiBaseUrl)
