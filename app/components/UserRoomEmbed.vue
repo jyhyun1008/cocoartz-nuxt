@@ -56,7 +56,6 @@
                             :flip-back="!!item.flipBack"
                             :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
                             :layer-opacities="cropGrowthFor(item)?.layerOpacities ?? []"
-                            :shadow-trail="!getItemDef(item.itemid)?.crop"
                             :title="item.title"
                             :link="item.link"
                             interactive
@@ -142,6 +141,7 @@ const apiBaseUrl = config.public.apiBaseUrl
 // 캐시되니 페이지에서 이미 한 번 불러온 서버 데이터를 여기서 다시 fetch하지 않고 그대로 재사용함.
 const { server } = await useServer()
 const effectiveMapData = computed(() => props.mapData ?? server?.defaultUserMap ?? null)
+const { playCoinSound } = useSoundEffects()
 
 // ─── 편집 모드 ────────────────────────────────
 // 실제 편집 UI(타일/아이템 배치, 저장)는 전부 WindowMapEditor.vue로 위임함 — 여긴 그 결과를 받아서
@@ -285,6 +285,7 @@ async function tryHarvestAt(tx, ty) {
             })
             if (res?.ok) {
                 showHarvestToast(res.amount)
+                playCoinSound()  // 코인 수집(RoomMap.vue)과 같은 재화 획득이라 같은 효과음을 씀
                 emit('map-saved', null)  // 맵이 서버에서 바뀌었으니(수확한 작물 제거) 부모가 다시 불러오게 함
             }
         } catch {

@@ -52,7 +52,6 @@
                         :flip-back="!!item.flipBack"
                         :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
                         :layer-opacities="getCropGrowth(getItemDef(item.itemid), item.plantedAt)?.layerOpacities ?? []"
-                        :shadow-trail="!getItemDef(item.itemid)?.crop"
                         :editable="placementMode === 'select'"
                         :selected="selectedEditIndex === idx"
                         @select="selectedEditIndex = idx"
@@ -136,6 +135,9 @@
             </div>
             <p v-if="isUserMode && !paletteItems.length" class="palette-hint">
                 보유한 맵 아이템이 없어요 — 상점에서 사면 여기 떠요.
+            </p>
+            <p v-if="isUserMode && paletteItems.some(def => def.crop)" class="palette-hint">
+                작물은 방 하나에 최대 {{ MAX_CROPS_PER_MAP }}개까지만 심을 수 있어요(현재 {{ totalCropsPlaced }}/{{ MAX_CROPS_PER_MAP }})
             </p>
             <div class="palette-flip-row">
                 <button
@@ -324,10 +326,19 @@ const placedCounts = computed(() => {
     return map
 })
 
-// 앞으로 더 놓을 수 있는 개수 — 방 모드는 제한 없음(Infinity)
+// 작물은 종류 상관없이 맵 하나에 최대 이 개수까지만 심을 수 있음(밭 크기 제한 개념) — 서버
+// 쪽(saveUserMap.ts)에도 같은 값으로 한 번 더 강제함(값을 바꾸면 두 군데 다 맞출 것)
+const MAX_CROPS_PER_MAP = 4
+const totalCropsPlaced = computed(() =>
+    editItems.value.filter(it => getItemDef(it.itemid)?.crop).length)
+
+// 앞으로 더 놓을 수 있는 개수 — 방 모드는 제한 없음(Infinity). 작물은 보유 개수뿐 아니라
+// "맵당 최대 개수" 여유분도 같이 확인해서 더 작은 쪽으로 제한함
 function availableCount(id) {
     if (!isUserMode.value) return Infinity
-    return (ownedCounts.value.get(id) ?? 0) - (placedCounts.value.get(id) ?? 0)
+    const ownedAvailable = (ownedCounts.value.get(id) ?? 0) - (placedCounts.value.get(id) ?? 0)
+    if (!getItemDef(id)?.crop) return ownedAvailable
+    return Math.min(ownedAvailable, MAX_CROPS_PER_MAP - totalCropsPlaced.value)
 }
 
 // defaultTemplate 모드(관리자가 꾸미는 "가입 시 기본 방")는 카탈로그 전체가 아니라 '가입 시 기본
