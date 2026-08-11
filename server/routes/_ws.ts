@@ -94,7 +94,33 @@ function sweepStalePeers() {
     }
   }
 }
-setInterval(sweepStalePeers, STALE_SWEEP_INTERVAL_MS)
+
+// 위 sweepStalePeers는 "서버가 유령을 못 지우는" 케이스를 막지만, 서버는 이미 제대로
+// removePeer를 불러서 presence(사이드바)까지 맞게 나갔는데도 특정 클라이언트 화면의 지도에만
+// 캐릭터가 안 지워지고 남는 경우가 따로 있음 — presence는 매번 "전체 목록"을 통째로 새로
+// 내려받아 덮어쓰는 방식(presenceByRoom.value = data.presence)이라 중간에 메시지 하나를
+// 놓쳐도 다음 presence가 오면 저절로 맞아지는데, 지도 쪽 otherUsersInRoom은 user_joined/
+// user_left를 하나씩 더하고 빼는 누적 방식이라 그 user_left 딱 하나만 유실되면(브라우저가
+// 백그라운드 탭 타이머를 늦추거나 네트워크가 순간 끊기는 경우 등) 방을 나갔다 다시 들어오기
+// 전까지 그 클라이언트 화면에만 영원히 유령으로 남음. 그래서 각 방에 room_state(입장 시 보내는
+// "지금 이 방에 있는 사람 전체" 스냅샷과 동일한 메시지)를 주기적으로 다시 뿌려서, 클라이언트가
+// 이미 갖고 있는 처리 로직(room_state = 전체 교체) 그대로 자동으로 맞춰지게 함
+function resyncRoomStates() {
+  for (const [, room] of rooms) {
+    const all = [...room.values()]
+    for (const info of all) {
+      const others = all
+        .filter(p => p.peer.id !== info.peer.id)
+        .map(p => ({ userId: p.userId, user: p.user, x: p.x, y: p.y, z: p.z, dir: p.dir }))
+      sendTo(info.peer, { type: 'room_state', users: others })
+    }
+  }
+}
+
+setInterval(() => {
+  sweepStalePeers()
+  resyncRoomStates()
+}, STALE_SWEEP_INTERVAL_MS)
 
 function removePeer(peerId: string) {
   const info = peerMap.get(peerId)

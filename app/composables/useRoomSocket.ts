@@ -168,7 +168,18 @@ export function useRoomSocket() {
     _lastJoinParams = { roomPath, userId, x, y, z }
     otherUsersInRoom.value = []
     realtimeChats.value = []
-    rawSend({ type: 'join', roomPath, userId, x, y, z })
+    // 소켓이 아직 연결 중(CONNECTING)일 땐 여기서 rawSend로 큐잉하지 않음 — connect()의 onopen이
+    // "열리면 _lastJoinParams를 보내라"는 걸 이미 하고 있어서(재연결 자동 재참가용), 방금 위에서
+    // 막 세팅한 _lastJoinParams를 그쪽도 보게 됨. 그런데 예전엔 이 함수도 rawSend로 "열리면 보내라"를
+    // 따로 큐잉해버려서, connect() 직후 바로 joinRoom()을 부르는 흔한 순서(onMounted, resume 등)에서
+    // 소켓이 열리는 순간 join이 두 번 나갔음 — 로그인 유저는 매번 같은 계정 id라 서버가 두 번째를
+    // 같은 사람으로 알아서 겉으론 안 보였지만, 손님은 join마다 서버가 새 음수 id를 새로 발급해서
+    // (server/routes/_ws.ts) 완전히 다른 사람 두 명이 들어온 것처럼 처리돼 캐릭터가 두 개 생기고,
+    // 나중에 실제로 나갈 때도 그중 최신 id 하나만 user_left가 나가 나머지 하나가 유령으로 남았음
+    if (_ws && _ws.readyState === WebSocket.OPEN) {
+      rawSend({ type: 'join', roomPath, userId, x, y, z })
+    }
+    // OPEN이 아니면 아무것도 안 함 — connect()의 onopen이 뜨는 대로 _lastJoinParams를 보고 보내줌
   }
 
   // Throttle: only send if moved by at least 0.1 units or 150ms elapsed.
