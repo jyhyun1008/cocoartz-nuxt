@@ -14,7 +14,7 @@ async function checkAdmin(userid: number) {
 // icon/layers도 uploadShopIcon.ts / uploadMapItemLayers.ts로 먼저 업로드한 URL만 받음(createShopItem.ts와 동일)
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { id, name, description, price, active, icon, layers, isDefault, blocksMovement, decoLayer, growSeconds, rewardMin, rewardMax } = body
+    const { id, name, description, price, active, icon, layers, isDefault, blocksMovement, decoLayer, growSeconds, rewardMin, rewardMax, behindAvatar } = body
     const userid = await requireUserId(event)
     await checkAdmin(userid)
 
@@ -52,6 +52,8 @@ export default eventHandler(async (event) => {
         // 이미 맵에 놓인 아이템들이 갑자기 사라지지 않게 함
         const newLayers = Array.isArray(layers) && layers.length === 6 ? layers : existingMeta?.layers
         if (Array.isArray(layers) && layers.length === 6 && icon) patch.icon = icon
+        // 바닥에 까는 아이템 여부 — 안 보내면(undefined) 기존 값 유지
+        const finalBehindAvatar = behindAvatar !== undefined ? behindAvatar === true : existingMeta?.behindAvatar === true
 
         if (existing.category === 'functional') {
             // 작물 성장 설정 — 안 보내면(값이 없으면) 기존 값 유지
@@ -61,9 +63,9 @@ export default eventHandler(async (event) => {
             if (!finalGrowSeconds) throw createError({ statusCode: 400, message: '작물의 성장 시간(초)이 필요합니다' })
             const finalRewardMin = rewardMin !== undefined ? Math.max(0, Math.floor(Number(rewardMin) || 0)) : existingMeta?.rewardMin ?? 20
             const finalRewardMax = rewardMax !== undefined ? Math.max(finalRewardMin, Math.floor(Number(rewardMax) || 0)) : Math.max(finalRewardMin, existingMeta?.rewardMax ?? 30)
-            patch.meta = JSON.stringify({ layers: newLayers, growSeconds: finalGrowSeconds, rewardMin: finalRewardMin, rewardMax: finalRewardMax })
+            patch.meta = JSON.stringify({ layers: newLayers, growSeconds: finalGrowSeconds, rewardMin: finalRewardMin, rewardMax: finalRewardMax, behindAvatar: finalBehindAvatar })
         } else {
-            patch.meta = JSON.stringify({ layers: newLayers })
+            patch.meta = JSON.stringify({ layers: newLayers, behindAvatar: finalBehindAvatar })
         }
     } else if (icon !== undefined) {
         patch.icon = icon || null

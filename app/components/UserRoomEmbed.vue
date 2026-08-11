@@ -56,6 +56,8 @@
                             :flip-back="!!item.flipBack"
                             :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
                             :layer-opacities="cropGrowthFor(item)?.layerOpacities ?? []"
+                            :behind-avatar="shouldRenderBehindAvatar(item)"
+                            :avatar-z-index="charZIndex"
                             :title="item.title"
                             :link="item.link"
                             interactive
@@ -249,6 +251,16 @@ const nowTick = ref(Date.now())
 let growthTimer = null
 function cropGrowthFor(item) {
     return getCropGrowth(getItemDef(item.itemid), item.plantedAt, nowTick.value)
+}
+
+// 이 아이템을 캐릭터보다 항상 뒤에 그릴지 — (1) 관리자가 등록할 때 "바닥에 까는 아이템"으로
+// 표시해둔 경우(러그 등, def.behindAvatar) (2) 작물이 아직 다 안 자란 경우(6번 레이어까지만
+// 보이는 낮은 단계 — 다 자라면 원래 깊이 정렬로 되돌아가서 다른 물건들과 정상적으로 앞뒤가 갈림)
+function shouldRenderBehindAvatar(item) {
+    const def = getItemDef(item.itemid)
+    if (def?.behindAvatar) return true
+    const growth = cropGrowthFor(item)
+    return !!growth && !growth.isFullyGrown
 }
 
 // 탭이 백그라운드에 있으면 브라우저가 setInterval을 강하게 스로틀(심하면 아예 멈춤)하기 때문에,

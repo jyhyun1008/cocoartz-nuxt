@@ -20,6 +20,9 @@ export interface MapItemDef {
         rewardMin: number
         rewardMax: number
     }
+    // 러그처럼 높이가 없는 "바닥에 까는" 아이템 — true면 MapItem.vue가 캐릭터보다 항상 뒤에
+    // 그려지도록 z-index를 눌러줌(behindAvatar prop). 관리자 페이지에서 아이템 등록/수정 시 체크
+    behindAvatar?: boolean
 }
 
 // 작물의 지금 성장 상태 — 심은 시각(plantedAt, epoch ms)과 지금 시각(nowMs)을 보고 판단.

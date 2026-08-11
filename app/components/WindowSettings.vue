@@ -499,6 +499,9 @@
                                     </template>
                                     <p v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 레이어를 못 바꿔요.</p>
                                 </div>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;margin:4px 0">
+                                    <input type="checkbox" v-model="shopEditForm.behindAvatar" /> 바닥에 까는 아이템(캐릭터보다 항상 뒤에 표시)
+                                </label>
                                 <template v-if="isCropItem(item)">
                                     <label class="admin-label">성장 시간(초) <span class="admin-label-hint">심은 뒤 다 자랄 때까지 — 예: 3600 = 1시간</span></label>
                                     <input v-model.number="shopEditForm.growSeconds" type="number" min="1" class="post-input" style="max-width:140px" />
@@ -629,6 +632,10 @@
                         </div>
                     </template>
                     <p v-else class="admin-label-hint">오브젝트 스토리지가 설정되지 않아 이 아이템을 등록할 수 없어요.</p>
+
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;margin:4px 0">
+                        <input type="checkbox" v-model="newShopItem.behindAvatar" /> 바닥에 까는 아이템(캐릭터보다 항상 뒤에 표시)
+                    </label>
 
                     <template v-if="isNewCrop">
                         <label class="admin-label">성장 시간(초) <span class="admin-label-hint">심은 뒤 다 자랄 때까지 — 예: 3600 = 1시간</span></label>
@@ -1163,6 +1170,8 @@ function emptyShopForm() {
         category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [],
         // 작물(농사 시스템) 전용 — category가 functional일 때만 의미 있음
         isCrop: false, growSeconds: 60, rewardMin: 20, rewardMax: 30,
+        // map_item/작물 공통 — 바닥에 까는 아이템(캐릭터보다 항상 뒤에 표시)
+        behindAvatar: false,
     }
 }
 const newShopItem = reactive(emptyShopForm())
@@ -1252,6 +1261,7 @@ async function submitNewShopItem() {
                 growSeconds: isNewCrop.value ? newShopItem.growSeconds : undefined,
                 rewardMin: isNewCrop.value ? newShopItem.rewardMin : undefined,
                 rewardMax: isNewCrop.value ? newShopItem.rewardMax : undefined,
+                behindAvatar: newItemNeedsLayers.value ? newShopItem.behindAvatar : undefined,
             },
         })
         Object.assign(newShopItem, emptyShopForm())
@@ -1264,7 +1274,7 @@ async function submitNewShopItem() {
 
 // 인라인 수정
 const editingShopItemId = ref(null)
-const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [], growSeconds: 60, rewardMin: 20, rewardMax: 30 })
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [], growSeconds: 60, rewardMin: 20, rewardMax: 30, behindAvatar: false })
 const shopEditError = ref('')
 const shopEditSaving = ref(false)
 const shopEditIconFileInput = ref(null)
@@ -1297,6 +1307,9 @@ function toggleEditShopItem(item) {
     shopEditForm.growSeconds = cropMeta?.growSeconds ?? 60
     shopEditForm.rewardMin = cropMeta?.rewardMin ?? 20
     shopEditForm.rewardMax = cropMeta?.rewardMax ?? 30
+    // behindAvatar는 크롭 전용이 아니라 map_item/functional 둘 다에 적용됨 — cropMetaOf는 이름과
+    // 달리 "레이어 있는 meta"면 다 파싱해주니 그대로 재사용
+    shopEditForm.behindAvatar = cropMeta?.behindAvatar === true
 }
 
 async function handleShopEditIconFile(e) {
@@ -1344,6 +1357,7 @@ async function submitEditShopItem(item) {
                 growSeconds: isCropItem(item) ? shopEditForm.growSeconds : undefined,
                 rewardMin: isCropItem(item) ? shopEditForm.rewardMin : undefined,
                 rewardMax: isCropItem(item) ? shopEditForm.rewardMax : undefined,
+                behindAvatar: (item.category === 'map_item' || isCropItem(item)) ? shopEditForm.behindAvatar : undefined,
             },
         })
         editingShopItemId.value = null

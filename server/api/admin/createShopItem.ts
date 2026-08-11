@@ -15,7 +15,7 @@ async function checkAdmin(userid: number) {
 // 먼저 호출해서(관리자 페이지가 파일 선택 즉시 호출) 그 결과 URL을 여기로 넘겨받는 구조
 export default eventHandler(async (event) => {
     const body = await readBody(event)
-    const { category, name, description, price, active, icon, isDefault, blocksMovement, decoLayer, isCrop } = body
+    const { category, name, description, price, active, icon, isDefault, blocksMovement, decoLayer, isCrop, behindAvatar } = body
     const userid = await requireUserId(event)
     await checkAdmin(userid)
 
@@ -44,14 +44,17 @@ export default eventHandler(async (event) => {
             throw createError({ statusCode: 400, message: '레이어 이미지 6장이 필요합니다(uploadMapItemLayers 먼저 호출)' })
         }
 
+        // 바닥에 까는 아이템(러그 등) — 켜두면 MapItem.vue가 캐릭터보다 항상 뒤에 그려지도록 z-index를 누름
+        const finalBehindAvatar = behindAvatar === true
+
         // 작물 전용 성장 설정 — growSeconds(초)는 필수, 보상 범위는 안 주면 기본 20~30
-        let meta: Record<string, unknown> = { layers }
+        let meta: Record<string, unknown> = { layers, behindAvatar: finalBehindAvatar }
         if (category === 'functional') {
             const growSeconds = Math.max(1, Math.floor(Number(body.growSeconds) || 0))
             if (!growSeconds) throw createError({ statusCode: 400, message: '작물의 성장 시간(초)을 입력해주세요' })
             const rewardMin = Math.max(0, Math.floor(Number(body.rewardMin) || 0)) || 20
             const rewardMax = Math.max(rewardMin, Math.floor(Number(body.rewardMax) || 0) || 30)
-            meta = { layers, growSeconds, rewardMin, rewardMax }
+            meta = { layers, growSeconds, rewardMin, rewardMax, behindAvatar: finalBehindAvatar }
         }
 
         // 유니크 인덱스 충돌 방지용 임시값을 먼저 넣고, 발급된 id로 itemKey를 확정함

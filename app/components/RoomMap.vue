@@ -55,6 +55,8 @@
                         :flip-x="!!item.flip"
                         :flip-back="!!item.flipBack"
                         :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
+                        :behind-avatar="!!getItemDef(item.itemid)?.behindAvatar"
+                        :avatar-z-index="charZIndex"
                         :title="item.title"
                         :link="item.link"
                         interactive
@@ -894,7 +896,7 @@ function toCollisionTile(px, py) {
 
 // 맵에 배치된 아이템 — mapInfo[0]이 타일 배열이듯, mapInfo[1]이 아이템 배열.
 // 맵 편집기(WindowMapEditor)에서 저장한 위치/itemid를 그대로 읽어와 렌더만 함
-const { getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
+const { getItemDef, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 const mapItems = computed(() => mapInfo.value?.[1] ?? [])
 
 // 아이템 하나를 가리키는 안정적인 키 — MapItem :key로 쓰는 것과 같은 좌표 조합(코인 상태를

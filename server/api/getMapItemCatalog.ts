@@ -36,6 +36,7 @@ export default eventHandler(async () => {
             layers: meta.layers as string[],
             flipBackOffsets: Array.isArray(meta.flipBackOffsets) ? meta.flipBackOffsets as number[] : undefined,
             crop,
+            behindAvatar: meta.behindAvatar === true,
         }]
     })
 })
