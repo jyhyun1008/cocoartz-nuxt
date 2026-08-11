@@ -184,6 +184,10 @@ async function claim() {
 .attendance-cal-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    /* 아래 .attendance-cal-grid랑 gap이 안 맞으면 두 그리드의 컬럼 경계가 서로 달라져서(그리드가
+       gap만큼 트랙 폭을 나눠 갖는 방식이 서로 다름) 요일 헤더가 오른쪽으로 갈수록 날짜 칸과
+       점점 어긋나 보임(누적 오차) — 반드시 같은 gap을 줘야 컬럼이 정확히 맞음 */
+    gap: 4px;
     text-align: center;
     font-size: 0.72rem;
     color: rgba(var(--fg-rgb),0.35);
