@@ -13,6 +13,7 @@
                     <span class="streak-num">{{ status?.currentStreak ?? 0 }}</span>일 연속 출석 중
                 </div>
                 <button
+                    :key="status?.claimedToday ? 'claimed' : 'unclaimed'"
                     class="submit-btn attendance-claim-btn"
                     :disabled="!status || status.claimedToday || claiming"
                     @click="claim"
@@ -34,10 +35,12 @@
                     <span v-for="w in ['일','월','화','수','목','금','토']" :key="w">{{ w }}</span>
                 </div>
                 <div class="attendance-cal-grid">
-                    <div v-for="(d, i) in calendarDays" :key="d?.date ?? `blank-${i}`" class="attendance-cal-cell" :class="{ blank: !d, claimed: d?.claimed, today: d?.isToday, future: d?.future }">
+                    <div v-for="(d, i) in calendarDays" :key="d?.date ?? `blank-${i}`" class="attendance-cal-cell" :class="{ blank: !d, today: d?.isToday }">
                         <template v-if="d">
                             <span class="cal-day-num">{{ d.day }}</span>
-                            <i v-if="d.claimed" class="hgi hgi-stroke hgi-checkmark-circle-01"></i>
+                            <i v-if="d.claimed" class="hgi hgi-stroke hgi-checkmark-circle-01 cal-status-icon cal-status-claimed"></i>
+                            <i v-else-if="!d.future" class="hgi hgi-stroke hgi-cancel-01 cal-status-icon cal-status-missed"></i>
+                            <span v-else class="cal-status-dot">·</span>
                         </template>
                     </div>
                 </div>
@@ -189,38 +192,51 @@ async function claim() {
     gap: 4px;
 }
 
+/* 칸마다 테두리 + 날짜는 위, 상태 아이콘은 아래로 고정된 위치에 둠 — 예전엔 출석한 날만
+   체크 아이콘이 붙어서 내용물 양이 칸마다 달랐고, aspect-ratio가 있어도 내용이 많은 칸(날짜+
+   아이콘)이 내용이 적은 칸(날짜만)보다 살짝 더 늘어나 버려서 줄마다 높이가 안 맞았음 — 이제
+   모든 칸이 "날짜 + 아이콘(또는 점)"으로 항상 내용물 양이 같아서 높이가 저절로 맞음 */
 .attendance-cal-cell {
     aspect-ratio: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    padding: 5px 0 7px;
+    border: 1px solid rgba(var(--fg-rgb),0.1);
     border-radius: 8px;
     font-size: 0.78rem;
     color: rgba(var(--fg-rgb),0.5);
-    gap: 1px;
 }
 
 .attendance-cal-cell.blank { visibility: hidden; }
 
-.attendance-cal-cell.future {
-    color: rgba(var(--fg-rgb),0.2);
-}
-
 .attendance-cal-cell.today {
-    outline: 1.5px solid var(--accent);
+    border-color: var(--accent);
+    border-width: 1.5px;
     font-weight: 700;
     color: rgba(var(--fg-rgb),0.85);
 }
 
-.attendance-cal-cell.claimed {
-    background: var(--bgaccent);
+.cal-day-num { font-variant-numeric: tabular-nums; }
+
+/* 출석한 날 — 악센트색 체크(원 안에 체크 표시라 "O"보다 의미가 더 분명해서 이걸로 씀) */
+.cal-status-icon.cal-status-claimed {
     color: var(--accent);
-    font-weight: 700;
+    font-size: 0.85rem;
 }
 
-.attendance-cal-cell i {
-    font-size: 0.6rem;
+/* 출석 못 한(지나간) 날 — 회색 X */
+.cal-status-icon.cal-status-missed {
+    color: rgba(var(--fg-rgb),0.22);
+    font-size: 0.7rem;
+}
+
+/* 아직 안 온 날 — 옅은 점 하나만 */
+.cal-status-dot {
+    color: rgba(var(--fg-rgb),0.2);
+    font-size: 0.9rem;
+    line-height: 1;
 }
 
 .attendance-hint {

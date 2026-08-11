@@ -337,13 +337,15 @@ function switchFollowListTab(type) {
 
         <!-- 상단 네비 바 -->
         <div id="profile-nav">
-            <NuxtLink to="/" id="profile-back-btn">
+            <NuxtLink to="/" id="profile-back-btn" title="서버로 돌아가기">
                 <i class="hgi hgi-stroke hgi-arrow-left-01"></i>
-                서버로 돌아가기
+                <span class="back-btn-text">돌아가기</span>
             </NuxtLink>
             <span id="profile-nav-user">
-                <span v-if="userData?.isRemote" v-html="userData.knownas"></span>
-                <template v-else>{{ userData?.knownas ?? userData?.username }}</template>
+                <span class="profile-nav-name">
+                    <span v-if="userData?.isRemote" v-html="userData.knownas"></span>
+                    <template v-else>{{ userData?.knownas ?? userData?.username }}</template>
+                </span>
                 <span class="profile-nav-at">{{ atHandle }}</span>
             </span>
         </div>
@@ -688,6 +690,7 @@ function switchFollowListTab(type) {
     font-size: 0.88rem;
     font-weight: 400;
     transition: color 0.1s;
+    flex-shrink: 0;
 }
 #profile-back-btn:hover { color: white; }
 
@@ -695,11 +698,32 @@ function switchFollowListTab(type) {
     display: flex;
     align-items: baseline;
     gap: 8px;
+    flex: 1;
+    min-width: 0;
 }
+
+.profile-nav-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
 .profile-nav-at {
     font-size: 0.8rem;
     font-weight: 400;
     color: rgba(255,255,255,0.6); /* 상단 네비바도 항상 악센트 색 배경이라 테마 무관하게 흰색 고정 */
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 좁은 화면에선 "서버로 돌아가기" 글자·핸들(@user)까지 다 넣으면 닉네임이 밀려서 두 줄로
+   쪼개짐 — 뒤로가기는 화살표 아이콘만 남기고, 핸들은 아예 숨겨서 닉네임에 공간을 몰아줌 */
+@media (max-width: 480px) {
+    #profile-back-btn .back-btn-text { display: none; }
+    .profile-nav-at { display: none; }
 }
 
 /* 카드 래퍼 */

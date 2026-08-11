@@ -252,6 +252,21 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 계정 — 프로필바 아이콘이 4개(출석/상점/설정/로그아웃)까지 붙으면서 너무 빽빽해져
+                     여기로 옮김 -->
+                <div class="admin-section">
+                    <div class="admin-section-header">
+                        <span class="admin-section-title">계정</span>
+                    </div>
+                    <div class="pref-theme-row">
+                        <span class="pref-theme-label">이 기기에서 로그아웃</span>
+                        <button class="pref-theme-btn" type="button" @click="logout">
+                            <i class="hgi hgi-stroke hgi-logout-02"></i>
+                            로그아웃
+                        </button>
+                    </div>
+                </div>
             </template>
             <div v-else class="admin-section">
                 <p class="admin-label-hint">로그인 후 더 많은 설정을 이용할 수 있습니다.</p>
@@ -265,8 +280,17 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 defineEmits(['close'])
 
+const router = useRouter()
 const { userId, isLoggedIn } = useCurrentUser()
 const { theme, toggle: toggleTheme } = useTheme()
+
+// ServerProfilebar.vue에 있던 로그아웃 버튼을 여기로 옮김 — 프로필바 하단 아이콘이
+// 출석/상점/설정/로그아웃 4개까지 붙어서 너무 빽빽해짐(비로그인 상태의 로그인 버튼은 그대로 둠)
+async function logout() {
+    await $fetch(`${apiBaseUrl}/api/auth/logout`, { method: 'POST' })
+    userId.value = null
+    await router.push('/login')
+}
 
 // 이메일 인증 상태 — required가 false면(서버가 SMTP를 아예 안 씀) 배지 자체를 안 띄움
 const { data: emailVerificationData } = await useAsyncData(

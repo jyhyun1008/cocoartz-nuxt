@@ -26,9 +26,6 @@
             <NuxtLink to="/preferences" id="preferences-wrapper" title="내 설정">
                 <i class="hgi hgi-stroke hgi-user-settings-01"></i>
             </NuxtLink>
-            <div id="settings-wrapper" @click="logout" title="로그아웃">
-                <i class="hgi hgi-stroke hgi-logout-02"></i>
-            </div>
         </div>
 
         <!-- 비로그인 상태 -->
@@ -54,7 +51,6 @@
 <script setup>
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
-const router = useRouter()
 const { userId, isLoggedIn } = useCurrentUser()
 const { isOpen } = useMobileNav()
 const { server } = await useServer()
@@ -102,11 +98,6 @@ const { data: attendanceData } = await useAsyncData(
     { watch: [userId] }
 )
 
-async function logout() {
-    await $fetch(`${apiBaseUrl}/api/auth/logout`, { method: 'POST' })
-    userId.value = null
-    await router.push('/login')
-}
 </script>
 
 <style>
