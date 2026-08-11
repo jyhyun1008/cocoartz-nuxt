@@ -21,6 +21,8 @@ interface PeerInfo {
   // 없으면 이미 멈춰서 서 있는 유저 방에 새로 들어온 사람에게는 이 유저의 방향을 알려줄 방법이
   // 없어서(room_state 시점엔 position 이벤트가 다시 안 옴) 항상 기본 방향(아래)으로 보였음
   dir: string | null
+  // 이 연결에서 마지막으로 뭔가(메시지 아무거나)를 받은 시각 — 아래 sweepStalePeers 참고
+  lastSeen: number
 }
 
 // 로그인 안 한 손님(구경) 연결에게 부여하는 임시 id. 실제 계정 id(1부터 증가하는 양수 serial
@@ -71,6 +73,28 @@ function buildPresence() {
   }
   return presence
 }
+
+// 로그인 유저는 재접속 시(join 핸들러의 duplicate-session 처리) 같은 계정 id로 옛 연결을
+// 찾아서 강제로 정리해주지만, 손님(비로그인)은 재접속할 때마다 매번 새 음수 id를 받아서
+// "이게 아까 그 손님이다"를 서버가 알 방법이 없음 — 그래서 손님 연결이 close/error 이벤트
+// 없이 조용히 끊기면(탭 강제 종료, 네트워크 끊김, 모바일 백그라운드 등) peerMap/rooms에
+// 유령으로 영원히 남아 다른 유저 화면에 캐릭터가 계속 서 있는 것처럼 보임(로그인 유저 재접속
+// 케이스는 위 duplicate-session 처리가 있어서 덜 보였을 뿐 사실 이 문제 자체는 로그인 여부와
+// 무관함). 클라이언트가 20초마다 ping을 보내는데(useRoomSocket.ts), 그 이상 아무 메시지도
+// 안 온 연결은 죽은 걸로 보고 주기적으로 쓸어냄
+const STALE_PEER_TIMEOUT_MS = 50_000
+const STALE_SWEEP_INTERVAL_MS = 20_000
+
+function sweepStalePeers() {
+  const now = Date.now()
+  for (const [peerId, info] of peerMap) {
+    if (now - info.lastSeen > STALE_PEER_TIMEOUT_MS) {
+      try { info.peer.close?.() } catch {}
+      removePeer(peerId)
+    }
+  }
+}
+setInterval(sweepStalePeers, STALE_SWEEP_INTERVAL_MS)
 
 function removePeer(peerId: string) {
   const info = peerMap.get(peerId)
@@ -223,6 +247,11 @@ export default defineWebSocketHandler({
     let data: any
     try { data = JSON.parse(message.text()) } catch { return }
 
+    // join 이전(아직 peerMap에 없음)엔 무시되고, join 이후엔 여기서 매 메시지(특히 20초 ping)마다
+    // 갱신됨 — 위 sweepStalePeers가 이 값을 보고 죽은 연결을 판단함
+    const seenInfo = peerMap.get(peer.id)
+    if (seenInfo) seenInfo.lastSeen = Date.now()
+
     if (data.type === 'join') {
       const { roomPath, x = 0, y = 0, z = 0 } = data
 
@@ -273,7 +302,7 @@ export default defineWebSocketHandler({
         }
       }
 
-      const info: PeerInfo = { peer, userId, authenticated, user: user ?? null, roomPath, x, y, z, dir: null }
+      const info: PeerInfo = { peer, userId, authenticated, user: user ?? null, roomPath, x, y, z, dir: null, lastSeen: Date.now() }
 
       if (!rooms.has(roomPath)) rooms.set(roomPath, new Map())
       rooms.get(roomPath)!.set(peer.id, info)
