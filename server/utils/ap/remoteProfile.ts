@@ -26,11 +26,10 @@ export async function getRemoteUserProfile(rawHandle: string, viewerUserId?: num
     if (!actorData) return null
 
     const info = buildActorDisplayInfo(actorData, actorUrl_)
-    // 표시 이름은 buildActorDisplayInfo().name을 그대로 쓰면 안 됨 — 그건 v-html로 뿌릴 걸
-    // 전제로 이미 escapeHtml + 커스텀 이모지 <img> 치환까지 끝낸 HTML 문자열이라, 로컬
-    // knownas처럼 {{ }}로 한 번 더(이스케이프된 채로) 찍으면 "&amp;" 같은 게 그대로 보임 —
-    // 원본 텍스트를 그대로 두고 로컬 knownas와 동일하게 {{ }}가 이스케이프하게 함
-    const knownas = (actorData.name as string) || (actorData.preferredUsername as string) || cleanHandle.split('@')[0]
+    // buildActorDisplayInfo().name은 escapeHtml + 커스텀 이모지 <img> 치환까지 끝낸 HTML
+    // 문자열(그 서버의 :shortcode: 이모지가 이름에 있으면 이미지로 렌더링됨) — 로컬 knownas(순수
+    // 텍스트, {{ }}로 렌더링)와 형태가 달라서 프론트에서 isRemote일 때만 v-html로 꽂아넣음
+    const knownas = info.name
     const bio = actorData.summary ? renderCustomEmoji(sanitizeHtml(actorData.summary as string), actorData.tag) : ''
     const bannerUrl = (actorData.image as Record<string, string> | undefined)?.url || ''
     const externalUrl = (typeof actorData.url === 'string' && actorData.url) || actorUrl_

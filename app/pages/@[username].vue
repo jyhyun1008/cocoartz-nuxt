@@ -37,6 +37,14 @@ const isOwn = computed(() => !userData.value?.isRemote && userId.value === userD
 // /@username@host — 프로필 상단의 "@..." 표시는 리모트일 땐 인스턴스까지 포함한 전체 핸들로
 const atHandle = computed(() => userData.value?.isRemote ? userData.value.handle : `@${userData.value?.username ?? ''}`)
 
+// 아바타 이니셜(프사 없을 때 대체) 전용 — 리모트 계정의 knownas는 그 서버 커스텀 이모지 <img>가
+// 섞인 HTML이라(아래 참고) 첫 글자만 잘라 쓰면 태그가 깨져 보일 수 있어서, 이니셜만큼은 항상
+// username(순수 텍스트)에서 뽑음
+const initialChar = computed(() => {
+    const base = (userData.value?.isRemote ? userData.value?.username : (userData.value?.knownas ?? userData.value?.username)) ?? '?'
+    return base[0] ?? '?'
+})
+
 // 팔로우 토글 — 로컬 유저는 followUser/unfollowUser, 리모트(fediverse) 계정은
 // followRemoteUser/unfollowRemoteUser로 완전히 다른 API를 씀(로컬은 users.id, 리모트는
 // remoteFollows 행의 id로 식별)
@@ -334,7 +342,8 @@ function switchFollowListTab(type) {
                 서버로 돌아가기
             </NuxtLink>
             <span id="profile-nav-user">
-                {{ userData?.knownas ?? userData?.username }}
+                <span v-if="userData?.isRemote" v-html="userData.knownas"></span>
+                <template v-else>{{ userData?.knownas ?? userData?.username }}</template>
                 <span class="profile-nav-at">{{ atHandle }}</span>
             </span>
         </div>
@@ -351,7 +360,7 @@ function switchFollowListTab(type) {
                     <div id="profile-avatar">
                         <NuxtImg v-if="userData?.avatar" :src="userData.avatar" class="avatar-img" />
                         <div v-else class="avatar-initial">
-                            {{ (userData?.knownas ?? userData?.username ?? '?')[0] }}
+                            {{ initialChar }}
                         </div>
                     </div>
                     <button v-if="isOwn" id="edit-profile-btn" @click="openEdit">프로필 편집</button>
@@ -395,7 +404,8 @@ function switchFollowListTab(type) {
                 <!-- 프로필 정보 -->
                 <div id="profile-info">
                     <div id="profile-knownas">
-                        {{ userData?.knownas ?? userData?.username }}
+                        <span v-if="userData?.isRemote" v-html="userData.knownas"></span>
+                        <template v-else>{{ userData?.knownas ?? userData?.username }}</template>
                         <span v-if="userData?.isRemote" class="remote-badge" title="다른 서버(fediverse)의 계정입니다">
                             <i class="hgi hgi-stroke hgi-globe-02"></i> 리모트
                         </span>
