@@ -154,8 +154,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
+/* 예전엔 탭 버튼/검색창/칩/그리드가 각자 따로 배경을 갖고 6px씩 떨어져 있어서, 그 틈새로
+   뒤(지도/채팅)가 그대로 비쳐 보여 전체적으로 "투명한 피커"처럼 보였음 — 이제 팝오버 자체를
+   하나의 불투명 카드로 만들고 안쪽 요소들은 그 카드 위에 얹히는 식으로 바꿈 */
 .emoji-picker-popover {
     z-index: 99999;
+    width: 360px;
+    max-width: 88vw;
+    box-sizing: border-box;
+    padding: 8px;
+    background: var(--surface-2);
+    border-radius: 14px;
+    box-shadow: var(--modal-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 emoji-picker {
@@ -170,24 +183,18 @@ emoji-picker {
     --input-font-color: rgba(var(--fg-rgb), 0.85);
     --input-placeholder-color: rgba(var(--fg-rgb), 0.3);
     --outline-color: var(--accent);
-    width: 360px;
-    max-width: 88vw;
+    width: 100%;
     height: 360px;
-    border-radius: 12px;
-    box-shadow: var(--modal-shadow);
+    border-radius: 10px;
     font-family: inherit;
 }
 
 .emoji-picker-loading {
-    width: 360px;
-    max-width: 88vw;
+    width: 100%;
     height: 360px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--surface-2);
-    border-radius: 12px;
-    box-shadow: var(--modal-shadow);
     color: rgba(var(--fg-rgb), 0.4);
     font-size: 0.85rem;
 }
@@ -195,9 +202,7 @@ emoji-picker {
 .ep-tabs {
     display: flex;
     gap: 4px;
-    width: 360px;
-    max-width: 88vw;
-    margin-bottom: 6px;
+    width: 100%;
 }
 
 .ep-tab-btn {
@@ -205,12 +210,11 @@ emoji-picker {
     padding: 6px 0;
     border: none;
     border-radius: 8px;
-    background: var(--surface-2);
+    background: rgba(var(--fg-rgb), 0.06);
     color: rgba(var(--fg-rgb), 0.5);
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: var(--modal-shadow);
 }
 .ep-tab-btn.active {
     background: var(--accent);
@@ -218,8 +222,7 @@ emoji-picker {
 }
 
 .ep-custom-panel {
-    width: 360px;
-    max-width: 88vw;
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -230,12 +233,11 @@ emoji-picker {
     box-sizing: border-box;
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid var(--input-border-color, rgba(var(--fg-rgb),0.15));
-    background: var(--surface-2);
+    border: 1px solid rgba(var(--fg-rgb), 0.15);
+    background: rgba(var(--fg-rgb), 0.06);
     color: rgba(var(--fg-rgb), 0.85);
     font-size: 0.82rem;
     font-family: inherit;
-    box-shadow: var(--modal-shadow);
 }
 .ep-custom-search::placeholder { color: rgba(var(--fg-rgb), 0.3); }
 .ep-custom-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
@@ -253,13 +255,12 @@ emoji-picker {
     padding: 4px 10px;
     border: none;
     border-radius: 999px;
-    background: var(--surface-2);
+    background: rgba(var(--fg-rgb), 0.08);
     color: rgba(var(--fg-rgb), 0.55);
     font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: var(--modal-shadow);
 }
 .ep-cat-chip.active {
     background: var(--accent);
@@ -271,17 +272,17 @@ emoji-picker {
     height: 290px;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    /* emoji-picker-element 기본 셀 크기(--emoji-size:1.375rem + --emoji-padding:0.5rem*2 =
+       38px)와 맞춰서 유니코드 탭과 똑같이 작게 보이게 함 — 칸 너비를 퍼센트가 아니라 고정
+       px로 줘야 커스텀 탭에서도 그 크기가 유지됨 */
+    grid-template-columns: repeat(auto-fill, 38px);
+    justify-content: space-between;
     /* 기본값(auto + 그리드의 align-content:stretch)이면 항목이 한 줄뿐일 때 그 한 줄이
        컨테이너 높이 전체로 늘어나면서 이모지가 대빵 커져버림 — 줄 높이를 열 너비에
        맞춰 고정하고, 남는 세로 공간은 늘리지 말고 위에서부터만 채우게 함 */
-    grid-auto-rows: min-content;
+    grid-auto-rows: 38px;
     align-content: start;
-    gap: 4px;
-    padding: 10px;
-    background: var(--surface-2);
-    border-radius: 12px;
-    box-shadow: var(--modal-shadow);
+    row-gap: 2px;
     box-sizing: border-box;
 }
 
@@ -294,15 +295,17 @@ emoji-picker {
 }
 
 .ep-custom-item {
-    aspect-ratio: 1;
+    width: 38px;
+    height: 38px;
     border: none;
-    border-radius: 8px;
+    border-radius: 100%;
     background: none;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    padding: 4px;
+    padding: 7px;
+    box-sizing: border-box;
 }
 .ep-custom-item:hover { background: rgba(var(--fg-rgb), 0.08); }
 .ep-custom-item img { width: 100%; height: 100%; object-fit: contain; }
