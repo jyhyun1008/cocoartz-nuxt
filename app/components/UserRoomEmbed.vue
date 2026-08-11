@@ -251,6 +251,21 @@ function cropGrowthFor(item) {
     return getCropGrowth(getItemDef(item.itemid), item.plantedAt, nowTick.value)
 }
 
+// 탭이 백그라운드에 있으면 브라우저가 setInterval을 강하게 스로틀(심하면 아예 멈춤)하기 때문에,
+// 다른 탭 보다가 몇십 분 뒤에 돌아와도 growthTimer가 그동안 한 번도 안 돈 채로 멈춰있을 수 있음
+// — 그래서 "새로고침해야만 자란 게 보인다"는 문제가 생김. visibilitychange/focus로 탭에 다시
+// 돌아온 순간 nowTick을 즉시 갱신하고, 그사이 이미 다 자란 작물이 있으면 서 있는 칸 기준으로
+// 수확도 바로 한 번 더 확인함(watch(localPosition)은 "칸이 바뀔 때"만 도니, 같은 칸에 계속
+// 서 있다가 배경에서 다 자란 경우는 이걸로 잡아줘야 함)
+function catchUpAfterHidden() {
+    nowTick.value = Date.now()
+    const { tx, ty } = toCollisionTile(localPosition.value.x, localPosition.value.y)
+    tryHarvestAt(tx, ty)
+}
+function handleVisibilityChange() {
+    if (!document.hidden) catchUpAfterHidden()
+}
+
 // 캐릭터가 실제로 서 있는 칸(toCollisionTile)에 다 자란 작물이 있으면 자동으로 수확함 — 코인
 // 수집(RoomMap.vue의 checkCoinCollection)과 같은 "칸이 바뀔 때만 검사" 방식. 본인 방일 때만
 // 동작함(tryHarvestAt 맨 위의 !props.isOwn 가드) — 다른 유저 프로필에 놀러왔을 때 방 주인 것까지
@@ -523,6 +538,8 @@ onMounted(() => {
     restorePosition(props.username)  // 브라우저에서만 도는 게 보장되니 여기서 localStorage를 안전하게 읽음
 
     growthTimer = setInterval(() => { nowTick.value = Date.now() }, 30000)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', catchUpAfterHidden)
     // 처음 들어왔을 때 이미 서 있는 칸에 다 자란 작물이 있을 수도 있으니(예: 다른 탭에서 심고 옴)
     // 마운트 시점에도 한 번 검사해둠 — 이후엔 칸을 옮길 때마다 위 watch(localPosition)가 담당
     const { tx, ty } = toCollisionTile(localPosition.value.x, localPosition.value.y)
@@ -665,6 +682,8 @@ onMounted(() => {
 onUnmounted(() => {
     clearInterval(growthTimer)
     clearTimeout(harvestToastTimer)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.removeEventListener('focus', catchUpAfterHidden)
 })
 </script>
 
