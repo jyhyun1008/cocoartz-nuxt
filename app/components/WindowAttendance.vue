@@ -131,6 +131,10 @@ async function claim() {
 #attendance-content {
     padding: 20px;
     overflow-y: auto;
+    /* 스크롤이 생기는 순간 오른쪽에만 스크롤바 폭만큼 공간이 먹혀서, margin:0 auto로 가운데
+       맞춰둔 달력(.attendance-calendar)이 그만큼 왼쪽으로 쏠려 보이던 문제 — 스크롤 여부와
+       무관하게 항상 그 공간을 미리 비워둬서 안 쏠리게 함 */
+    scrollbar-gutter: stable;
 }
 
 .attendance-hero {
@@ -195,9 +199,12 @@ async function claim() {
 /* 칸마다 테두리 + 날짜는 위, 상태 아이콘은 아래로 고정된 위치에 둠 — 예전엔 출석한 날만
    체크 아이콘이 붙어서 내용물 양이 칸마다 달랐고, aspect-ratio가 있어도 내용이 많은 칸(날짜+
    아이콘)이 내용이 적은 칸(날짜만)보다 살짝 더 늘어나 버려서 줄마다 높이가 안 맞았음 — 이제
-   모든 칸이 "날짜 + 아이콘(또는 점)"으로 항상 내용물 양이 같아서 높이가 저절로 맞음 */
+   모든 칸이 "날짜 + 아이콘(또는 점)"으로 항상 내용물 양이 같아서 높이가 저절로 맞음.
+   ⚠️ aspect-ratio는 빼고 min-height로 고정 — aspect-ratio를 grid item에 쓰면 일부
+   브라우저(특히 모바일 사파리)에서 내용이 조금만 늘어도 실제 렌더 높이가 grid의 auto row
+   트랙 계산과 안 맞아서 다음 줄이 살짝 겹쳐 보이는 문제가 있었음 */
 .attendance-cal-cell {
-    aspect-ratio: 1;
+    min-height: 48px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -243,6 +250,6 @@ async function claim() {
     text-align: center;
     font-size: 0.78rem;
     color: rgba(var(--fg-rgb),0.35);
-    margin-top: 18px;
+    margin-top: 24px;
 }
 </style>
