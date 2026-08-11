@@ -25,6 +25,9 @@ export default eventHandler(async (event) => {
     if (!shortcode || !SHORTCODE_RE.test(shortcode)) {
         throw createError({ statusCode: 400, message: '샷코드는 영문 소문자/숫자/밑줄 2~30자여야 합니다' })
     }
+    // 둘 다 선택 입력 — 관리자가 안 적으면 "미분류"/검색어 없음으로 그냥 저장(피커 쪽에서 처리)
+    const category = parts?.find((p) => p.name === 'category')?.data?.toString().trim() || null
+    const tags = parts?.find((p) => p.name === 'tags')?.data?.toString().trim() || null
 
     const [existing] = await db.select().from(customEmojis).where(eq(customEmojis.shortcode, shortcode))
     if (existing) {
@@ -48,6 +51,8 @@ export default eventHandler(async (event) => {
         shortcode,
         imageUrl,
         imageType: file.type,
+        category,
+        tags,
         createdBy: userid,
     }).returning()
 

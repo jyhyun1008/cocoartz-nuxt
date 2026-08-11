@@ -253,6 +253,13 @@
       "when": 1786431302451,
       "tag": "0035_lovely_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1786434411371,
+      "tag": "0036_curly_xorn",
+      "breakpoints": true
     }
   ]
 }

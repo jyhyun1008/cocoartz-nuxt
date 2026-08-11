@@ -260,6 +260,10 @@ export const customEmojis = pgTable('custom_emojis', {
     shortcode: text().notNull().unique(), // 콜론 없이 저장(예: "party_blob"), 매칭/렌더링 시에만 앞뒤로 콜론을 붙임
     imageUrl: text().notNull(),
     imageType: text().notNull(), // 업로드 시 MIME 타입 — 연합 태그의 icon.mediaType에 그대로 사용
+    // 이모지 수가 늘어나면서 피커에서 유니코드 이모지처럼 분류/검색이 필요해져 추가 — 둘 다
+    // 선택 입력(관리자가 안 채워도 업로드/사용엔 지장 없음, 그냥 "미분류"로만 묶임)
+    category: text(), // 피커 카테고리 칩 하나(자유 텍스트 — 기존에 쓰인 값이 admin UI 자동완성으로 나옴)
+    tags: text(), // 검색용 한국어 키워드, 공백으로 구분(예: "축하 파티 짝짝짝")
     createdBy: integer(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

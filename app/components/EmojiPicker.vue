@@ -15,16 +15,39 @@
                 emoji-version="17.0"
             ></emoji-picker>
             <div v-else-if="activeTab === 'unicode'" class="emoji-picker-loading">불러오는 중...</div>
-            <div v-if="activeTab === 'custom'" class="ep-custom-grid">
-                <button
-                    v-for="e in customEmojiList"
-                    :key="e.shortcode"
-                    class="ep-custom-item"
-                    :title="`:${e.shortcode}:`"
-                    @click="handleCustomEmojiClick(e)"
-                >
-                    <img :src="e.imageUrl" :alt="`:${e.shortcode}:`" loading="lazy" />
-                </button>
+            <div v-if="activeTab === 'custom'" class="ep-custom-panel">
+                <input
+                    v-model="customSearch"
+                    type="text"
+                    class="ep-custom-search"
+                    placeholder="이모지 검색 (샷코드·태그)"
+                />
+                <div v-if="customEmojiCategories.length" class="ep-custom-categories">
+                    <button
+                        class="ep-cat-chip"
+                        :class="{ active: customActiveCategory === 'all' }"
+                        @click="customActiveCategory = 'all'"
+                    >전체</button>
+                    <button
+                        v-for="c in customEmojiCategories"
+                        :key="c"
+                        class="ep-cat-chip"
+                        :class="{ active: customActiveCategory === c }"
+                        @click="customActiveCategory = c"
+                    >{{ c }}</button>
+                </div>
+                <div class="ep-custom-grid">
+                    <button
+                        v-for="e in filteredCustomEmojiList"
+                        :key="e.shortcode"
+                        class="ep-custom-item"
+                        :title="`:${e.shortcode}:`"
+                        @click="handleCustomEmojiClick(e)"
+                    >
+                        <img :src="e.imageUrl" :alt="`:${e.shortcode}:`" loading="lazy" />
+                    </button>
+                    <div v-if="!filteredCustomEmojiList.length" class="ep-custom-empty">검색 결과가 없어요</div>
+                </div>
             </div>
         </div>
     </Teleport>
@@ -39,11 +62,25 @@ import '@sableclient/twemoji-font'
 // 우리 서버 커스텀 이모지 — 목록이 있을 때만 "커스텀" 탭을 보여줌. 클릭하면 유니코드 이모지와
 // 동일한 select 이벤트를 :shortcode: 문자열로 emit해서, 텍스트 삽입/리액션 쪽 소비 코드를
 // 전혀 손대지 않아도 그대로 동작하게 함
-const { list: customEmojiList, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
+const { list: customEmojiList, categories: customEmojiCategories, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
 const activeTab = ref('unicode')
 function handleCustomEmojiClick(e) {
     emit('select', `:${e.shortcode}:`)
 }
+
+// 커스텀 이모지가 많아지면 유니코드 탭처럼 검색/분류가 필요해져서 추가 — 관리자가 설정에서
+// 채워둔 category(칩 하나)/tags(한국어 키워드, 공백 구분)를 그대로 씀. 둘 다 비워둔 이모지는
+// "전체"에서만 보임(특정 카테고리 칩으로는 안 걸러짐)
+const customSearch = ref('')
+const customActiveCategory = ref('all')
+const filteredCustomEmojiList = computed(() => {
+    const q = customSearch.value.trim().toLowerCase()
+    return customEmojiList.value.filter((e) => {
+        if (customActiveCategory.value !== 'all' && e.category !== customActiveCategory.value) return false
+        if (!q) return true
+        return e.shortcode.toLowerCase().includes(q) || (e.tags ?? '').toLowerCase().includes(q)
+    })
+})
 
 // 프리셋 몇 개가 아니라 유니코드 이모지 전체 중 아무거나 고를 수 있는 피커.
 // emoji-picker-element는 DOM 커스텀 엘리먼트라 서버에선 등록이 안 되므로 mounted 이후에만 렌더링함.
@@ -180,15 +217,63 @@ emoji-picker {
     color: rgba(var(--accent-fg-rgb), 1);
 }
 
-.ep-custom-grid {
+.ep-custom-panel {
     width: 360px;
     max-width: 88vw;
-    height: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ep-custom-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border-color, rgba(var(--fg-rgb),0.15));
+    background: var(--surface-2);
+    color: rgba(var(--fg-rgb), 0.85);
+    font-size: 0.82rem;
+    font-family: inherit;
+    box-shadow: var(--modal-shadow);
+}
+.ep-custom-search::placeholder { color: rgba(var(--fg-rgb), 0.3); }
+.ep-custom-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.ep-custom-categories {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+.ep-custom-categories::-webkit-scrollbar { height: 0; }
+
+.ep-cat-chip {
+    flex: none;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: rgba(var(--fg-rgb), 0.55);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--modal-shadow);
+}
+.ep-cat-chip.active {
+    background: var(--accent);
+    color: rgba(var(--accent-fg-rgb), 1);
+}
+
+.ep-custom-grid {
+    width: 100%;
+    height: 290px;
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     /* 기본값(auto + 그리드의 align-content:stretch)이면 항목이 한 줄뿐일 때 그 한 줄이
-       컨테이너 높이(360px) 전체로 늘어나면서 이모지가 대빵 커져버림 — 줄 높이를 열 너비에
+       컨테이너 높이 전체로 늘어나면서 이모지가 대빵 커져버림 — 줄 높이를 열 너비에
        맞춰 고정하고, 남는 세로 공간은 늘리지 말고 위에서부터만 채우게 함 */
     grid-auto-rows: min-content;
     align-content: start;
@@ -198,6 +283,14 @@ emoji-picker {
     border-radius: 12px;
     box-shadow: var(--modal-shadow);
     box-sizing: border-box;
+}
+
+.ep-custom-empty {
+    grid-column: 1 / -1;
+    padding: 34px 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(var(--fg-rgb), 0.35);
 }
 
 .ep-custom-item {

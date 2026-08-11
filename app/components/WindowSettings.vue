@@ -99,24 +99,59 @@
                 </p>
 
                 <div class="admin-channel-list">
-                    <div v-for="e in customEmojiList" :key="e.shortcode" class="admin-channel-item">
-                        <div class="admin-icon-preview" style="width:28px;height:28px">
-                            <NuxtImg :src="e.imageUrl" class="admin-icon-preview-img" />
+                    <div v-for="e in customEmojiList" :key="e.shortcode" class="admin-emoji-item">
+                        <div class="admin-emoji-item-row">
+                            <div class="admin-icon-preview" style="width:28px;height:28px">
+                                <NuxtImg :src="e.imageUrl" class="admin-icon-preview-img" />
+                            </div>
+                            <span class="admin-ch-name">:{{ e.shortcode }}:</span>
+                            <div class="admin-ch-actions">
+                                <button
+                                    v-if="emojiEditDraft[e.id] && isEmojiDirty(e)"
+                                    class="admin-icon-btn"
+                                    title="분류/태그 저장"
+                                    :disabled="emojiSaving[e.id]"
+                                    @click="saveCustomEmojiMeta(e)"
+                                >
+                                    <i class="hgi hgi-stroke hgi-tick-01"></i>
+                                </button>
+                                <button class="admin-icon-btn danger" @click="deleteCustomEmoji(e.id)" title="삭제">
+                                    <i class="hgi hgi-stroke hgi-delete-02"></i>
+                                </button>
+                            </div>
                         </div>
-                        <span class="admin-ch-name">:{{ e.shortcode }}:</span>
-                        <div class="admin-ch-actions">
-                            <button class="admin-icon-btn danger" @click="deleteCustomEmoji(e.id)" title="삭제">
-                                <i class="hgi hgi-stroke hgi-delete-02"></i>
-                            </button>
+                        <div v-if="emojiEditDraft[e.id]" class="admin-emoji-meta-row">
+                            <input
+                                v-model="emojiEditDraft[e.id].category"
+                                list="admin-emoji-category-options"
+                                placeholder="카테고리 (선택, 예: 반응)"
+                                class="post-input"
+                                style="flex:1"
+                            />
+                            <input
+                                v-model="emojiEditDraft[e.id].tags"
+                                placeholder="검색 태그 (공백으로 구분, 예: 축하 파티)"
+                                class="post-input"
+                                style="flex:1.4"
+                            />
                         </div>
                     </div>
                     <div v-if="!customEmojiList.length" class="empty" style="padding:14px 0">등록된 커스텀 이모지가 없습니다.</div>
                 </div>
+                <datalist id="admin-emoji-category-options">
+                    <option v-for="c in customEmojiCategories" :key="c" :value="c" />
+                </datalist>
 
                 <template v-if="objectStorageEnabled">
                     <label class="admin-label">새 이모지 추가</label>
                     <div class="admin-icon-row">
                         <input v-model="newEmojiShortcode" placeholder="샷코드 (영문 소문자/숫자/밑줄, 콜론 없이)" class="post-input" style="flex:1" />
+                    </div>
+                    <div class="admin-icon-row">
+                        <input v-model="newEmojiCategory" list="admin-emoji-category-options" placeholder="카테고리 (선택)" class="post-input" style="flex:1" />
+                        <input v-model="newEmojiTags" placeholder="검색 태그 (선택, 공백으로 구분)" class="post-input" style="flex:1.4" />
+                    </div>
+                    <div class="admin-icon-row">
                         <input type="file" ref="emojiFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleCustomEmojiFile" />
                         <button class="admin-add-btn" style="margin-left:0" @click="emojiFileInput?.click()" :disabled="customEmojiUploading || !newEmojiShortcode.trim()">
                             {{ customEmojiUploading ? '업로드 중...' : '업로드' }}
@@ -1029,8 +1064,10 @@ async function submitServerInfo() {
 }
 
 // 커스텀 이모지 관리
-const { list: customEmojiList, ensureLoaded: ensureCustomEmojisLoaded, invalidate: invalidateCustomEmojis } = useCustomEmojis()
+const { list: customEmojiList, categories: customEmojiCategories, ensureLoaded: ensureCustomEmojisLoaded, invalidate: invalidateCustomEmojis } = useCustomEmojis()
 const newEmojiShortcode = ref('')
+const newEmojiCategory = ref('')
+const newEmojiTags = ref('')
 const emojiFileInput = ref(null)
 const customEmojiUploading = ref(false)
 const customEmojiError = ref('')
@@ -1044,12 +1081,16 @@ async function handleCustomEmojiFile(e) {
         const formData = new FormData()
         formData.append('userid', String(userId.value))
         formData.append('shortcode', newEmojiShortcode.value.trim())
+        formData.append('category', newEmojiCategory.value.trim())
+        formData.append('tags', newEmojiTags.value.trim())
         formData.append('file', file)
         await $fetch(`${apiBaseUrl}/api/admin/createCustomEmoji`, {
             method: 'POST',
             body: formData,
         })
         newEmojiShortcode.value = ''
+        newEmojiCategory.value = ''
+        newEmojiTags.value = ''
         await invalidateCustomEmojis()
     } catch (err) {
         customEmojiError.value = err?.data?.message ?? '업로드에 실패했습니다'
@@ -1068,6 +1109,40 @@ async function deleteCustomEmoji(id) {
         await invalidateCustomEmojis()
     } catch (err) {
         customEmojiError.value = err?.data?.message ?? '삭제에 실패했습니다'
+    }
+}
+
+// 이모지별 카테고리/태그 인라인 편집 — 목록이 로드될 때마다 아직 초안이 없는 항목만 채워 넣어서
+// (이미 편집 중인 입력값을 재조회가 덮어쓰지 않게) 목록 fetch와 편집 상태가 서로 안 부딪히게 함
+const emojiEditDraft = reactive({})
+watch(customEmojiList, (list) => {
+    for (const e of list) {
+        if (!(e.id in emojiEditDraft)) {
+            emojiEditDraft[e.id] = { category: e.category ?? '', tags: e.tags ?? '' }
+        }
+    }
+}, { immediate: true })
+function isEmojiDirty(e) {
+    const d = emojiEditDraft[e.id]
+    return !!d && (d.category !== (e.category ?? '') || d.tags !== (e.tags ?? ''))
+}
+const emojiSaving = reactive({})
+async function saveCustomEmojiMeta(e) {
+    const d = emojiEditDraft[e.id]
+    if (!d) return
+    emojiSaving[e.id] = true
+    customEmojiError.value = ''
+    try {
+        const updated = await $fetch(`${apiBaseUrl}/api/admin/updateCustomEmoji`, {
+            method: 'POST',
+            body: { userid: userId.value, id: e.id, category: d.category, tags: d.tags },
+        })
+        emojiEditDraft[e.id] = { category: updated.category ?? '', tags: updated.tags ?? '' }
+        await invalidateCustomEmojis()
+    } catch (err) {
+        customEmojiError.value = err?.data?.message ?? '수정에 실패했습니다'
+    } finally {
+        emojiSaving[e.id] = false
     }
 }
 
@@ -1845,6 +1920,32 @@ async function doDelete() {
 }
 
 .admin-channel-item:hover { background: rgba(var(--fg-rgb),0.07); }
+
+.admin-emoji-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    background: rgba(var(--fg-rgb),0.04);
+    transition: background 0.1s;
+}
+.admin-emoji-item:hover { background: rgba(var(--fg-rgb),0.07); }
+.admin-emoji-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px;
+}
+.admin-emoji-meta-row {
+    display: flex;
+    gap: 6px;
+    padding-left: 36px;
+}
+.admin-emoji-meta-row .post-input {
+    font-size: 0.78rem;
+    padding: 5px 8px;
+}
 
 .member-action-panel {
     display: flex;

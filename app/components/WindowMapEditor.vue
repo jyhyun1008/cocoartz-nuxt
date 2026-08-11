@@ -144,7 +144,7 @@
                     class="palette-flip-btn select-mode-btn"
                     :class="{ active: placementMode === 'select' }"
                     @click="placementMode = 'select'; deselectItem()"
-                ><i class="hgi hgi-stroke hgi-mouse-left-click-01"></i> 아이템 선택/편집</button>
+                ><i class="hgi hgi-stroke hgi-mouse-left-click-01"></i> 아이템 선택</button>
                 <button
                     class="palette-flip-btn select-mode-btn"
                     :class="{ active: placementMode === 'spawn' }"
