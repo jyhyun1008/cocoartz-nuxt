@@ -71,6 +71,9 @@ export async function getRemoteUserProfile(rawHandle: string, viewerUserId?: num
         id: p.id,
         objectId: p.objectId,
         title: p.summaryIsTitle && p.summary ? stripTags(p.summary) : null,
+        // summaryIsTitle이 아닌 summary는 진짜 CW(열람주의) — 게시판/타임라인 목록 카드와 같은
+        // 규칙으로 title과 분리해서 내려주고, 프론트에서 본문 대신 경고 아이콘+문구를 보여줌
+        cw: !p.summaryIsTitle && p.summary ? stripTags(p.summary) : null,
         content: stripTags(p.content),
         published: p.published,
     }))

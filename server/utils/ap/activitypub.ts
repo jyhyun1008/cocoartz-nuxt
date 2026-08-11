@@ -8,11 +8,16 @@ export const AS_CONTEXT = 'https://www.w3.org/ns/activitystreams'
 export const SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 export const AS_PUBLIC = 'https://www.w3.org/ns/activitystreams#Public'
 
-// object(Note)의 to/cc, 없으면 activity(Create 등) 레벨의 to/cc를 확인해서
-// AS_PUBLIC이 하나라도 있으면 공개(공개/Unlisted)로 취급. 팔로워 공개, Misskey 홈 공개,
-// 다이렉트 등은 어디에도 Public이 없으므로 거부됨.
+// object(Note)의 to, 없으면 activity(Create 등) 레벨의 to에 AS_PUBLIC이 있는지만 확인 —
+// 진짜 "전체공개"만 true로 침. Mastodon 기준 공개 범위는 to/cc 조합으로 구분됨:
+//   공개(Public):        to=[Public],    cc=[followers]
+//   조용한 공개(Unlisted, "홈 공개"): to=[followers], cc=[Public]  ← Public이 cc에만 있음
+//   팔로워 공개/다이렉트: 둘 다 Public 없음
+// 예전엔 cc까지 같이 봐서 Unlisted도 공개로 쳤었는데, 그러면 팔로워/홈에서만 보이길 원한 글이
+// 연합 게시판(전체 공개 타임라인)에까지 노출되는 버그가 있었음 — to에 있을 때만(=진짜 Public)
+// 통과시켜야 이 구분이 지켜짐
 export function isPublicAudience(object: Record<string, unknown>, activity?: Record<string, unknown>): boolean {
-    const toArrays = [object.to, object.cc, activity?.to, activity?.cc]
+    const toArrays = [object.to, activity?.to]
     for (const field of toArrays) {
         const list = Array.isArray(field) ? field : field ? [field] : []
         if (list.includes(AS_PUBLIC)) return true

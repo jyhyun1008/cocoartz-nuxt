@@ -506,7 +506,8 @@ function switchFollowListTab(type) {
                                 target="_blank" rel="noopener noreferrer" class="profile-post"
                             >
                                 <div v-if="post.title" class="pp-title">{{ post.title }}</div>
-                                <div class="pp-content">{{ post.content }}</div>
+                                <div v-if="post.cw" class="pp-cw"><i class="hgi hgi-stroke hgi-alert-02"></i> {{ post.cw }}</div>
+                                <div v-else class="pp-content">{{ post.content }}</div>
                                 <div class="pp-date">{{ formatDate(post.published) }}</div>
                             </a>
                         </template>
@@ -1037,6 +1038,23 @@ function switchFollowListTab(type) {
     font-size: 0.95rem;
     color: rgba(var(--fg-rgb),0.85);
     margin-bottom: 4px;
+}
+
+/* 리모트 계정 글 목록에서 진짜 CW(열람주의)가 걸린 글 — 본문 미리보기 대신 경고 문구를 보여줌
+   (게시판/타임라인 목록 카드의 .cw-icon과 같은 색) */
+.pp-cw {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.88rem;
+    color: rgba(var(--fg-rgb),0.6);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.pp-cw i {
+    color: #ffb454;
+    flex-shrink: 0;
 }
 
 .pp-content {
