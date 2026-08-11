@@ -1,11 +1,25 @@
 import { db } from '../utils/db'
 import { users, posts, follows, rooms, remoteFollows, mutes } from '../db/schema'
 import { eq, and, desc, count, inArray, isNull } from 'drizzle-orm'
+import { getRemoteUserProfile } from '../utils/ap/remoteProfile'
 
 export default defineEventHandler(async (event) => {
     const { username, viewerUserId } = await readBody(event)
     if (!username) return null
 
+    // /@username@host — 리모트(fediverse) 유저 프로필. 로컬 유저명에 '@'를 막는 검증이 어디에도
+    // 없어서(가입 폼도 별도 제한 없음) 혹시 겹치는 경우를 대비해 로컬 조회를 먼저 시도하고, 못 찾을
+    // 때만 리모트로 취급함
+    if (username.includes('@')) {
+        const localMatch = await lookupLocalProfile(username, viewerUserId)
+        if (localMatch) return localMatch
+        return await getRemoteUserProfile(username, viewerUserId)
+    }
+
+    return await lookupLocalProfile(username, viewerUserId)
+})
+
+async function lookupLocalProfile(username: string, viewerUserId?: number) {
     const [user] = await db.select({
         id: users.id,
         username: users.username,
@@ -72,4 +86,4 @@ export default defineEventHandler(async (event) => {
     }
 
     return { ...user, posts: userPosts, followerCount, followingCount, isFollowing, isFollowRequested, myMuteLevel }
-})
+}

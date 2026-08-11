@@ -32,21 +32,42 @@ if (!userData.value) {
     throw createError({ statusCode: 404, message: '유저를 찾을 수 없습니다' })
 }
 
-const isOwn = computed(() => userId.value === userData.value?.id)
+const isOwn = computed(() => !userData.value?.isRemote && userId.value === userData.value?.id)
 
-// 팔로우 토글
+// /@username@host — 프로필 상단의 "@..." 표시는 리모트일 땐 인스턴스까지 포함한 전체 핸들로
+const atHandle = computed(() => userData.value?.isRemote ? userData.value.handle : `@${userData.value?.username ?? ''}`)
+
+// 팔로우 토글 — 로컬 유저는 followUser/unfollowUser, 리모트(fediverse) 계정은
+// followRemoteUser/unfollowRemoteUser로 완전히 다른 API를 씀(로컬은 users.id, 리모트는
+// remoteFollows 행의 id로 식별)
 const followLoading = ref(false)
 async function toggleFollow() {
     if (!userId.value || followLoading.value) return
     followLoading.value = true
     try {
-        // 요청됨 상태도 unfollowUser로 취소(follows.accepted 여부와 무관하게 그냥 행을 지움)
-        const endpoint = (userData.value?.isFollowing || userData.value?.isFollowRequested) ? 'unfollowUser' : 'followUser'
-        await $fetch(`${apiBaseUrl}/api/${endpoint}`, {
-            method: 'POST',
-            body: { userid: userId.value, targetUsername: username.value },
-        })
+        if (userData.value?.isRemote) {
+            if (userData.value?.isFollowing || userData.value?.isFollowRequested) {
+                await $fetch(`${apiBaseUrl}/api/unfollowRemoteUser`, {
+                    method: 'POST',
+                    body: { userid: userId.value, id: userData.value.followId },
+                })
+            } else {
+                await $fetch(`${apiBaseUrl}/api/followRemoteUser`, {
+                    method: 'POST',
+                    body: { userid: userId.value, handle: userData.value.handle },
+                })
+            }
+        } else {
+            // 요청됨 상태도 unfollowUser로 취소(follows.accepted 여부와 무관하게 그냥 행을 지움)
+            const endpoint = (userData.value?.isFollowing || userData.value?.isFollowRequested) ? 'unfollowUser' : 'followUser'
+            await $fetch(`${apiBaseUrl}/api/${endpoint}`, {
+                method: 'POST',
+                body: { userid: userId.value, targetUsername: username.value },
+            })
+        }
         await refresh()
+    } catch (err) {
+        alert(err?.data?.message ?? '처리 중 오류가 발생했습니다')
     } finally {
         followLoading.value = false
     }
@@ -55,21 +76,25 @@ async function toggleFollow() {
 // 뮤트 — 소프트/하드 두 개 중 하나만 켜져 있을 수 있음(같은 버튼 다시 누르면 해제).
 // 버튼 두 개를 항상 펼쳐두면 모바일에서 팔로우 버튼까지 셋이 줄줄이 붙어 너무 커 보여서,
 // "..." 버튼 뒤 드롭다운으로 접어둠(RoomMap.vue/post/[postId].vue의 채팅·게시물 뮤트 메뉴와 같은 패턴)
+// muteUser/unmuteUser는 이미 targetUserId(로컬)/targetActorUrl(리모트) 둘 다 지원해서 그대로 재사용
 const muteLoading = ref(false)
 const muteMenuOpen = ref(false)
 async function toggleMute(level) {
     if (!userId.value || muteLoading.value) return
     muteLoading.value = true
     try {
+        const targetField = userData.value?.isRemote
+            ? { targetActorUrl: userData.value.actorUrl }
+            : { targetUserId: userData.value.id }
         if (userData.value?.myMuteLevel === level) {
             await $fetch(`${apiBaseUrl}/api/unmuteUser`, {
                 method: 'POST',
-                body: { userid: userId.value, targetUserId: userData.value.id },
+                body: { userid: userId.value, ...targetField },
             })
         } else {
             await $fetch(`${apiBaseUrl}/api/muteUser`, {
                 method: 'POST',
-                body: { userid: userId.value, targetUserId: userData.value.id, level },
+                body: { userid: userId.value, ...targetField, level },
             })
         }
         await refresh()
@@ -310,7 +335,7 @@ function switchFollowListTab(type) {
             </NuxtLink>
             <span id="profile-nav-user">
                 {{ userData?.knownas ?? userData?.username }}
-                <span class="profile-nav-at">@{{ userData?.username }}</span>
+                <span class="profile-nav-at">{{ atHandle }}</span>
             </span>
         </div>
 
@@ -369,18 +394,31 @@ function switchFollowListTab(type) {
 
                 <!-- 프로필 정보 -->
                 <div id="profile-info">
-                    <div id="profile-knownas">{{ userData?.knownas ?? userData?.username }}</div>
-                    <div id="profile-username">@{{ userData?.username }}</div>
-                    <div v-if="userData?.bio" id="profile-bio">{{ userData?.bio }}</div>
+                    <div id="profile-knownas">
+                        {{ userData?.knownas ?? userData?.username }}
+                        <span v-if="userData?.isRemote" class="remote-badge" title="다른 서버(fediverse)의 계정입니다">
+                            <i class="hgi hgi-stroke hgi-globe-02"></i> 리모트
+                        </span>
+                    </div>
+                    <div id="profile-username">{{ atHandle }}</div>
+                    <div v-if="userData?.bio" id="profile-bio">
+                        <span v-if="userData?.isRemote" v-html="userData.bio"></span>
+                        <template v-else>{{ userData?.bio }}</template>
+                    </div>
                     <div id="profile-meta">
-                        <span><i class="hgi hgi-stroke hgi-calendar-01"></i> {{ joinDate }} 가입</span>
-                        <button class="profile-stat-btn" @click="openFollowList('followers')"><strong>{{ userData?.followerCount ?? 0 }}</strong> 팔로워</button>
-                        <button class="profile-stat-btn" @click="openFollowList('following')"><strong>{{ userData?.followingCount ?? 0 }}</strong> 팔로잉</button>
+                        <span v-if="joinDate"><i class="hgi hgi-stroke hgi-calendar-01"></i> {{ joinDate }} 가입</span>
+                        <template v-if="!userData?.isRemote">
+                            <button class="profile-stat-btn" @click="openFollowList('followers')"><strong>{{ userData?.followerCount ?? 0 }}</strong> 팔로워</button>
+                            <button class="profile-stat-btn" @click="openFollowList('following')"><strong>{{ userData?.followingCount ?? 0 }}</strong> 팔로잉</button>
+                        </template>
+                        <a v-else :href="userData.externalUrl" target="_blank" rel="noopener noreferrer" class="profile-stat-btn">
+                            <i class="hgi hgi-stroke hgi-link-01"></i> 원본 프로필
+                        </a>
                     </div>
                 </div>
 
-                <!-- 개인 방 -->
-                <div class="profile-section">
+                <!-- 개인 방 (리모트 유저는 이 서버에 방이 없음) -->
+                <div v-if="!userData?.isRemote" class="profile-section">
                     <div class="section-label">
                         <i class="hgi hgi-stroke hgi-home-07"></i> 개인 방
                     </div>
@@ -446,18 +484,33 @@ function switchFollowListTab(type) {
                     <div class="section-label">
                         <i class="hgi hgi-stroke hgi-grid"></i>
                         작성한 글 <span class="section-count">{{ topLevelPosts.length }}</span>
+                        <!-- 리모트 계정은 전체 글이 아니라 우리 서버 연합 타임라인에 떴던 글만 모은
+                        best-effort 목록이라 별도로 안내 -->
+                        <span v-if="userData?.isRemote" class="pp-remote-note">(이 서버 연합 타임라인에서 확인된 글만)</span>
                     </div>
 
                     <div v-if="topLevelPosts.length" class="posts-list">
-                        <NuxtLink v-for="post in topLevelPosts" :key="post.id" :to="`/post/${post.id}`" class="profile-post">
-                            <div v-if="post.room" class="pp-room-tag">
-                                <i class="hgi hgi-stroke hgi-grid"></i>
-                                {{ post.room.knownas }}
-                            </div>
-                            <div class="pp-title">{{ post.title }}</div>
-                            <div class="pp-content">{{ post.content }}</div>
-                            <div class="pp-date">{{ formatDate(post.createdAt) }}</div>
-                        </NuxtLink>
+                        <template v-if="userData?.isRemote">
+                            <a
+                                v-for="post in topLevelPosts" :key="post.id" :href="post.objectId"
+                                target="_blank" rel="noopener noreferrer" class="profile-post"
+                            >
+                                <div v-if="post.title" class="pp-title">{{ post.title }}</div>
+                                <div class="pp-content">{{ post.content }}</div>
+                                <div class="pp-date">{{ formatDate(post.published) }}</div>
+                            </a>
+                        </template>
+                        <template v-else>
+                            <NuxtLink v-for="post in topLevelPosts" :key="post.id" :to="`/post/${post.id}`" class="profile-post">
+                                <div v-if="post.room" class="pp-room-tag">
+                                    <i class="hgi hgi-stroke hgi-grid"></i>
+                                    {{ post.room.knownas }}
+                                </div>
+                                <div class="pp-title">{{ post.title }}</div>
+                                <div class="pp-content">{{ post.content }}</div>
+                                <div class="pp-date">{{ formatDate(post.createdAt) }}</div>
+                            </NuxtLink>
+                        </template>
                     </div>
                     <div v-else class="profile-empty">아직 작성한 글이 없습니다.</div>
                 </div>
@@ -835,6 +888,21 @@ function switchFollowListTab(type) {
     line-height: 1.3;
 }
 
+.remote-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb, 210,31,60),0.12);
+    border-radius: 8px;
+    padding: 2px 7px;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
 #profile-username {
     font-size: 0.88rem;
     color: rgba(var(--fg-rgb),0.4);
@@ -869,6 +937,10 @@ function switchFollowListTab(type) {
     font-family: inherit;
     color: rgba(var(--fg-rgb),0.35);
     cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     transition: color 0.1s;
 }
 .profile-stat-btn:hover { color: rgba(var(--fg-rgb),0.75); }
@@ -897,6 +969,14 @@ function switchFollowListTab(type) {
     border-radius: 10px;
     padding: 1px 7px;
     font-size: 0.72rem;
+}
+
+.pp-remote-note {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.72rem;
+    color: rgba(var(--fg-rgb),0.28);
 }
 
 .inv-shop-link {

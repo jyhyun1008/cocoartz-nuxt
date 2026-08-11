@@ -71,12 +71,12 @@
                                     ></span>
                                 </div>
                                 <div class="post-card-meta">
-                                    <span class="post-author remote-handle">
+                                    <NuxtLink :to="remoteProfilePath(p.sourceHandle)" class="post-author remote-handle" @click.stop>
                                         <NuxtImg v-if="p.sourceIconUrl" class="avatar avatar-sm" :src="p.sourceIconUrl" />
                                         <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="p.sourceName" v-html="p.sourceName"></span>
                                         <span v-else>{{ p.sourceHandle }}</span>
-                                    </span>
+                                    </NuxtLink>
                                     <span class="datetime">{{ formatDate(p.createdAt) }}</span>
                                 </div>
                                 <button v-if="p.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[p.id] = false">
@@ -126,13 +126,13 @@
                     </span>
                 </div>
                 <div class="post-meta">
-                    <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author">
+                    <NuxtLink :to="remoteProfilePath(currentRemotePost.sourceHandle)" class="post-author remote-author">
                         <NuxtImg v-if="currentRemotePost.sourceIconUrl" class="avatar avatar-sm" :src="currentRemotePost.sourceIconUrl" />
                         <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                         <span v-if="currentRemotePost.sourceName" v-html="currentRemotePost.sourceName"></span>
                         <span v-else>{{ currentRemotePost.sourceHandle }}</span>
                         <span class="remote-handle">{{ currentRemotePost.sourceHandle }}</span>
-                    </a>
+                    </NuxtLink>
                     <span class="datetime">{{ formatDate(currentRemotePost.createdAt) }}</span>
                     <div v-if="userId" class="mute-action-wrap">
                         <button class="post-icon-btn" @click.stop="toggleMuteMenu({ actorUrl: currentRemotePost.sourceActorUrl })" title="뮤트">
@@ -231,13 +231,13 @@
                         <template v-else>
                             <div class="comment-meta">
                                 <template v-if="comment.remoteActorHandle">
-                                    <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="post-author remote-author" title="fediverse에서 온 답글">
+                                    <NuxtLink :to="remoteProfilePath(comment.remoteActorHandle)" class="post-author remote-author" title="fediverse 프로필로 이동">
                                         <NuxtImg v-if="comment.remoteActorIconUrl" class="avatar avatar-sm" :src="comment.remoteActorIconUrl" />
                                         <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
                                         <span v-else>{{ comment.remoteActorHandle }}</span>
                                         <span class="remote-handle">{{ comment.remoteActorHandle }}</span>
-                                    </a>
+                                    </NuxtLink>
                                 </template>
                                 <NuxtLink v-else :to="comment.user?.username ? `/@${comment.user.username}` : '#'" class="post-author user-name-link">
                                     <NuxtImg v-if="comment.user?.avatar" class="avatar avatar-sm" :src="comment.user.avatar" />
