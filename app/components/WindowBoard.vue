@@ -699,6 +699,7 @@ const hasMoreToShow = computed(() => hasMoreFeed.value)
 // 히스토리로 재생하는 게 아니라 "바뀔 때마다 맨 뒤(방금 도착한 것)만" 보면 됨 — 히스토리 재생이
 // 필요 없는 이유는 마운트 시점 이전 것들은 이미 loadFirstPage로 받아왔기 때문
 const { federatedPostFeed } = useRoomSocket()
+const { playUpdateSound } = useSoundEffects()
 watch(federatedPostFeed, (feed) => {
     if (!props.isFederated || !feed.length) return
     const entry = feed[feed.length - 1]
@@ -706,6 +707,7 @@ watch(federatedPostFeed, (feed) => {
     const alreadyThere = feedItems.value.some((e) => e.kind === entry.kind && e.post?.id === entry.post.id)
     if (alreadyThere) return
     feedItems.value = [entry, ...feedItems.value]
+    playUpdateSound()
 })
 
 await loadFirstPage()

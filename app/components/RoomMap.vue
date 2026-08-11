@@ -346,6 +346,7 @@ const otherCharByUserId = computed(() => {
 // 재화(코인 수집) — 재화 이름(server.currencyName)을 토스트 라벨에 씀
 const { server } = await useServer()
 const { coins: coinBubbles, showCoin, hideCoin } = useCoinBubbles()
+const { playCoinSound } = useSoundEffects()
 
 // 우리 서버 커스텀 이모지(:shortcode:) — 채팅 메시지/리액션 표시 시점에 치환
 const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
@@ -949,6 +950,7 @@ async function collectCoin() {
         if (!res?.ok) return  // 서버 쿨다운 등으로 거절됨 — 배지는 이미 사라졌으니 조용히 무시
         balanceData.value = { balance: res.balance }
         showCoinToast(res.amount)
+        playCoinSound()
     } catch { /* 네트워크 오류 등 — 조용히 무시 */ }
 }
 

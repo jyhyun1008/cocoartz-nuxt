@@ -481,6 +481,7 @@ const followingFeed = computed(() =>
 // 히스토리로 재생하지 않고 "바뀔 때마다 맨 뒤(방금 도착한 것)만" 봄)이라, kind에 따라
 // localItems/remoteItems 중 맞는 쪽에만 꽂아 넣어야 followingFeed 병합·정렬이 그대로 맞음
 const { timelinePostFeed } = useRoomSocket()
+const { playUpdateSound } = useSoundEffects()
 watch(timelinePostFeed, (feed) => {
     if (!feed.length) return
     const entry = feed[feed.length - 1]
@@ -492,6 +493,7 @@ watch(timelinePostFeed, (feed) => {
         if (remoteItems.value.some((p) => p.id === entry.post.id)) return
         remoteItems.value = [entry.post, ...remoteItems.value]
     }
+    playUpdateSound()
 })
 
 // summaryIsTitle로 취급하는 원격 CW 텍스트는 "게시글 제목"인데, 원본 CW는 마스토돈/미스키 등에서
