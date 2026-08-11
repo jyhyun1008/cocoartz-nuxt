@@ -520,10 +520,11 @@ export const userItems = pgTable('user_items', {
     uniqueIndex('user_items_userid_itemid_idx').on(table.userid, table.itemid),
 ])
 
-// 출석체크 — 하루 한 번 눌러서 재화를 받음. claimedDate는 UTC 달력 날짜 문자열("YYYY-MM-DD")로
-// 하루를 나눔(유저 타임존마다 자정이 다르게 느껴질 수 있지만, 장식성 재화라 서버 하나에서 통일된
-// 기준으로 단순하게 처리하는 쪽을 택함). streak/amount는 그 시점에 계산된 값을 그대로 저장해둬서
-// (나중에 재계산 안 해도) 캘린더·이력 조회가 항상 그때 상태를 그대로 보여줌
+// 출석체크 — 하루 한 번 눌러서 재화를 받음. claimedDate는 KST 달력 날짜 문자열("YYYY-MM-DD",
+// server/utils/attendance.ts의 kstDateString)로 하루를 나눔 — 단일 한국 커뮤니티라 KST 자정
+// 기준으로 통일(예전엔 UTC 자정 기준이었는데, KST 자정~오전 9시 사이엔 이미 다음날인데도 서버는
+// "어제"로 계산해서 오출석 판정이 나는 문제가 있었음). streak/amount는 그 시점에 계산된 값을
+// 그대로 저장해둬서(나중에 재계산 안 해도) 캘린더·이력 조회가 항상 그때 상태를 그대로 보여줌
 export const attendanceClaims = pgTable('attendance_claims', {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userid: integer().notNull(),

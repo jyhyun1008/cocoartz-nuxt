@@ -2,7 +2,7 @@ import { db } from '../utils/db'
 import { attendanceClaims, currencyBalances } from '../db/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { requireUserId } from '../utils/session'
-import { attendanceRewardFor, utcDateString, addUtcDays } from '../utils/attendance'
+import { attendanceRewardFor, kstDateString, addDays } from '../utils/attendance'
 
 export default eventHandler(async (event) => {
     const { serverid } = await readBody(event)
@@ -10,8 +10,8 @@ export default eventHandler(async (event) => {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
     if (!serverid) throw createError({ statusCode: 400, message: 'serverid가 필요합니다' })
 
-    const today = utcDateString()
-    const yesterday = addUtcDays(today, -1)
+    const today = kstDateString()
+    const yesterday = addDays(today, -1)
 
     return await db.transaction(async (tx) => {
         // FOR UPDATE로 이 유저의 가장 최근 출석 행을 잠가서, 같은 순간 두 번 요청해도(연타 등)
