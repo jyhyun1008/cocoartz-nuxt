@@ -16,6 +16,10 @@
                     <div class="balance"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ balanceData?.balance ?? 0 }} {{ server?.currencyName ?? '코코아' }}</div>
                 </div>
             </NuxtLink>
+            <NuxtLink to="/attendance" id="attendance-wrapper" title="출석체크">
+                <i class="hgi hgi-stroke hgi-calendar-01"></i>
+                <span v-if="attendanceData && !attendanceData.claimedToday" class="attendance-dot" title="오늘 출석 안 함"></span>
+            </NuxtLink>
             <NuxtLink to="/shop" id="shop-wrapper" title="상점">
                 <i class="hgi hgi-stroke hgi-shopping-bag-01"></i>
             </NuxtLink>
@@ -81,6 +85,20 @@ const { data: balanceData } = await useAsyncData(
             body: { userid: userId.value, serverid: server.id },
         }).catch(() => ({ balance: 0 }))
         : { balance: 0 },
+    { watch: [userId] }
+)
+
+// 출석 여부 뱃지 — 잔액 조회랑 같은 이유(SSR 쿠키)로 useRequestFetch() 씀. "챙겨야 하는 걸
+// 깜빡하지 않게" 하는 게 이 기능의 핵심이라(출석 자체가 리마인더 목적) 페이지 로드마다 한 번씩
+// 더 물어보는 비용을 감수함
+const { data: attendanceData } = await useAsyncData(
+    `attendance-status-${server?.id}`,
+    () => (isLoggedIn.value && server?.id)
+        ? authedFetch(`${apiBaseUrl}/api/getAttendanceStatus`, {
+            method: 'POST',
+            body: { userid: userId.value, serverid: server.id },
+        }).catch(() => null)
+        : null,
     { watch: [userId] }
 )
 
@@ -176,7 +194,8 @@ async function logout() {
 
 #settings-wrapper,
 #preferences-wrapper,
-#shop-wrapper {
+#shop-wrapper,
+#attendance-wrapper {
     color: rgba(var(--fg-rgb),0.4);
     cursor: pointer;
     padding: 4px;
@@ -184,13 +203,26 @@ async function logout() {
     transition: color 0.15s, background 0.15s;
     flex-shrink: 0;
     display: flex;
+    position: relative;
 }
 
 #settings-wrapper:hover,
 #preferences-wrapper:hover,
-#shop-wrapper:hover {
+#shop-wrapper:hover,
+#attendance-wrapper:hover {
     color: rgba(var(--fg-rgb),0.9);
     background: rgba(var(--fg-rgb),0.08);
+}
+
+.attendance-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--accent);
+    border: 1.5px solid var(--sidebar-bg2);
 }
 
 #profile-left-link {
