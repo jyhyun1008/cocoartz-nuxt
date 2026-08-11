@@ -55,8 +55,6 @@
                         :flip-x="!!item.flip"
                         :flip-back="!!item.flipBack"
                         :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
-                        :behind-avatar="!!getItemDef(item.itemid)?.behindAvatar"
-                        :avatar-z-index="charZIndex"
                         :title="item.title"
                         :link="item.link"
                         interactive
@@ -684,15 +682,39 @@ function getBlockerItemZ(px, py, zCur) {
     return min
 }
 
+// 바닥에 까는 아이템(러그 등, items.meta.behindAvatar) 전용 — 위 getBlockerItemZ와 정반대 목적:
+// 이런 아이템은 오히려 캐릭터보다 항상 뒤에 있어야 하므로, 지금 서 있는 칸에 이런 아이템이 있으면
+// 그 zIndex를 돌려줌(없으면 null) — getCharZIndex가 이 값보다 한 칸 위로 캐릭터를 끌어올릴 때 씀.
+// ⚠️ 캐릭터 쪽 z-index(-4y+4z 근사식)를 기준으로 아이템 쪽을 눌러버리면 안 됨 — 두 식은 서로 다른
+// 척도라(이 파일 위쪽 getCharZIndex 주석 참고) 캐릭터가 화면 다른 곳에 있을 때의 근사값을 그대로
+// 갖다 쓰면 그 아이템이 자기 발밑 타일보다도 아래로 밀려서 "땅속에 파묻힌" 것처럼 보이는 버그가
+// 있었음. 그래서 반드시 아이템 쪽의 신뢰할 수 있는 4n+k 값을 기준으로, 캐릭터를 그 위로 끌어올리는
+// 방향으로만 계산함(getBlockerItemZ와 완전히 같은 이유로 같은 방식을 씀).
+function getFloorItemZ(px, py, zCur) {
+    const { tx: cx, ty: cy } = toCollisionTile(px, py)
+    let max = null
+    for (const it of mapInfo.value?.[1] ?? []) {
+        const iz = it.position.z ?? 0
+        if (it.position.x !== cx || it.position.y !== cy || iz !== zCur) continue
+        if (!getItemDef(it.itemid)?.behindAvatar) continue
+        const zIndex = 4 * (it.position.x + it.position.y + 2 * iz) + (iz + 1)
+        if (max === null || zIndex > max) max = zIndex
+    }
+    return max
+}
+
 // 캐릭터 z-index: 기본은 y만 쓰는 단순 근사식(+층당 4씩) — 아이템과는 좌표계가 근본적으로 달라서
 // (이동 충돌 판정 때 겪은 반 칸 오차와 같은 종류 문제) 정확히 같은 척도로 맞추긴 어려움.
 // 대신 "지금 서 있는 칸에 같은 층 아이템이 있으면 그 아이템 바로 뒤(zIndex-1)로 무조건 깔아버림"
 // 규칙으로 예외 처리 — 근사식끼리의 우연한 동률/역전과 무관하게 "같은 칸+같은 층이면 아이템이
-// 항상 아바타보다 앞" 이 확실히 보장됨.
+// 항상 아바타보다 앞" 이 확실히 보장됨. 바닥 아이템(behindAvatar)은 그 반대 예외(캐릭터를 아이템
+// 앞으로) — 둘 다 있을 수는 없는 조합이라(장식 아이템 vs 바닥 아이템) 막힘 예외를 먼저 확인함.
 function getCharZIndex(x, y, z = 0) {
     const blockerZ = getBlockerItemZ(x, y, z)
     if (blockerZ !== null) return blockerZ - 1
-    return (-4 * Math.round((y)*1) + 4) + 4 * z
+    const base = (-4 * Math.round((y)*1) + 4) + 4 * z
+    const floorZ = getFloorItemZ(x, y, z)
+    return floorZ !== null ? Math.max(base, floorZ + 1) : base
 }
 
 const charZIndex = computed(() => getCharZIndex(localPosition.value.x, localPosition.value.y, charZ.value))

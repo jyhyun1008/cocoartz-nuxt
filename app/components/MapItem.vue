@@ -115,15 +115,6 @@ const props = defineProps({
     displayWidth: { type: Number, default: 128 },
     // 깊이 정렬용 z-index. 지정 안 하면 타일과 같은 스케일로 자동 계산
     zIndex: { type: Number, default: null },
-    // 바닥에 까는 아이템(러그처럼 높이가 없는 것) 전용 — 켜져 있으면 z-index를
-    // "min(원래 계산값, avatarZIndex - 1)"로 눌러서 이 아이템이 캐릭터보다 항상 뒤에 그려지게
-    // 강제함. 타일/아이템/캐릭터가 전부 같은 스태킹 컨텍스트를 공유하지만, 아이템 z-index(4n+k)와
-    // 캐릭터 z-index는 서로 다른 식이라(RoomMap.vue 주석 참고) 자연스러운 깊이 비교만으로는
-    // "항상 뒤"를 보장 못 함 — 그래서 매 렌더마다 캐릭터의 지금 z-index를 직접 받아서 그 값보다
-    // 무조건 작아지도록 눌러버림. avatarZIndex를 안 주면(캐릭터가 없는 화면, 예: 맵 편집기)
-    // 아무 효과 없이 원래 계산값을 그대로 씀
-    behindAvatar: { type: Boolean, default: false },
-    avatarZIndex: { type: Number, default: null },
     // 캔버스 높이(spriteHeight) 중 실제 바닥 접점의 위치 비율(0~1, 위에서부터). 기본 1 = 캔버스 맨 아래
     groundRatio: { type: Number, default: 1 },
     // 레이어 사이 추가 간격에 곱해지는 배율 — 아이템별로 "몇 층 높이짜리"인지 조절할 때 사용(기본 1)
@@ -303,20 +294,12 @@ const hitboxStyle = computed(() => ({
     height: `${layerHeight.value.toFixed(2)}px`,
 }))
 
-// behindAvatar일 때만, avatarZIndex가 있으면 그보다 한 칸 낮게 눌러버림 — 원래 계산값이 이미 그보다
-// 낮으면(멀리 있는 물건이라 자연스럽게 뒤에 그려질 상황) 그대로 두고, 앞으로 튀어나올 상황에서만 개입함
-const effectiveZIndex = computed(() => {
-    const base = props.zIndex ?? defaultZIndex.value
-    if (props.behindAvatar && props.avatarZIndex != null) return Math.min(base, props.avatarZIndex - 1)
-    return base
-})
-
 const wrapperStyle = computed(() => ({
     left: `calc(50% + ${screenX.value - props.displayWidth / 2}px)`,
     top: `calc(50% + ${anchorY.value - groundLocalY.value - extraTop.value}px)`,
     width: `${props.displayWidth}px`,
     height: `${wrapperHeight.value}px`,
-    zIndex: effectiveZIndex.value,
+    zIndex: props.zIndex ?? defaultZIndex.value,
 }))
 
 // 피사계심도(blur)는 wrapper가 아니라 .map-item-stack(스프라이트 본체)에만 걸어서, 같은 wrapper

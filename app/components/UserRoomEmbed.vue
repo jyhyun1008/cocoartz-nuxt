@@ -56,8 +56,6 @@
                             :flip-back="!!item.flipBack"
                             :flip-back-offsets="getItemFlipBackOffsets(item.itemid)"
                             :layer-opacities="cropGrowthFor(item)?.layerOpacities ?? []"
-                            :behind-avatar="shouldRenderBehindAvatar(item)"
-                            :avatar-z-index="charZIndex"
                             :title="item.title"
                             :link="item.link"
                             interactive
@@ -395,11 +393,33 @@ const sortedTiles = computed(() => {
     })
 })
 
+// 바닥에 까는 아이템(러그·아직 다 안 자란 작물 등, shouldRenderBehindAvatar) 전용 — 지금 서 있는
+// 칸에 그런 아이템이 있으면 그 zIndex를 돌려줌(없으면 null). RoomMap.vue의 getFloorItemZ와 완전히
+// 같은 이유/방식(주석 참고) — 캐릭터 쪽 근사식이 아니라 반드시 아이템 쪽의 신뢰할 수 있는 4n+k 값을
+// 기준으로 캐릭터를 그 위로 끌어올려야, 캐릭터가 화면 다른 곳에 있을 때의 근사값을 잘못 갖다 써서
+// 아이템이 자기 발밑 타일보다도 아래로 눌려 "땅속에 파묻힌" 것처럼 보이는 사고를 피할 수 있음.
+function getFloorItemZ(tx, ty, zCur) {
+    let max = null
+    for (const item of mapItems.value) {
+        const iz = item.position.z ?? 0
+        if (item.position.x !== tx || item.position.y !== ty || iz !== zCur) continue
+        if (!shouldRenderBehindAvatar(item)) continue
+        const zIndex = 4 * (item.position.x + item.position.y + 2 * iz) + (iz + 1)
+        if (max === null || zIndex > max) max = zIndex
+    }
+    return max
+}
+
 // RoomMap.vue의 getCharZIndex와 같은 스케일(타일의 4n+k와 맞물리는 공식) — 예전엔 옛 타일 z-index
 // 스케일(~10000대)에 맞춘 y*-10+9999를 썼는데, 타일이 공용 composable의 4n+k로 바뀌면서 스케일이
 // 완전히 어긋나 캐릭터가 항상 맨 위에 뜨는 버그가 됐었음. 여긴 다른 유저/아이템 충돌 판정이 없는
-// 단순 미리보기라 RoomMap.vue의 "블로커 아이템" 예외 없이 기본 공식만 씀
-const charZIndex = computed(() => -4 * Math.round(localPosition.value.y) + 4 + 4 * charZ.value)
+// 단순 미리보기라 RoomMap.vue의 "블로커 아이템" 예외는 없고, 바닥 아이템 예외만 적용함
+const charZIndex = computed(() => {
+    const { tx, ty } = toCollisionTile(localPosition.value.x, localPosition.value.y)
+    const base = -4 * Math.round(localPosition.value.y) + 4 + 4 * charZ.value
+    const floorZ = getFloorItemZ(tx, ty, charZ.value)
+    return floorZ !== null ? Math.max(base, floorZ + 1) : base
+})
 
 const tilesScaleStyle = computed(() => {
     const ox = localPosition.value.x * 32
