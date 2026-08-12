@@ -2174,6 +2174,11 @@ async function doDelete() {
 
 .danger-btn {
     background-color: #c0102a !important;
+    /* .admin-add-btn/.pref-theme-btn 등 이 클래스랑 같이 쓰이는 베이스 버튼들이 전부
+       color를 테마 글자색(rgba(fg,0.8) 등)으로 깔아둬서, 빨간 배경 위에서 대비가 낮아 보임 —
+       위험 버튼은 항상 흰 글자로 통일 */
+    color: #fff !important;
+    border-color: transparent !important;
 }
 .danger-btn:hover { background-color: #a00020 !important; }
 </style>
