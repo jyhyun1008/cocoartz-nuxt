@@ -2,6 +2,8 @@ import { db } from '../../utils/db'
 import { users, items } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { requireUserId } from '../../utils/session'
+import { compositeIconFromLayerUrls } from '../../utils/shopItemAssets'
+import { uploadImage } from '../../utils/objectStorage'
 
 async function checkAdmin(userid: number) {
     if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
@@ -11,7 +13,7 @@ async function checkAdmin(userid: number) {
 
 // category/itemKey는 여기서 못 바꿈 — 이미 인벤토리·캐릭터·맵에 그 값으로 참조가 걸려있어서
 // 바꾸면 기존 보유자/배치가 다 깨짐. 다른 카테고리/키로 옮기고 싶으면 새로 등록하고 이건 지울 것.
-// icon/layers도 uploadShopIcon.ts / uploadMapItemLayers.ts로 먼저 업로드한 URL만 받음(createShopItem.ts와 동일)
+// icon/layers도 uploadShopIcon.ts / uploadMapItemLayer.ts로 먼저 업로드한 URL만 받음(createShopItem.ts와 동일)
 export default eventHandler(async (event) => {
     const body = await readBody(event)
     const { id, name, description, price, active, icon, layers, isDefault, blocksMovement, decoLayer, growSeconds, rewardMin, rewardMax, behindAvatar } = body
@@ -48,10 +50,26 @@ export default eventHandler(async (event) => {
     const wasMapPlaceable = existing.category === 'map_item' || (existing.category === 'functional' && Array.isArray(existingMeta?.layers))
 
     if (wasMapPlaceable) {
-        // 6장을 통째로 새로 올렸을 때만(부분 교체 불가) 갈아끼움 — 안 왔으면 기존 레이어 그대로 둬서
-        // 이미 맵에 놓인 아이템들이 갑자기 사라지지 않게 함
-        const newLayers = Array.isArray(layers) && layers.length === 6 ? layers : existingMeta?.layers
-        if (Array.isArray(layers) && layers.length === 6 && icon) patch.icon = icon
+        // 이제 layers는 항상 길이 6 배열로 오되, 이번에 안 바꾼 칸(관리자 화면에서 그 번호 칸을
+        // 새로 안 눌렀으면)은 null/undefined로 옴 — 그 자리만 기존 값으로 메워서 "바꾼 칸만 실제로
+        // 새로 올라간" 부분 교체를 지원함(예전엔 6장을 통째로 다시 안 올리면 아예 교체 자체가 안 됐음)
+        const existingLayers: (string | null)[] = Array.isArray(existingMeta?.layers) ? existingMeta.layers : new Array(6).fill(null)
+        const mergedLayers = Array.isArray(layers) && layers.length === 6
+            ? layers.map((l: unknown, i: number) => (typeof l === 'string' && l) ? l : existingLayers[i])
+            : existingLayers
+        if (mergedLayers.some((l) => !l)) {
+            throw createError({ statusCode: 400, message: '레이어 6장이 모두 채워져 있어야 합니다' })
+        }
+
+        // 레이어가 실제로 하나라도 바뀌었을 때만 최신 6장 기준으로 아이콘을 다시 합성함(안 바뀌었으면
+        // 기존 아이콘 그대로 둬서 매번 저장할 때마다 불필요한 재합성이 안 일어나게 함)
+        const layersChanged = Array.isArray(layers) && layers.length === 6
+            && layers.some((l: unknown, i: number) => typeof l === 'string' && l && l !== existingLayers[i])
+        if (layersChanged) {
+            const iconBuffer = await compositeIconFromLayerUrls(mergedLayers as string[])
+            patch.icon = await uploadImage(iconBuffer, 'image/png', 'map-items')
+        }
+
         // 바닥에 까는 아이템 여부 — 안 보내면(undefined) 기존 값 유지
         const finalBehindAvatar = behindAvatar !== undefined ? behindAvatar === true : existingMeta?.behindAvatar === true
 
@@ -63,9 +81,9 @@ export default eventHandler(async (event) => {
             if (!finalGrowSeconds) throw createError({ statusCode: 400, message: '작물의 성장 시간(초)이 필요합니다' })
             const finalRewardMin = rewardMin !== undefined ? Math.max(0, Math.floor(Number(rewardMin) || 0)) : existingMeta?.rewardMin ?? 20
             const finalRewardMax = rewardMax !== undefined ? Math.max(finalRewardMin, Math.floor(Number(rewardMax) || 0)) : Math.max(finalRewardMin, existingMeta?.rewardMax ?? 30)
-            patch.meta = JSON.stringify({ layers: newLayers, growSeconds: finalGrowSeconds, rewardMin: finalRewardMin, rewardMax: finalRewardMax, behindAvatar: finalBehindAvatar })
+            patch.meta = JSON.stringify({ layers: mergedLayers, growSeconds: finalGrowSeconds, rewardMin: finalRewardMin, rewardMax: finalRewardMax, behindAvatar: finalBehindAvatar })
         } else {
-            patch.meta = JSON.stringify({ layers: newLayers, behindAvatar: finalBehindAvatar })
+            patch.meta = JSON.stringify({ layers: mergedLayers, behindAvatar: finalBehindAvatar })
         }
     } else if (icon !== undefined) {
         patch.icon = icon || null

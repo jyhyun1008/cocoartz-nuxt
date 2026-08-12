@@ -1,7 +1,7 @@
 import { db } from '../../utils/db'
 import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
-import { partString, uploadMapItemLayers } from '../../utils/shopItemAssets'
+import { uploadSingleMapItemLayer } from '../../utils/shopItemAssets'
 import { requireUserId } from '../../utils/session'
 
 async function checkAdmin(userid: number) {
@@ -10,12 +10,13 @@ async function checkAdmin(userid: number) {
     if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
 }
 
-// 맵 아이템 레이어 1~6장을 업로드하고, 실제 렌더링과 동일한 비율로 합성한 미리보기 아이콘까지
-// 만들어서 { layers, icon } 으로 돌려줌 — createShopItem/updateShopItem은 이 결과를 그대로 받아서 저장만 함
+// 맵 아이템/작물의 레이어 칸 하나(1~6번 중 하나)만 업로드 — createShopItem/updateShopItem이
+// 6개 칸이 최종적으로 다 채워진 뒤에(이번에 새로 올린 것 + 기존 값) 아이콘을 합성해서 저장함
 export default eventHandler(async (event) => {
     const parts = await readMultipartFormData(event)
     const userid = await requireUserId(event)
     await checkAdmin(userid)
 
-    return await uploadMapItemLayers(parts)
+    const url = await uploadSingleMapItemLayer(parts)
+    return { url }
 })

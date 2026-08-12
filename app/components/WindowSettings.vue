@@ -426,7 +426,6 @@
                      쓰면 Vue가 자동으로 배열로 묶어버려서 예전엔 함수 ref로 우회했었는데, 그 방식이 avatar-part
                      쪽 "다시 올리기" 버튼에서 클릭이 씹히는 문제가 있어서 아예 루프 밖으로 뺌) -->
                 <input type="file" ref="shopEditIconFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleShopEditIconFile" />
-                <input type="file" ref="shopEditLayersFileInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none" @change="handleShopEditLayersFile" />
 
                 <div class="admin-channel-list">
                     <template v-for="item in filteredShopItems" :key="item.id">
@@ -521,19 +520,15 @@
                                 </p>
                             </template>
                             <template v-else>
-                                <label class="admin-label">레이어 6장 <span class="admin-label-hint">바꾸고 싶을 때만 — 6장 전부 새로 선택</span></label>
-                                <div class="admin-icon-row">
-                                    <div class="admin-icon-preview">
-                                        <NuxtImg v-if="shopEditForm.icon" :src="shopEditForm.icon" class="admin-icon-preview-img" />
-                                        <i v-else class="hgi hgi-stroke hgi-image-02"></i>
-                                    </div>
-                                    <template v-if="objectStorageEnabled">
-                                        <button class="admin-add-btn" style="margin-left:0" @click="shopEditLayersFileInput?.click()" :disabled="shopEditLayersUploading">
-                                            {{ shopEditLayersUploading ? '업로드·합성 중...' : '6장 새로 선택' }}
-                                        </button>
-                                    </template>
-                                    <p v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 레이어를 못 바꿔요.</p>
-                                </div>
+                                <label class="admin-label">레이어 6장 <span class="admin-label-hint">바꿀 칸만 눌러서 새로 올리면 돼요 — 안 누른 칸은 그대로 유지돼요</span></label>
+                                <template v-if="objectStorageEnabled">
+                                    <ShopLayerSlots
+                                        v-model="shopEditForm.layers"
+                                        :existing-layers="cropMetaOf(item)?.layers ?? []"
+                                        @error="e => shopEditError = e"
+                                    />
+                                </template>
+                                <p v-else class="admin-label-hint">오브젝트 스토리지 미설정 — 레이어를 못 바꿔요.</p>
                                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;margin:4px 0">
                                     <input type="checkbox" v-model="shopEditForm.behindAvatar" /> 바닥에 까는 아이템(캐릭터보다 항상 뒤에 표시)
                                 </label>
@@ -578,12 +573,6 @@
                     <span class="admin-label-hint">(농사 시스템 — 프로필 개인 홈 맵에 심어서 시간이 지나면 다 자라고, 밟으면 수확)</span>
                 </label>
 
-                <template v-if="newShopItem.category && !newItemNeedsLayers">
-                    <label class="admin-label">itemKey <span class="admin-label-hint">아바타/지형=이미지를 새로 올릴 거면 안 쓰는 번호로(겹치는 번호가 있으면 등록이 막혀요), 기능/소모품=자유 문자열</span></label>
-                    <input v-model="newShopItem.itemKey" placeholder="예: 2" class="post-input" />
-                </template>
-                <p v-else-if="newItemNeedsLayers" class="admin-label-hint">itemKey를 저장할 때 자동으로 지정해요.</p>
-
                 <label class="admin-label">이름</label>
                 <input v-model="newShopItem.name" placeholder="상점에 보일 이름" class="post-input" />
                 <label class="admin-label">설명 <span class="admin-label-hint">선택</span></label>
@@ -619,20 +608,21 @@
                     </label>
                     <label v-else class="admin-label">파츠 이미지 <span class="admin-label-hint">768×1024, 정면·측면·후면 3열×4행 프레임시트(캐릭터 시트와 같은 형식)</span></label>
                     <div class="admin-icon-row">
-                        <AvatarPartIcon
-                            v-if="newShopItem.itemKey"
-                            :part="avatarPartFromCategory(newShopItem.category)" :variant="newShopItem.itemKey" :size="56"
-                            :src-override="newShopItem.icon"
-                        />
-                        <div v-else class="admin-icon-preview"><i class="hgi hgi-stroke hgi-image-02"></i></div>
+                        <div class="admin-icon-preview">
+                            <NuxtImg v-if="newShopItem.icon" :src="newShopItem.icon" class="admin-icon-preview-img" />
+                            <i v-else class="hgi hgi-stroke hgi-image-02"></i>
+                        </div>
                         <template v-if="objectStorageEnabled">
                             <input type="file" ref="newShopIconFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" @change="handleNewShopIconFile" />
                             <button class="admin-add-btn" style="margin-left:0" @click="newShopIconFileInput?.click()" :disabled="newShopIconUploading">
                                 {{ newShopIconUploading ? '업로드 중...' : (newShopItem.icon ? '다시 선택' : '업로드') }}
                             </button>
-                            <span v-if="!newShopItem.icon" class="admin-label-hint">업로드 안 하면 itemKey로 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로를 그대로 씀(이미 그 파일이 배포돼있을 때만)</span>
+                            <span v-if="!newShopItem.icon" class="admin-label-hint">업로드 안 하면, 저장 후 발급되는 itemKey에 맞춰 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로에 파일을 배포해뒀을 때만 그 그림을 씀</span>
                         </template>
-                        <span v-else class="admin-label-hint">오브젝트 스토리지 미설정 — itemKey로 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로를 그대로 씀(이미 그 파일이 배포돼있어야 함)</span>
+                        <template v-else>
+                            <input v-model="newShopItem.icon" placeholder="https://example.com/icon.png" class="post-input" style="flex:1" />
+                            <span class="admin-label-hint">오브젝트 스토리지 미설정 — URL을 직접 입력하거나, 비워두고 저장 후 발급되는 itemKey에 맞춰 /character/{{ avatarPartFromCategory(newShopItem.category) }}/{itemKey}.png 경로에 파일을 배포하세요</span>
+                        </template>
                     </div>
                 </template>
                 <template v-else-if="newShopItem.category && !newItemNeedsLayers">
@@ -653,18 +643,9 @@
                 </template>
 
                 <template v-if="newItemNeedsLayers">
-                    <label class="admin-label">레이어 이미지 6장 <span class="admin-label-hint">1~6 순서로 한 번에 선택 — 실제로 맵에 놓였을 때처럼 겹친 아이콘을 자동으로 만들어요</span></label>
+                    <label class="admin-label">레이어 이미지 6장 <span class="admin-label-hint">1번 칸이 맨 위(가장 도드라짐), 6번 칸이 맨 아래(바닥/발밑) — 칸을 하나씩 눌러서 채워요. 저장하면 실제로 맵에 놓였을 때처럼 겹친 아이콘을 서버가 자동으로 만들어요</span></label>
                     <template v-if="objectStorageEnabled">
-                        <div class="admin-icon-row">
-                            <div v-if="newShopItem.icon" class="admin-icon-preview">
-                                <NuxtImg :src="newShopItem.icon" class="admin-icon-preview-img" />
-                            </div>
-                            <input type="file" ref="newMapLayersFileInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none" @change="handleNewMapLayersFile" />
-                            <button class="admin-add-btn" style="margin-left:0" @click="newMapLayersFileInput?.click()" :disabled="mapLayersUploading">
-                                {{ mapLayersUploading ? '업로드·합성 중...' : (newShopItem.layers.length ? '다시 선택' : '6장 선택') }}
-                            </button>
-                            <span v-if="newShopItem.layers.length" class="admin-label-hint">{{ newShopItem.layers.length }}장 업로드됨</span>
-                        </div>
+                        <ShopLayerSlots v-model="newShopItem.layers" @error="e => newShopItemError = e" />
                     </template>
                     <p v-else class="admin-label-hint">오브젝트 스토리지가 설정되지 않아 이 아이템을 등록할 수 없어요.</p>
 
@@ -1242,7 +1223,7 @@ function isCropItem(item) {
 // 새 아이템 등록
 function emptyShopForm() {
     return {
-        category: '', itemKey: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [],
+        category: '', name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: new Array(6).fill(null),
         // 작물(농사 시스템) 전용 — category가 functional일 때만 의미 있음
         isCrop: false, growSeconds: 60, rewardMin: 20, rewardMax: 30,
         // map_item/작물 공통 — 바닥에 까는 아이템(캐릭터보다 항상 뒤에 표시)
@@ -1254,8 +1235,6 @@ const newShopItemError = ref('')
 const newShopItemSaving = ref(false)
 const newShopIconFileInput = ref(null)
 const newShopIconUploading = ref(false)
-const newMapLayersFileInput = ref(null)
-const mapLayersUploading = ref(false)
 
 async function handleNewShopIconFile(e) {
     const file = e.target.files?.[0]
@@ -1275,33 +1254,6 @@ async function handleNewShopIconFile(e) {
     e.target.value = ''
 }
 
-async function uploadLayersFor(e, targetForm, errorRef, uploadingRef) {
-    const files = Array.from(e.target.files ?? [])
-    if (files.length !== 6) {
-        errorRef.value = `레이어는 정확히 6장이어야 해요 (선택함: ${files.length}장)`
-        e.target.value = ''
-        return
-    }
-    uploadingRef.value = true
-    errorRef.value = ''
-    try {
-        const formData = new FormData()
-        formData.append('userid', String(userId.value))
-        files.forEach((file, i) => formData.append(`layer${i + 1}`, file))
-        const result = await $fetch(`${apiBaseUrl}/api/admin/uploadMapItemLayers`, { method: 'POST', body: formData })
-        targetForm.layers = result.layers
-        targetForm.icon = result.icon
-    } catch (err) {
-        errorRef.value = err?.data?.message ?? '업로드에 실패했습니다'
-    }
-    uploadingRef.value = false
-    e.target.value = ''
-}
-
-function handleNewMapLayersFile(e) {
-    return uploadLayersFor(e, newShopItem, newShopItemError, mapLayersUploading)
-}
-
 // map_item이거나, functional인데 "작물로 만들기"를 켠 경우 — 둘 다 itemKey를 자동 배정하고
 // 레이어 6장이 필요함(createShopItem.ts의 isMapPlaceable과 같은 판정)
 const isNewCrop = computed(() => newShopItem.category === 'functional' && newShopItem.isCrop)
@@ -1311,8 +1263,7 @@ async function submitNewShopItem() {
     newShopItemError.value = ''
     if (!newShopItem.category) { newShopItemError.value = '카테고리를 선택해주세요'; return }
     if (!newShopItem.name.trim()) { newShopItemError.value = '이름을 입력해주세요' ; return }
-    if (!newItemNeedsLayers.value && !newShopItem.itemKey.trim()) { newShopItemError.value = 'itemKey를 입력해주세요'; return }
-    if (newItemNeedsLayers.value && newShopItem.layers.length !== 6) { newShopItemError.value = '레이어 6장을 먼저 업로드해주세요'; return }
+    if (newItemNeedsLayers.value && newShopItem.layers.filter(Boolean).length !== 6) { newShopItemError.value = '레이어 6장을 모두 채워주세요'; return }
     if (isNewCrop.value && !newShopItem.growSeconds) { newShopItemError.value = '성장 시간(초)을 입력해주세요'; return }
 
     newShopItemSaving.value = true
@@ -1322,7 +1273,6 @@ async function submitNewShopItem() {
             body: {
                 userid: userId.value,
                 category: newShopItem.category,
-                itemKey: newShopItem.itemKey.trim(),
                 name: newShopItem.name.trim(),
                 description: newShopItem.description.trim(),
                 price: newShopItem.price,
@@ -1349,13 +1299,11 @@ async function submitNewShopItem() {
 
 // 인라인 수정
 const editingShopItemId = ref(null)
-const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: [], growSeconds: 60, rewardMin: 20, rewardMax: 30, behindAvatar: false })
+const shopEditForm = reactive({ name: '', description: '', price: 0, active: true, isDefault: false, blocksMovement: false, decoLayer: 'back', icon: '', layers: new Array(6).fill(null), growSeconds: 60, rewardMin: 20, rewardMax: 30, behindAvatar: false })
 const shopEditError = ref('')
 const shopEditSaving = ref(false)
 const shopEditIconFileInput = ref(null)
 const shopEditIconUploading = ref(false)
-const shopEditLayersFileInput = ref(null)
-const shopEditLayersUploading = ref(false)
 
 // 새로 등록한 맵 아이템은 항상 itemKey가 자기 DB id 문자열과 같음(createShopItem.ts). 그게 안
 // 맞으면 코드에 내장된 레거시 카탈로그(useItemCatalog.ts STATIC_ITEM_CATALOG)를 가리키는 것만을
@@ -1377,7 +1325,7 @@ function toggleEditShopItem(item) {
     shopEditForm.blocksMovement = !!item.blocksMovement
     shopEditForm.decoLayer = item.category === 'avatar_deco' ? decoLayerOf(item.meta) : 'back'
     shopEditForm.icon = item.icon ?? ''
-    shopEditForm.layers = [] // 새로 6장 올릴 때만 채워짐 — 비어있으면 update 쪽에서 기존 값 유지
+    shopEditForm.layers = new Array(6).fill(null) // 바꾼 칸만 채워짐 — null인 칸은 update 쪽에서 기존 값 유지
     const cropMeta = cropMetaOf(item)
     shopEditForm.growSeconds = cropMeta?.growSeconds ?? 60
     shopEditForm.rewardMin = cropMeta?.rewardMin ?? 20
@@ -1405,10 +1353,6 @@ async function handleShopEditIconFile(e) {
     e.target.value = ''
 }
 
-function handleShopEditLayersFile(e) {
-    return uploadLayersFor(e, shopEditForm, shopEditError, shopEditLayersUploading)
-}
-
 async function submitEditShopItem(item) {
     shopEditError.value = ''
     if (!shopEditForm.name.trim()) { shopEditError.value = '이름을 입력해주세요'; return }
@@ -1428,7 +1372,7 @@ async function submitEditShopItem(item) {
                 blocksMovement: item.category === 'terrain' ? shopEditForm.blocksMovement : undefined,
                 decoLayer: item.category === 'avatar_deco' ? shopEditForm.decoLayer : undefined,
                 icon: (item.category === 'map_item' || isCropItem(item)) ? undefined : (shopEditForm.icon || null),
-                layers: (item.category === 'map_item' || isCropItem(item)) && shopEditForm.layers.length === 6 ? shopEditForm.layers : undefined,
+                layers: (item.category === 'map_item' || isCropItem(item)) ? shopEditForm.layers : undefined,
                 growSeconds: isCropItem(item) ? shopEditForm.growSeconds : undefined,
                 rewardMin: isCropItem(item) ? shopEditForm.rewardMin : undefined,
                 rewardMax: isCropItem(item) ? shopEditForm.rewardMax : undefined,
