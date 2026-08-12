@@ -13,6 +13,8 @@ let _suppressReconnect = false
 // 재연결은 되는데 "그 방에 있다"는 사실 자체를 서버가 모르는 채로 조용히 남아서, 위치 동기화는
 // 물론 방 기반 브로드캐스트(연합 게시판 실시간 스트리밍 등)도 다시 join할 때까지 계속 못 받음
 let _lastJoinParams: { roomPath: string; userId: number; x: number; y: number; z: number } | null = null
+// 지금 연결이 "이 로그인 상태"로 열렸다고 서버가 인식하고 있는 스냅샷 — 아래 connect() 참고
+let _wsUserId: number | null = null
 
 // 아무 동작(이동/채팅) 없이 가만히 있으면 리버스 프록시/방화벽이 "조용한" 연결을 끊어버리는
 // 경우가 있음 — 그러면 서버는 진짜로 나간 걸로 처리해서 user_left를 쏘고, 클라이언트는 3초
@@ -135,11 +137,29 @@ export function useRoomSocket() {
     }
   }
 
-  function connect(apiBaseUrl: string) {
+  function connect(apiBaseUrl: string, userId: number | null = _wsUserId) {
     if (!import.meta.client) return
     _apiBaseUrl = apiBaseUrl
-    if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) return
 
+    if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) {
+      if (_wsUserId === userId) return  // 이미 같은 로그인 상태로 연결/연결 시도 중 — 재사용
+      // 로그인 상태가 바뀜(예: 손님으로 방에 있다가 그 자리에서 로그인) — 웹소켓은 최초 연결
+      // 핸드셰이크 때 실린 쿠키를 그 연결이 끊길 때까지 그대로 들고 있어서(server/routes/_ws.ts가
+      // join마다 peer.request.headers에서 쿠키를 다시 읽긴 하지만 peer.request 자체가 접속
+      // 시점 스냅샷이라 안 바뀜), 같은 소켓으로 join을 다시 보내봤자 서버는 계속 로그인 전(손님)
+      // 신원으로만 인식함 — 새 쿠키가 실리려면 새 업그레이드 요청이 필요하니 소켓을 강제로 닫고
+      // 새로 엶. onclose를 먼저 떼고 직접 닫아서 3초 자동재연결과 안 겹치게 함(서버 쪽은 정상
+      // close로 처리돼 removePeer→user_left가 그대로 나가므로 옛 신원 캐릭터가 유령으로 안 남음)
+      _ws.onclose = null
+      try { _ws.close() } catch {}
+      _ws = null
+      if (_heartbeatTimer) {
+        clearInterval(_heartbeatTimer)
+        _heartbeatTimer = null
+      }
+    }
+
+    _wsUserId = userId
     _ws = new WebSocket(getWsUrl())
     _ws.onmessage = handleMessage
     _ws.onopen = () => {
@@ -157,7 +177,7 @@ export function useRoomSocket() {
       }
       if (_suppressReconnect) return
       // Reconnect after 3 seconds
-      _reconnectTimer = setTimeout(() => connect(_apiBaseUrl), 3000)
+      _reconnectTimer = setTimeout(() => connect(_apiBaseUrl, _wsUserId), 3000)
     }
     _ws.onerror = () => {
       _ws?.close()
@@ -216,10 +236,10 @@ export function useRoomSocket() {
   // 'kicked' 배너에서 유저가 명시적으로 다시 접속을 시도할 때(예: "여기서 계속하기" 버튼) 호출 —
   // 자동 재연결 억제를 풀고 바로 새 연결을 시작함. 이 탭에서 이어가면 이번엔 반대로 다른 쪽이
   // (아직 열려 있었다면) 밀려남
-  function resumeConnection() {
+  function resumeConnection(userId: number | null = _wsUserId) {
     _suppressReconnect = false
     kickedReason.value = null
-    connect(_apiBaseUrl)
+    connect(_apiBaseUrl, userId)
   }
 
   // 그 채널을 실제로 열어봤을 때(ServerSidebar.vue가 현재 경로와 비교해서 호출) 안 읽음 표시를

@@ -88,7 +88,7 @@
                         :local-z="other.z ?? 0"
                         :z-index="getOtherZIndex(other)"
                         :direction="other.dir"
-                        :name="other.user?.knownas ?? other.user?.username ?? '?'"
+                        :name="other.user?.knownas ?? other.user?.username ?? guestLabel(other.userId) ?? '?'"
                         :user-id="other.userId"
                         :jump-pulse="jumpPulses[other.userId]"
                         @avatar-click="openProfileCard(other.user, $event)"
@@ -391,7 +391,7 @@ const kickedMessage = computed(() => {
 // 반대쪽(원래 있던 탭)이 실제로는 안 쫓겨나고 이 탭도 다른 유저 눈엔 계속 없는 상태로 남는 문제가
 // 있었음. 그래서 재연결 직후 바로 다시 join까지 보냄(초기 마운트 때와 동일한 순서/인자)
 function handleResumeClick() {
-    resumeConnection()
+    resumeConnection(userId.value)
     joinRoom(props.path, userId.value, localPosition.value.x, localPosition.value.y, charZ.value)
 }
 
@@ -478,6 +478,17 @@ async function loadMyMutes() {
 }
 loadMyMutes()
 watch(userId, loadMyMutes)
+
+// 방을 구경하던 손님이 그 자리에서(페이지 이동 없이) 로그인하면 — WS 연결은 라우트 이동에도
+// 안 끊기게 모듈 싱글턴으로 유지되는데, connect()가 이 로그인 상태 변화를 보고 소켓을 새로
+// 열어줘야(위 useRoomSocket.ts의 connect() 참고 — 같은 소켓을 재사용하면 서버가 접속 시점
+// 쿠키 스냅샷 그대로 계속 손님으로 인식함) 다른 유저들 눈에 계속 손님 모습(물음표/이전 외형)이
+// 남는 문제가 없어짐. onMounted가 처음 진입만 처리하므로 여기서 로그인/로그아웃 전환만 따로 잡음
+watch(userId, (val, oldVal) => {
+    if (val === oldVal) return
+    connect(apiBaseUrl, val)
+    joinRoom(props.path, val, localPosition.value.x, localPosition.value.y, charZ.value)
+})
 
 // 재화 잔액 — key를 'balance-data-{serverid}' 형태로 고정해서 ServerProfilebar.vue가 같은 키로
 // useAsyncData를 부르면 Nuxt가 데이터를 공유해줌(useServer()의 'server-data' 키랑 같은 요령) —
@@ -1180,7 +1191,7 @@ onMounted(() => {
     // ensureLoaded 자체도 이미 loaded면 바로 반환하니 여기 남겨놔도 해는 없지만 혼동 방지로 제거함)
 
     // WebSocket 연결 및 룸 참가
-    connect(apiBaseUrl)
+    connect(apiBaseUrl, userId.value)
     joinRoom(props.path, userId.value, position.x, position.y, charZ.value)
 
     // WASD 이동 (모바일 조이스틱과 한 칸 이동 로직 공유)
