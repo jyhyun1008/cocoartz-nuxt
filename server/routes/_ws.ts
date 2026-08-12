@@ -319,10 +319,11 @@ export default defineWebSocketHandler({
       if (authenticated) {
         ;[user] = await db.select().from(users).where(eq(users.id, userId))
 
-        // 정지/영구정지된 계정은 실시간 이동/채팅에도 못 들어오게 막음(HTTP 쪽 미들웨어는 이
+        // 탈퇴/정지/영구정지된 계정은 실시간 이동/채팅에도 못 들어오게 막음(HTTP 쪽 미들웨어는 이
         // 웹소켓 업그레이드 경로를 안 거치므로 여기서 따로 체크해야 함)
-        if (user && getUserBlockStatus(user).blocked) {
-          sendTo(peer, { type: 'join_rejected', reason: 'banned' })
+        const blockStatus = user ? getUserBlockStatus(user) : { blocked: false as const }
+        if (blockStatus.blocked) {
+          sendTo(peer, { type: 'join_rejected', reason: blockStatus.kind })
           peer.close?.()
           return
         }

@@ -10,6 +10,9 @@ export default defineEventHandler(async (event) => {
 
     const [user] = await db.select().from(users).where(eq(users.username, username))
     if (!user) throw createError({ statusCode: 404, message: '존재하지 않는 유저입니다' })
+    // 탈퇴한 계정 — 마스토돈 등 표준 구현체가 삭제된 액터 키 재조회 요청에 하는 것과 동일하게
+    // 410 Gone으로 응답함(404와 구분: "원래 없던 게 아니라 있었는데 없어졌다"는 뜻이 명확해짐)
+    if (user.deletedAt) throw createError({ statusCode: 410, message: '탈퇴한 계정입니다' })
 
     const [actor] = await db.select().from(actors).where(eq(actors.userid, user.id))
     if (!actor) throw createError({ statusCode: 404, message: '연합에 참여하지 않은 유저입니다' })

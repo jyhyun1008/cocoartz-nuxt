@@ -75,8 +75,10 @@ export default eventHandler(async (event) => {
     }
 
     // 이메일 인증 메일 — SMTP를 설정해둔 서버에서만 의미가 있어서(안 그러면 영영 미인증 상태에
-    // 갇힘), 아예 꺼져있으면 토큰 발급/발송 자체를 스킵함. 실패해도 가입 자체엔 영향 없음(소프트 기능)
-    if (await isEmailVerificationRequired()) {
+    // 갇힘), 아예 꺼져있으면 토큰 발급/발송 자체를 스킵함. 발송 자체가 실패해도(SMTP 오류 등)
+    // 가입은 그대로 진행됨 — 아래에서 verificationRequired를 봐서 로그인 게이트만 별도로 걺
+    const verificationRequired = await isEmailVerificationRequired()
+    if (verificationRequired) {
         void issueAndSendVerificationEmail(
             { id: newUser.id, email: email.trim(), username: newUser.username },
             config.domain as string,
@@ -94,6 +96,14 @@ export default eventHandler(async (event) => {
             }).catch(() => {})
         }
         return { id: newUser.id, username: newUser.username, pendingApproval: true }
+    }
+
+    // 이메일 인증이 실제 로그인 게이트가 되는 지점 — 부트스트랩 첫 유저(=자동 관리자)는 예외로
+    // 봐줌: 아직 관리자가 아예 없는 상태에서 이 계정 자체가 막히면 아무도 관리자 설정(이메일
+    // 설정 포함)에 못 들어가는 죽음의 순환이 생김. 나중에 본인이 원하면 메일 속 링크로 인증하면
+    // 됨(login.ts가 isAdmin 계정은 이 게이트를 계속 봐주므로 안 해도 무방하긴 함)
+    if (verificationRequired && !isFirstUser) {
+        return { id: newUser.id, username: newUser.username, pendingVerification: true }
     }
 
     setCookie(event, 'user-id', String(newUser.id), {

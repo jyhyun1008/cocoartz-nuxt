@@ -23,15 +23,27 @@ export const users = pgTable('users', {
     // null이 아니고 미래 시각이면 그때까지 일시정지 중. 지나면 별도 해제 없이 자동으로 풀림
     suspendedUntil: timestamp({ withTimezone: true }),
     suspendReason: text(),
-    // 이메일 인증(server/utils/emailVerification.ts) — null이면 미인증. 단, SMTP 자체가
-    // 꺼져있는 서버에선 인증 메일을 보낼 방법이 없으니 이 값과 무관하게 항상 "인증됨"으로 취급함
-    // (강제 게이트가 아니라 "인증 안 하면 배지만 뜸" 정도의 소프트한 기능이라, SMTP 미설정
-    // 서버의 가입자가 영영 미인증 상태에 갇히는 걸 막기 위함)
+    // 이메일 인증(server/utils/emailVerification.ts) — null이면 미인증. SMTP가 꺼져있는 서버에선
+    // 인증 메일을 보낼 방법이 없으니 이 값과 무관하게 항상 "인증됨"으로 취급함. SMTP가 켜져있는
+    // 서버에선 login.ts가 이 값을 실제 로그인 게이트로 씀(단, isAdmin 계정과 — 이 컬럼에 마이그레이션
+    // 시점 기존 유저를 소급 인증 처리해둬서 — 이 기능 이전 가입자는 게이트 대상에서 빠짐. 이
+    // 기능 이후의 신규 가입자만 실제로 인증을 안 하면 로그인이 막힘)
     emailVerifiedAt: timestamp({ withTimezone: true }),
     emailVerificationToken: text(),
     emailVerificationTokenExpiresAt: timestamp({ withTimezone: true }),
     // 재전송 버튼 스팸/남용 방지용 쿨다운 판정에만 씀
     emailVerificationSentAt: timestamp({ withTimezone: true }),
+    // 비밀번호 재설정(server/utils/passwordReset.ts) — 이메일 인증과 별개 토큰 체계로 둠(용도가
+    // 달라서 하나가 다른 하나의 유효성에 영향을 주면 안 됨)
+    passwordResetToken: text(),
+    passwordResetTokenExpiresAt: timestamp({ withTimezone: true }),
+    passwordResetSentAt: timestamp({ withTimezone: true }),
+    // 회원 탈퇴(server/api/deleteAccount.ts) — null이 아니면 탈퇴한 계정. 행 자체는 안 지움(그
+    // 유저가 쓴 글/댓글의 답글이 안 끊기게, FK 대신 관행으로 참조하는 다른 테이블들이 안 깨지게)
+    // — 대신 username/email/password/avatar/character 등 개인정보를 여기서 지워서 익명화하고,
+    // 로그인은 이 값이 있으면 항상 막음(userStatus.ts). AP 액터 GET(users/[username]/index.get.ts)도
+    // 이 값을 보고 410 Gone을 돌려줌(마스토돈과 동일 — 탈퇴 계정 키 재조회 요청에 대한 표준 응답)
+    deletedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     lastLogin: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

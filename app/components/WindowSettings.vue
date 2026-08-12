@@ -72,10 +72,13 @@
 
                 <label class="admin-label">가입 방식</label>
                 <select v-model="serverForm.registrationMode" class="admin-select">
-                    <option value="open">자유 가입</option>
-                    <option value="approval">승인제 가입</option>
+                    <option value="open" :disabled="!mailReady">자유 가입{{ mailReady ? '' : ' (이메일 설정 필요)' }}</option>
+                    <option value="approval" :disabled="!mailReady">승인제 가입{{ mailReady ? '' : ' (이메일 설정 필요)' }}</option>
                     <option value="closed">가입 차단</option>
                 </select>
+                <p v-if="!mailReady" class="admin-label-hint" style="margin:-4px 0 0">
+                    가입을 받으려면 이메일 인증/비밀번호 재설정 메일을 보낼 수 있어야 해서, "이메일" 탭에서 SMTP 설정을 먼저 끝내야 해요.
+                </p>
 
                 <label class="admin-label">기본 개인 방 <span class="admin-label-hint">가입 직후(혹은 아직 방을 한 번도 안 꾸민 유저)에게 보이는 방 모습</span></label>
                 <button class="admin-add-btn" style="margin-left:0;align-self:flex-start" @click="openDefaultMapEdit">
@@ -1130,6 +1133,9 @@ async function saveCustomEmojiMeta(e) {
 // 이메일 설정
 const emailForm = reactive({ smtpHost: '', smtpPort: 587, smtpSecure: false, smtpUser: '', smtpPassword: '', fromAddress: '', fromName: '', enabled: false })
 const emailSmtpPasswordSet = ref(false)
+// 서버(updateServer.ts)의 가입 방식 제한과 같은 기준 — "가입 방식" 셀렉트에서 open/approval을
+// 미리 막아서, 저장 눌렀다가 서버가 거절하는 걸 보기 전에 여기서부터 이유를 알려줌
+const mailReady = computed(() => !!(emailForm.enabled && emailForm.smtpHost && emailForm.smtpUser && emailSmtpPasswordSet.value))
 const emailSaving = ref(false)
 const emailSaveMsg = ref('')
 const emailError = ref('')

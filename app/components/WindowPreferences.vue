@@ -266,6 +266,28 @@
                             로그아웃
                         </button>
                     </div>
+
+                    <div class="pref-theme-row">
+                        <span class="pref-theme-label">회원 탈퇴 <span class="admin-label-hint">되돌릴 수 없어요</span></span>
+                        <button v-if="!deleteAccountOpen" class="pref-theme-btn danger-btn" type="button" @click="deleteAccountOpen = true">
+                            <i class="hgi hgi-stroke hgi-delete-02"></i>
+                            탈퇴하기
+                        </button>
+                    </div>
+                    <div v-if="deleteAccountOpen" class="member-action-panel">
+                        <p class="admin-label-hint" style="margin:0">
+                            탈퇴하면 로그인이 영구히 막히고, 작성하신 글/댓글/채팅은 "탈퇴한 유저가 작성한 게시물입니다"로 바뀌어요(답글은 그대로 남음).
+                            연합된 다른 서버에도 삭제를 알려요. 확인을 위해 비밀번호를 입력해주세요.
+                        </p>
+                        <input v-model="deleteAccountPassword" type="password" placeholder="비밀번호" class="post-input" autocomplete="current-password" />
+                        <p v-if="deleteAccountError" class="admin-error" style="margin:0">{{ deleteAccountError }}</p>
+                        <div class="member-action-row">
+                            <button class="admin-add-btn" style="margin-left:0" type="button" @click="deleteAccountOpen = false; deleteAccountPassword = ''; deleteAccountError = ''">취소</button>
+                            <button class="admin-add-btn danger-btn" style="margin-left:auto" type="button" :disabled="deleteAccountLoading || !deleteAccountPassword" @click="confirmDeleteAccount">
+                                {{ deleteAccountLoading ? '처리 중...' : '정말 탈퇴할게요' }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </template>
             <div v-else class="admin-section">
@@ -290,6 +312,30 @@ async function logout() {
     await $fetch(`${apiBaseUrl}/api/auth/logout`, { method: 'POST' })
     userId.value = null
     await router.push('/login')
+}
+
+// 회원 탈퇴 — 되돌릴 수 없는 작업이라 비밀번호 재확인을 거침(deleteAccount.ts가 서버에서도 다시 확인함)
+const deleteAccountOpen = ref(false)
+const deleteAccountPassword = ref('')
+const deleteAccountLoading = ref(false)
+const deleteAccountError = ref('')
+async function confirmDeleteAccount() {
+    if (!deleteAccountPassword.value || deleteAccountLoading.value) return
+    deleteAccountLoading.value = true
+    deleteAccountError.value = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/deleteAccount`, {
+            method: 'POST',
+            body: { userid: userId.value, password: deleteAccountPassword.value },
+        })
+        userId.value = null
+        await router.push('/login')
+    } catch (e) {
+        deleteAccountError.value = e?.data?.message ?? '탈퇴 처리에 실패했습니다'
+    } finally {
+        deleteAccountLoading.value = false
+        deleteAccountPassword.value = ''
+    }
 }
 
 // 이메일 인증 상태 — required가 false면(서버가 SMTP를 아예 안 씀) 배지 자체를 안 띄움

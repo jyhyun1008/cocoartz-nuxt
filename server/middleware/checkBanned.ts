@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     const userid = await getOptionalUserId(event)
     if (!userid) return
 
-    const [user] = await db.select({ bannedAt: users.bannedAt, suspendedUntil: users.suspendedUntil })
+    const [user] = await db.select({ deletedAt: users.deletedAt, bannedAt: users.bannedAt, suspendedUntil: users.suspendedUntil })
         .from(users).where(eq(users.id, userid))
     if (!user) return
 
@@ -25,6 +25,6 @@ export default defineEventHandler(async (event) => {
     await destroyAuthSession(event)
     throw createError({
         statusCode: 403,
-        message: status.kind === 'banned' ? '영구정지된 계정입니다' : '일시정지된 계정입니다',
+        message: status.kind === 'deleted' ? '탈퇴한 계정입니다' : status.kind === 'banned' ? '영구정지된 계정입니다' : '일시정지된 계정입니다',
     })
 })

@@ -17,9 +17,17 @@ const errorMsg = ref('')
 const successMsg = ref('')
 const loading = ref(false)
 
+// 로그인이 "이메일 인증 필요"로 막혔을 때만 재전송 버튼을 보여줌(login.ts의 에러 메시지와
+// 문자열을 맞춰서 판별 — 다른 401/403이랑 안 헷갈리게)
+const showResendVerification = ref(false)
+const resending = ref(false)
+const resendDone = ref(false)
+
 async function submit() {
     errorMsg.value = ''
     successMsg.value = ''
+    showResendVerification.value = false
+    resendDone.value = false
     loading.value = true
     try {
         if (mode.value === 'login') {
@@ -41,13 +49,35 @@ async function submit() {
                 password.value = ''
                 return
             }
+            if (res.pendingVerification) {
+                // 이메일 인증 필수 서버 — 로그인 처리하지 않고 메일함 확인 안내만 표시
+                successMsg.value = '가입이 완료되었습니다. 메일함에서 인증 링크를 눌러야 로그인할 수 있어요.'
+                mode.value = 'login'
+                password.value = ''
+                return
+            }
             userId.value = res.id
             await router.push('/')
         }
     } catch (e) {
         errorMsg.value = e?.data?.message ?? '오류가 발생했습니다'
+        if (errorMsg.value.includes('이메일 인증이 필요합니다')) showResendVerification.value = true
     } finally {
         loading.value = false
+    }
+}
+
+async function resendVerification() {
+    if (!email.value.trim() || resending.value) return
+    resending.value = true
+    try {
+        await $fetch(`${apiBaseUrl}/api/auth/resendVerification`, {
+            method: 'POST',
+            body: { email: email.value.trim() },
+        })
+        resendDone.value = true
+    } finally {
+        resending.value = false
     }
 }
 </script>
@@ -74,9 +104,15 @@ async function submit() {
                 <div class="field">
                     <label>비밀번호</label>
                     <input v-model="password" type="password" placeholder="6자 이상" autocomplete="current-password" required />
+                    <NuxtLink v-if="mode === 'login'" to="/forgot-password" class="forgot-link">비밀번호를 잊으셨나요?</NuxtLink>
                 </div>
 
-                <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+                <p v-if="errorMsg" class="error-msg">
+                    {{ errorMsg }}
+                    <button v-if="showResendVerification" type="button" class="inline-link-btn" :disabled="resending || resendDone" @click="resendVerification">
+                        {{ resendDone ? '재전송했어요' : (resending ? '전송 중...' : '인증 메일 재전송') }}
+                    </button>
+                </p>
                 <p v-if="successMsg" class="success-msg">{{ successMsg }}</p>
 
                 <button type="submit" class="submit-btn" :disabled="loading">
@@ -185,6 +221,29 @@ async function submit() {
     border-color: var(--accent, #D21F3C);
     background: rgba(var(--fg-rgb),0.09);
 }
+
+.forgot-link {
+    align-self: flex-end;
+    font-size: 0.78rem;
+    color: rgba(var(--fg-rgb),0.4);
+    text-decoration: none;
+}
+.forgot-link:hover { color: var(--accent, #D21F3C); text-decoration: underline; }
+
+.inline-link-btn {
+    display: block;
+    margin-top: 6px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.inline-link-btn:disabled { cursor: default; opacity: 0.7; }
 
 .error-msg {
     font-size: 0.85rem;

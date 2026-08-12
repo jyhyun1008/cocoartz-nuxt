@@ -383,6 +383,9 @@ const { openProfileCard } = useProfileCard()
 const kickedMessage = computed(() => {
     if (kickedReason.value === 'duplicate_session') return '다른 기기나 탭에서 새로 접속해서 이 연결은 끊겼어요.'
     if (kickedReason.value === 'banned' || kickedReason.value === 'suspended') return '계정이 정지되어 연결이 끊겼어요.'
+    if (kickedReason.value === 'password_reset') return '비밀번호가 변경되어 다시 로그인해주세요.'
+    if (kickedReason.value === 'account_deleted') return '탈퇴 처리가 완료되었습니다.'
+    if (kickedReason.value === 'deleted') return '탈퇴한 계정입니다.'
     return kickedReason.value ? '연결이 끊겼어요.' : null
 })
 

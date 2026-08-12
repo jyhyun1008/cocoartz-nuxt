@@ -182,6 +182,21 @@ export function buildDeleteActivity(domain: string, username: string, objectId: 
     }
 }
 
+// 계정 자체를 탈퇴/삭제할 때 보내는 Delete — 위 buildDeleteActivity(게시글용, object가
+// Tombstone으로 감싸짐)와는 다른 모양임. 마스토돈의 ActivityPub::DeleteActorSerializer를
+// 그대로 따름: object가 Tombstone이 아니라 액터 자신의 URI 문자열 그대로("이 액터=object가
+// 삭제 대상"이라는 뜻이라 굳이 감쌀 필요가 없음). id도 `{actorUrl}#delete`로 고정.
+export function buildDeleteActorActivity(actorId: string) {
+    return {
+        '@context': AS_CONTEXT,
+        id: `${actorId}#delete`,
+        type: 'Delete',
+        actor: actorId,
+        to: [AS_PUBLIC],
+        object: actorId,
+    }
+}
+
 export function buildFollowActivity(actorId: string, targetActorUrl: string) {
     return {
         '@context': AS_CONTEXT,

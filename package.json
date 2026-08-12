@@ -14,7 +14,8 @@
     "db:add-voice-room": "npx tsx server/db/addVoiceRoom.ts",
     "db:set-admin": "npx tsx server/db/setAdmin.ts",
     "db:seed-shop-items": "npx tsx server/db/seedShopItems.ts",
-    "db:seed-crop-items": "npx tsx server/db/seedCropItems.ts"
+    "db:seed-crop-items": "npx tsx server/db/seedCropItems.ts",
+    "db:self-destruct": "npx tsx server/db/selfDestruct.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
