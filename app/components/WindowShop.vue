@@ -104,11 +104,14 @@ function selectMainTab(id) {
 }
 watch(mainTab, () => { subTab.value = currentSubTabs.value[0]?.id ?? '' })
 
-// 재화 잔액 — ServerProfilebar.vue와 같은 키로 캐시를 공유해서, 여기서 구매하면 사이드바 잔액도 같이 갱신됨
+// 재화 잔액 — ServerProfilebar.vue와 같은 키로 캐시를 공유해서, 여기서 구매하면 사이드바 잔액도 같이 갱신됨.
+// ServerProfilebar.vue와 같은 이유로 useRequestFetch() 사용 — SSR 중 평범한 $fetch로는 세션
+// 쿠키가 안 실려서 매번 401 → 잔액 0으로 보이는 문제가 있었음
+const authedFetch = useRequestFetch()
 const { data: balanceData, refresh: refreshBalance } = await useAsyncData(
     `balance-data-${server?.id}`,
     () => (isLoggedIn.value && server?.id)
-        ? $fetch(`${apiBaseUrl}/api/getMyBalance`, { method: 'POST', body: { userid: userId.value, serverid: server.id } }).catch(() => ({ balance: 0 }))
+        ? authedFetch(`${apiBaseUrl}/api/getMyBalance`, { method: 'POST', body: { userid: userId.value, serverid: server.id } }).catch(() => ({ balance: 0 }))
         : { balance: 0 },
 )
 const balance = computed(() => balanceData.value?.balance ?? 0)

@@ -62,11 +62,14 @@ const currencyName = computed(() => server?.currencyName ?? '코코아')
 const { playCoinSound } = useSoundEffects()
 
 // 재화 잔액 — ServerProfilebar.vue/WindowShop.vue와 같은 키로 캐시를 공유해서, 여기서 출석하면
-// 사이드바 잔액도 같이 갱신됨
+// 사이드바 잔액도 같이 갱신됨. 같은 이유로 useRequestFetch() 사용 — SSR 중 평범한 $fetch로는
+// 세션 쿠키가 안 실려서 매번 401 → 잔액 0/출석 안 한 것처럼 보이는 문제가 있었음(하필 이 창이
+// "출석 챙기기" 용도라 이 버그로 이미 출석했는데 안 한 것처럼 잘못 보이면 특히 헷갈림)
+const authedFetch = useRequestFetch()
 const { data: balanceData, refresh: refreshBalance } = await useAsyncData(
     `balance-data-${server?.id}`,
     () => (isLoggedIn.value && server?.id)
-        ? $fetch(`${apiBaseUrl}/api/getMyBalance`, { method: 'POST', body: { userid: userId.value, serverid: server.id } }).catch(() => ({ balance: 0 }))
+        ? authedFetch(`${apiBaseUrl}/api/getMyBalance`, { method: 'POST', body: { userid: userId.value, serverid: server.id } }).catch(() => ({ balance: 0 }))
         : { balance: 0 },
 )
 const balance = computed(() => balanceData.value?.balance ?? 0)
@@ -74,12 +77,12 @@ const balance = computed(() => balanceData.value?.balance ?? 0)
 const { data: status, refresh: refreshStatus } = await useAsyncData(
     `attendance-status-${server?.id}`,
     () => (isLoggedIn.value && server?.id)
-        ? $fetch(`${apiBaseUrl}/api/getAttendanceStatus`, { method: 'POST', body: { userid: userId.value, serverid: server.id } }).catch(() => null)
+        ? authedFetch(`${apiBaseUrl}/api/getAttendanceStatus`, { method: 'POST', body: { userid: userId.value, serverid: server.id } }).catch(() => null)
         : null,
     { watch: [userId] },
 )
 
-// 이번 달 캘린더 — status.today(서버가 내려주는 UTC 기준 "YYYY-MM-DD")를 기준으로 그 달의
+// 이번 달 캘린더 — status.today(서버가 내려주는 KST 기준 "YYYY-MM-DD")를 기준으로 그 달의
 // 1일이 무슨 요일인지 계산해서 앞자리를 비워두고, claimedDates에 있는 날짜만 체크 표시함
 const calendarDays = computed(() => {
     const todayStr = status.value?.today

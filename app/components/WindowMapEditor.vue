@@ -297,11 +297,15 @@ const isUserMode = computed(() => props.userId != null)
 // 개인 방(userId 모드)일 땐 상점에서 산 맵 아이템만 팔레트에 뜨고, 놓을 수 있는 개수도 보유 개수로
 // 제한됨 — 방(roomId 모드, 관리자 전용)은 이 제한 없이 카탈로그 전체를 그대로 씀(공용 공간 꾸미는
 // 권한이라 개인 지갑이랑 무관해야 함)
+// getMyInventory.ts는 body.userid가 아니라 세션으로 "내" 인벤토리를 돌려주는데, SSR 중 평범한
+// $fetch로는 그 세션 쿠키가 안 실려서 매번 401 → 빈 배열(보유 아이템 없음)로 보이는 문제가
+// 있었음(ServerProfilebar.vue/RoomMap.vue의 같은 문제와 동일) — useRequestFetch()로 고침
+const authedFetch = useRequestFetch()
 const { data: inventoryData } = await useAsyncData(
     // roomId 모드/다른 userId 사이를 오갈 때 캐시가 섞이지 않도록 키에 대상을 포함시킴
     `map-editor-inventory-${props.userId ?? 'room'}`,
     () => isUserMode.value
-        ? $fetch(`${apiBaseUrl}/api/getMyInventory`, { method: 'POST', body: { userid: props.userId } }).catch(() => [])
+        ? authedFetch(`${apiBaseUrl}/api/getMyInventory`, { method: 'POST', body: { userid: props.userId } }).catch(() => [])
         : [],
 )
 // itemKey(=ITEM_CATALOG/맵 배치에 쓰는 id)를 키로 보유 개수를 모음 — getMyInventory가 돌려주는
