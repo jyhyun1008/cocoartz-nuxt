@@ -3,6 +3,7 @@ import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { kickUserConnections } from '../../routes/_ws'
+import { apiError } from '../../utils/apiError'
 
 // 메일 속 링크(app/pages/reset-password.vue)에서 새 비밀번호를 입력하고 제출하면 호출됨.
 // verifyEmail.ts와 달리 단순 링크 방문이 아니라 "새 비밀번호를 입력해서 제출"하는 액션이라
@@ -10,13 +11,13 @@ import { kickUserConnections } from '../../routes/_ws'
 // idempotent하게 안 만들고 정상적으로 1회용 토큰으로 처리함(성공하면 토큰을 지움)
 export default eventHandler(async (event) => {
     const { token, password } = await readBody(event)
-    if (!token || typeof token !== 'string') throw createError({ statusCode: 400, message: '유효하지 않은 링크입니다' })
-    if (!password || password.length < 6) throw createError({ statusCode: 400, message: '비밀번호는 6자 이상이어야 합니다' })
+    if (!token || typeof token !== 'string') throw apiError(400, 'INVALID_LINK', '유효하지 않은 링크입니다')
+    if (!password || password.length < 6) throw apiError(400, 'PASSWORD_TOO_SHORT', '비밀번호는 6자 이상이어야 합니다')
 
     const [user] = await db.select().from(users).where(eq(users.passwordResetToken, token))
-    if (!user) throw createError({ statusCode: 400, message: '유효하지 않거나 이미 사용된 링크입니다' })
+    if (!user) throw apiError(400, 'INVALID_LINK', '유효하지 않거나 이미 사용된 링크입니다')
     if (!user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt.getTime() < Date.now()) {
-        throw createError({ statusCode: 400, message: '재설정 링크가 만료되었습니다. 다시 요청해주세요' })
+        throw apiError(400, 'LINK_EXPIRED', '재설정 링크가 만료되었습니다. 다시 요청해주세요')
     }
 
     const hashedPassword = await bcrypt.hash(password, 12)

@@ -5,24 +5,27 @@ import bcrypt from 'bcryptjs'
 import { sendMail } from '../../utils/mailer'
 import { createAuthSession } from '../../utils/session'
 import { isEmailVerificationRequired, issueAndSendVerificationEmail } from '../../utils/emailVerification'
+import { apiError } from '../../utils/apiError'
 
 export default eventHandler(async (event) => {
     const { username, email, password } = await readBody(event)
 
     if (!username?.trim() || !email?.trim() || !password?.trim()) {
-        throw createError({ statusCode: 400, message: '모든 필드를 입력해주세요' })
+        throw apiError(400, 'MISSING_FIELDS', '모든 필드를 입력해주세요')
     }
 
     if (password.length < 6) {
-        throw createError({ statusCode: 400, message: '비밀번호는 6자 이상이어야 합니다' })
+        throw apiError(400, 'PASSWORD_TOO_SHORT', '비밀번호는 6자 이상이어야 합니다')
     }
 
     const existing = await db.select().from(users).where(
         or(eq(users.email, email.trim()), eq(users.username, username.trim()))
     )
     if (existing.length > 0) {
-        const field = existing[0].email === email.trim() ? '이메일' : '아이디'
-        throw createError({ statusCode: 409, message: `이미 사용 중인 ${field}입니다` })
+        const emailTaken = existing[0].email === email.trim()
+        throw emailTaken
+            ? apiError(409, 'EMAIL_TAKEN', '이미 사용 중인 이메일입니다')
+            : apiError(409, 'USERNAME_TAKEN', '이미 사용 중인 아이디입니다')
     }
 
     // 첫 번째 가입 유저에게 어드민 자동 부여 — 관리자가 아직 없는 상태이므로
@@ -40,7 +43,7 @@ export default eventHandler(async (event) => {
         const mode = server?.registrationMode ?? 'open'
 
         if (mode === 'closed') {
-            throw createError({ statusCode: 403, message: '현재 신규 가입이 제한되어 있습니다' })
+            throw apiError(403, 'REGISTRATION_CLOSED', '현재 신규 가입이 제한되어 있습니다')
         }
         approved = mode !== 'approval'
     }

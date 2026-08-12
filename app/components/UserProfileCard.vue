@@ -9,7 +9,7 @@
             <div class="profile-card-name">{{ profileCardTarget.knownas ?? profileCardTarget.username }}</div>
             <code class="profile-card-handle">@{{ profileCardTarget.username }}</code>
             <NuxtLink :to="`/@${profileCardTarget.username}`" class="profile-card-goto-btn" @click="closeProfileCard">
-                프로필로 이동
+                {{ t('profileCard.goToProfile') }}
             </NuxtLink>
         </div>
     </div>
@@ -17,6 +17,7 @@
 
 <script setup>
 const { profileCardTarget, profileCardPos, closeProfileCard } = useProfileCard()
+const { t } = useI18n()
 
 // 클릭한 지점 바로 옆에 카드를 띄우되, 화면 밖으로 삐져나가지 않게 clamp함 — 카드 실제 크기를
 // 정확히 알 방법이 없어서(렌더 전이라) 대략적인 예상 크기로 여유 있게 잡아둠

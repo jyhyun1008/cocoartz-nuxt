@@ -1,14 +1,14 @@
 <template>
     <div id="notif-bell-wrapper">
-        <button id="notif-bell-btn" class="shortcut" title="알림" @click.stop="toggleOpen">
+        <button id="notif-bell-btn" class="shortcut" :title="t('notifications.title')" @click.stop="toggleOpen">
             <i class="hgi hgi-stroke hgi-notification-03"></i>
             <span v-if="unreadCount > 0" id="notif-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
         </button>
 
         <div v-if="isOpen" id="notif-backdrop" @click="isOpen = false"></div>
         <div v-if="isOpen" id="notif-dropdown">
-            <div id="notif-dropdown-header">알림</div>
-            <div v-if="!notifications.length" class="notif-empty">아직 알림이 없습니다.</div>
+            <div id="notif-dropdown-header">{{ t('notifications.title') }}</div>
+            <div v-if="!notifications.length" class="notif-empty">{{ t('notifications.empty') }}</div>
             <NuxtLink
                 v-for="n in notifications"
                 :key="n.id"
@@ -19,7 +19,7 @@
                 <NuxtImg v-if="n.actor?.avatar" :src="n.actor.avatar" class="notif-avatar" />
                 <div v-else class="notif-avatar notif-avatar-empty">{{ (n.actor?.knownas ?? n.actor?.username ?? '?')[0] }}</div>
                 <div class="notif-text">
-                    <strong>{{ n.actor?.knownas ?? n.actor?.username ?? '알 수 없음' }}</strong>님이 회원님을 팔로우했습니다
+                    <strong>{{ n.actor?.knownas ?? n.actor?.username ?? t('notifications.unknownUser') }}</strong>{{ t('notifications.followedYouSuffix') }}
                 </div>
             </NuxtLink>
         </div>
@@ -30,6 +30,7 @@
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
+const { t } = useI18n()
 
 const notifications = ref([])
 const unreadCount = ref(0)

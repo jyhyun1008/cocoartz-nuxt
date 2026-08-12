@@ -7,7 +7,7 @@
             <div class="kicked-box">
                 <i class="hgi hgi-stroke hgi-plug-01"></i>
                 <p>{{ kickedMessage }}</p>
-                <button class="submit-btn" @click="handleResumeClick">이 탭에서 계속하기</button>
+                <button class="submit-btn" @click="handleResumeClick">{{ t('village.continueHere') }}</button>
             </div>
         </div>
 
@@ -105,7 +105,7 @@
         >
             <div class="window-header">
                 <i class="hgi hgi-stroke hgi-meeting-room"></i>
-                <span style="flex:1">{{ roomData?.knownas ?? '채팅' }}</span>
+                <span style="flex:1">{{ roomData?.knownas ?? t('village.chat') }}</span>
                 <button class="chat-size-btn" @click.stop="toggleChatSize">
                     <i class="hgi hgi-stroke hgi-arrow-diagonal"
                        :style="chatSize === 'large' ? 'transform:rotate(180deg)' : ''"></i>
@@ -114,7 +114,7 @@
             </div>
             <div id="chats-wrapper" ref="chatsWrapper">
                 <button v-if="hasMoreOlderChats" class="load-more-btn load-more-chats-btn" :disabled="loadingMoreChats" @click="loadOlderChats">
-                    {{ loadingMoreChats ? '불러오는 중...' : '이전 메시지 더보기' }}
+                    {{ loadingMoreChats ? t('village.loadingMore') : t('village.loadMoreMessages') }}
                 </button>
                 <div v-for="chat in chats" :key="chat.id" class="chat-wrapper">
                     <NuxtLink :to="chat.user?.username ? `/@${chat.user.username}` : '#'" class="userprofile user-avatar-link">
@@ -123,8 +123,8 @@
                     </NuxtLink>
                     <div class="userchatbox">
                         <div v-if="chat.muted === 'soft' && !revealedMutedChats[chat.id]" class="remote-cw-gate">
-                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 메시지입니다</div>
-                            <button class="submit-btn" @click="revealedMutedChats[chat.id] = true">그래도 보기</button>
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.mutedMessage') }}</div>
+                            <button class="submit-btn" @click="revealedMutedChats[chat.id] = true">{{ t('village.viewAnyway') }}</button>
                         </div>
                         <template v-else>
                             <div class="userinfo">
@@ -132,22 +132,22 @@
                                     {{ chat.user?.knownas ?? chat.user?.username }}
                                 </NuxtLink>
                                 <span class="datetime">{{ formatDate(chat.createdAt) }}</span>
-                                <span v-if="chat.edited" class="edited-tag">(수정됨)</span>
+                                <span v-if="chat.edited" class="edited-tag">{{ t('village.editedTag') }}</span>
                                 <div v-if="chat.userid === userId && editingChatId !== chat.id" class="chat-msg-actions">
-                                    <button class="post-icon-btn" @click="startEditChat(chat)" title="수정">
+                                    <button class="post-icon-btn" @click="startEditChat(chat)" :title="t('village.edit')">
                                         <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
                                     </button>
-                                    <button class="post-icon-btn danger" @click="deleteChatMessage(chat)" title="삭제">
+                                    <button class="post-icon-btn danger" @click="deleteChatMessage(chat)" :title="t('village.delete')">
                                         <i class="hgi hgi-stroke hgi-delete-02"></i>
                                     </button>
                                 </div>
                                 <div v-if="chat.userid !== userId && userId" class="mute-action-wrap">
-                                    <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: chat.userid })" title="뮤트">
+                                    <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: chat.userid })" :title="t('village.mute')">
                                         <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                                     </button>
                                     <div v-if="activeMuteKey === muteKeyFor({ userid: chat.userid })" class="mute-menu" @click.stop>
-                                        <button @click="confirmMuteChat({ userid: chat.userid }, 'soft')">소프트 뮤트</button>
-                                        <button @click="confirmMuteChat({ userid: chat.userid }, 'hard')">하드 뮤트</button>
+                                        <button @click="confirmMuteChat({ userid: chat.userid }, 'soft')">{{ t('village.softMute') }}</button>
+                                        <button @click="confirmMuteChat({ userid: chat.userid }, 'hard')">{{ t('village.hardMute') }}</button>
                                     </div>
                                 </div>
                             </div>
@@ -160,13 +160,13 @@
                                     @keydown.esc="cancelEditChat"
                                 ></textarea>
                                 <div class="chat-edit-actions">
-                                    <button class="back-btn-header" @click="cancelEditChat">취소</button>
-                                    <button class="submit-btn" @click="submitEditChat(chat)" :disabled="!editingContent.trim()">저장</button>
+                                    <button class="back-btn-header" @click="cancelEditChat">{{ t('village.cancel') }}</button>
+                                    <button class="submit-btn" @click="submitEditChat(chat)" :disabled="!editingContent.trim()">{{ t('village.save') }}</button>
                                 </div>
                             </div>
                             <div v-else class="msg" v-html="renderMd(chat.content)"></div>
                             <button v-if="chat.muted === 'soft'" class="cw-hide-btn" @click="revealedMutedChats[chat.id] = false">
-                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                             </button>
                             <div class="reactions-row chat-reactions-row">
                                 <button
@@ -197,7 +197,7 @@
             </div>
             <div id="chatsender-wrapper">
                 <div class="chat-emoji-wrap" ref="chatEmojiWrapRef">
-                    <button ref="chatEmojiBtnRef" id="chat-emoji-btn" type="button" @click.stop="showChatEmojiPicker = !showChatEmojiPicker" title="이모지">
+                    <button ref="chatEmojiBtnRef" id="chat-emoji-btn" type="button" @click.stop="showChatEmojiPicker = !showChatEmojiPicker" :title="t('village.emoji')">
                         <i class="hgi hgi-stroke hgi-smile"></i>
                     </button>
                     <EmojiPicker
@@ -209,41 +209,41 @@
                 <textarea
                     v-model="chatInput"
                     ref="chatInputEl"
-                    placeholder="메시지 보내기"
+                    :placeholder="t('village.sendMessagePlaceholder')"
                     rows="1"
                     class="chat-textarea"
                     @keydown.enter="handleChatEnter"
                 ></textarea>
-                <div id="sendchat" @click="sendChat">전송</div>
+                <div id="sendchat" @click="sendChat">{{ t('village.send') }}</div>
             </div>
         </div>
         <div v-if="(props.page === 'none' || props.page === 'room') && !showChatPanel"
              class="reopen-btn" @click="showChatPanel = true">
-            <i class="hgi hgi-stroke hgi-meeting-room"></i> 채팅 열기
+            <i class="hgi hgi-stroke hgi-meeting-room"></i> {{ t('village.openWindow', { name: t('village.chat') }) }}
         </div>
 
         <WindowInfo v-else-if="props.page === 'info' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'info' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-information-square"></i> 서버 정보 열기
+            <i class="hgi hgi-stroke hgi-information-square"></i> {{ t('village.openWindow', { name: t('chrome.serverInfo') }) }}
         </div>
 
         <WindowMembers v-if="props.page === 'members' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'members' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-user-group"></i> 멤버 열기
+            <i class="hgi hgi-stroke hgi-user-group"></i> {{ t('village.openWindow', { name: t('chrome.members') }) }}
         </div>
 
         <WindowSettings v-if="props.page === 'settings' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'settings' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-setting-07"></i> 설정 열기
+            <i class="hgi hgi-stroke hgi-setting-07"></i> {{ t('village.openWindow', { name: t('chrome.settings') }) }}
         </div>
 
         <WindowBoard v-if="props.page === 'board' && showOverlay" :ids="serverAndRoomId" :is-federated="!!roomData?.federated" :gallery-view="!!roomData?.galleryView" :room-name="roomData?.knownas" @close="closeOverlay" />
         <div v-if="props.page === 'board' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-grid"></i> 게시판 열기
+            <i class="hgi hgi-stroke hgi-grid"></i> {{ t('village.openWindow', { name: t('village.board') }) }}
         </div>
 
         <WindowVoice
@@ -258,7 +258,7 @@
             @click="openVoiceOverlay"
         >
             <i class="hgi hgi-stroke hgi-volume-high"></i>
-            음성채팅방 열기
+            {{ t('village.openWindow', { name: t('village.voiceChatRoom') }) }}
         </div>
 
         <WindowWiki
@@ -271,31 +271,31 @@
         />
         <div v-if="props.page === 'wiki' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-book-open-01"></i> 위키 열기
+            <i class="hgi hgi-stroke hgi-book-open-01"></i> {{ t('village.openWindow', { name: t('village.wiki') }) }}
         </div>
 
         <WindowTimeline v-if="props.page === 'timeline' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'timeline' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-globe-02"></i> 타임라인 열기
+            <i class="hgi hgi-stroke hgi-globe-02"></i> {{ t('village.openWindow', { name: t('sidebar.timeline') }) }}
         </div>
 
         <WindowPreferences v-if="props.page === 'preferences' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'preferences' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-user-settings-01"></i> 내 설정 열기
+            <i class="hgi hgi-stroke hgi-user-settings-01"></i> {{ t('village.openWindow', { name: t('profilebar.mySettings') }) }}
         </div>
 
         <WindowShop v-if="props.page === 'shop' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'shop' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-shopping-bag-01"></i> 상점 열기
+            <i class="hgi hgi-stroke hgi-shopping-bag-01"></i> {{ t('village.openWindow', { name: t('profilebar.shop') }) }}
         </div>
 
         <WindowAttendance v-if="props.page === 'attendance' && showOverlay" @close="closeOverlay" />
         <div v-if="props.page === 'attendance' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
-            <i class="hgi hgi-stroke hgi-calendar-01"></i> 출석체크 열기
+            <i class="hgi hgi-stroke hgi-calendar-01"></i> {{ t('village.openWindow', { name: t('profilebar.attendance') }) }}
         </div>
 
         <!-- 모바일 전용 이동 조이스틱 (상/하/좌/우 4방향 스냅) — 왼쪽에 배치 -->
@@ -320,7 +320,7 @@
 
         <!-- 코인 획득 피드백 -->
         <div v-if="coinToastAmount !== null" class="coin-toast">
-            +{{ coinToastAmount }} {{ server?.currencyName ?? '코코아' }}
+            +{{ coinToastAmount }} {{ server?.currencyName ?? t('profilebar.defaultCurrencyName') }}
         </div>
     </div>
 </template>
@@ -379,14 +379,15 @@ const { connect, joinRoom, sendPosition, sendChat: wsSendChat, editChat: wsEditC
 // 맵 위 다른 유저 아바타/닉네임을 클릭했을 때 뜨는 프로필 카드 — 실제 팝업은 ServerSidebar.vue에
 // 한 번만 마운트돼 있고 여긴 그 상태를 공유해서 열기만 함(useProfileCard.ts 참고)
 const { openProfileCard } = useProfileCard()
+const { t } = useI18n()
 
 const kickedMessage = computed(() => {
-    if (kickedReason.value === 'duplicate_session') return '다른 기기나 탭에서 새로 접속해서 이 연결은 끊겼어요.'
-    if (kickedReason.value === 'banned' || kickedReason.value === 'suspended') return '계정이 정지되어 연결이 끊겼어요.'
-    if (kickedReason.value === 'password_reset') return '비밀번호가 변경되어 다시 로그인해주세요.'
-    if (kickedReason.value === 'account_deleted') return '탈퇴 처리가 완료되었습니다.'
-    if (kickedReason.value === 'deleted') return '탈퇴한 계정입니다.'
-    return kickedReason.value ? '연결이 끊겼어요.' : null
+    if (kickedReason.value === 'duplicate_session') return t('village.kickedDuplicateSession')
+    if (kickedReason.value === 'banned' || kickedReason.value === 'suspended') return t('village.kickedBanned')
+    if (kickedReason.value === 'password_reset') return t('village.kickedPasswordReset')
+    if (kickedReason.value === 'account_deleted') return t('village.kickedAccountDeleted')
+    if (kickedReason.value === 'deleted') return t('village.kickedDeleted')
+    return kickedReason.value ? t('village.kickedGeneric') : null
 })
 
 // resumeConnection()은 소켓만 새로 여는 것까지만 하고 room join은 안 시켜줌(그건 room path/좌표를

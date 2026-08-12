@@ -112,6 +112,10 @@ export default defineNuxtConfig({
     public: {
       apiBaseUrl: process.env.API_BASEURL ?? '',
       serverSlug: process.env.SERVER_SLUG ?? 'default',
+      // 유저별 언어 토글이 아니라 "서버 하나 = 언어 하나" — 셀프호스트하는 운영자가 배포 시점에
+      // 한 번 정함(app/i18n/*.json에 있는 언어만 가능, 없으면 ko로 폴백). 다른 env들처럼
+      // NUXT_PUBLIC_LOCALE로 컨테이너 실행 시점에 덮어쓸 수 있음
+      locale: process.env.LOCALE ?? 'ko',
       // objectStorageEnabled는 여기 두지 않음 — process.env.S3_*(접두사 없는 이름)로 계산되는
       // 값이라 "docker build" 시점에 한 번 평가되어 이미지에 굳어버리고, 배포 시 NUXT_S3_*
       // 런타임 env를 아무리 제대로 줘도 반영되지 않는 버그가 있었음. 대신 요청마다 실제

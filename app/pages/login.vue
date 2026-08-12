@@ -5,6 +5,7 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
 const router = useRouter()
+const { t, errT } = useI18n()
 
 const { server } = await useServer()
 useHead({ title: server?.title || 'CocoArtz' })
@@ -17,8 +18,8 @@ const errorMsg = ref('')
 const successMsg = ref('')
 const loading = ref(false)
 
-// 로그인이 "이메일 인증 필요"로 막혔을 때만 재전송 버튼을 보여줌(login.ts의 에러 메시지와
-// 문자열을 맞춰서 판별 — 다른 401/403이랑 안 헷갈리게)
+// 로그인이 "이메일 인증 필요"로 막혔을 때만 재전송 버튼을 보여줌 — 언어랑 무관하게 서버가
+// 실어보내는 에러 코드(server/utils/apiError.ts)로 판별함
 const showResendVerification = ref(false)
 const resending = ref(false)
 const resendDone = ref(false)
@@ -44,14 +45,14 @@ async function submit() {
             })
             if (res.pendingApproval) {
                 // 승인제 가입 — 로그인 처리하지 않고 승인 대기 안내만 표시
-                successMsg.value = '가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있어요.'
+                successMsg.value = t('auth.pendingApprovalMsg')
                 mode.value = 'login'
                 password.value = ''
                 return
             }
             if (res.pendingVerification) {
                 // 이메일 인증 필수 서버 — 로그인 처리하지 않고 메일함 확인 안내만 표시
-                successMsg.value = '가입이 완료되었습니다. 메일함에서 인증 링크를 눌러야 로그인할 수 있어요.'
+                successMsg.value = t('auth.pendingVerificationMsg')
                 mode.value = 'login'
                 password.value = ''
                 return
@@ -60,8 +61,8 @@ async function submit() {
             await router.push('/')
         }
     } catch (e) {
-        errorMsg.value = e?.data?.message ?? '오류가 발생했습니다'
-        if (errorMsg.value.includes('이메일 인증이 필요합니다')) showResendVerification.value = true
+        errorMsg.value = errT(e)
+        if (e?.data?.data?.code === 'EMAIL_VERIFICATION_REQUIRED') showResendVerification.value = true
     } finally {
         loading.value = false
     }
@@ -88,35 +89,35 @@ async function resendVerification() {
             <div id="login-logo">{{ server?.title || 'CocoArtz' }}</div>
 
             <div id="login-tabs">
-                <button :class="{ active: mode === 'login' }" @click="mode = 'login'; errorMsg = ''; successMsg = ''">로그인</button>
-                <button :class="{ active: mode === 'register' }" @click="mode = 'register'; errorMsg = ''; successMsg = ''">회원가입</button>
+                <button :class="{ active: mode === 'login' }" @click="mode = 'login'; errorMsg = ''; successMsg = ''">{{ t('auth.loginTab') }}</button>
+                <button :class="{ active: mode === 'register' }" @click="mode = 'register'; errorMsg = ''; successMsg = ''">{{ t('auth.registerTab') }}</button>
             </div>
 
             <form id="login-form" @submit.prevent="submit">
                 <div v-if="mode === 'register'" class="field">
-                    <label>핸들 <span class="field-hint">(변경할 수 없습니다)</span></label>
-                    <input v-model="username" type="text" placeholder="영문, 숫자" autocomplete="username" required />
+                    <label>{{ t('auth.handleLabel') }} <span class="field-hint">{{ t('auth.handleHint') }}</span></label>
+                    <input v-model="username" type="text" :placeholder="t('auth.handlePlaceholder')" autocomplete="username" required />
                 </div>
                 <div class="field">
-                    <label>이메일</label>
+                    <label>{{ t('auth.emailLabel') }}</label>
                     <input v-model="email" type="email" placeholder="example@email.com" autocomplete="email" required />
                 </div>
                 <div class="field">
-                    <label>비밀번호</label>
-                    <input v-model="password" type="password" placeholder="6자 이상" autocomplete="current-password" required />
-                    <NuxtLink v-if="mode === 'login'" to="/forgot-password" class="forgot-link">비밀번호를 잊으셨나요?</NuxtLink>
+                    <label>{{ t('auth.passwordLabel') }}</label>
+                    <input v-model="password" type="password" :placeholder="t('auth.passwordPlaceholder')" autocomplete="current-password" required />
+                    <NuxtLink v-if="mode === 'login'" to="/forgot-password" class="forgot-link">{{ t('auth.forgotPassword') }}</NuxtLink>
                 </div>
 
                 <p v-if="errorMsg" class="error-msg">
                     {{ errorMsg }}
                     <button v-if="showResendVerification" type="button" class="inline-link-btn" :disabled="resending || resendDone" @click="resendVerification">
-                        {{ resendDone ? '재전송했어요' : (resending ? '전송 중...' : '인증 메일 재전송') }}
+                        {{ resendDone ? t('auth.resendSent') : (resending ? t('auth.resending') : t('auth.resendVerification')) }}
                     </button>
                 </p>
                 <p v-if="successMsg" class="success-msg">{{ successMsg }}</p>
 
                 <button type="submit" class="submit-btn" :disabled="loading">
-                    {{ loading ? '처리 중...' : (mode === 'login' ? '로그인' : '가입하기') }}
+                    {{ loading ? t('auth.processing') : (mode === 'login' ? t('auth.submitLogin') : t('auth.submitRegister')) }}
                 </button>
             </form>
         </div>

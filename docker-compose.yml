@@ -37,6 +37,8 @@ services:
       NUXT_PUBLIC_API_BASE_URL: https://yourdomain.com
       NUXT_DOMAIN: yourdomain.com
       NUXT_PUBLIC_SERVER_SLUG: cocoartz
+      # 서버 언어 — 유저별이 아니라 이 서버 전체가 쓰는 언어(ko/ja/zh, 기본 ko). docs/ops/04-다국어-지원.md 참고
+      NUXT_PUBLIC_LOCALE: ko
       # 오브젝트 스토리지 (선택 — S3 호환. 비워두면 업로드 기능 없이 URL 입력만 가능)
       NUXT_S3_ENDPOINT: ""
       NUXT_S3_REGION: "auto"

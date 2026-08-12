@@ -1,4 +1,11 @@
 <script setup>
+// nuxt.config.ts의 app.head.htmlAttrs.lang(정적, 빌드 시점에 굳음)과 달리 이건 런타임 설정
+// (config.public.locale, NUXT_PUBLIC_LOCALE로 배포 시점에 덮어씀)을 반영해야 해서 여기서
+// 따로 다시 세팅함 — 안 그러면 언어를 바꿔도 <html lang>은 항상 "ko"로 굳어있어서, 브라우저가
+// 시스템 폰트의 CJK 한자를 엉뚱한 지역(한국식) 자형으로 그려버림
+const config = useRuntimeConfig()
+useHead({ htmlAttrs: { lang: config.public.locale } })
+
 onMounted(() => useTheme().init())
 </script>
 

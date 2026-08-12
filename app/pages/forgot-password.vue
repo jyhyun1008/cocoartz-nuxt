@@ -3,6 +3,7 @@ definePageMeta({ layout: false })
 
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
+const { t, errT } = useI18n()
 
 const { server } = await useServer()
 useHead({ title: server?.title || 'CocoArtz' })
@@ -25,7 +26,7 @@ async function submit() {
         })
         sent.value = true
     } catch (e) {
-        errorMsg.value = e?.data?.message ?? '오류가 발생했습니다'
+        errorMsg.value = errT(e)
     } finally {
         loading.value = false
     }
@@ -38,22 +39,22 @@ async function submit() {
             <div id="login-logo">{{ server?.title || 'CocoArtz' }}</div>
 
             <template v-if="sent">
-                <p class="success-msg">가입하신 이메일이 맞다면, 비밀번호 재설정 링크를 보냈어요. 메일함(스팸함도)을 확인해주세요.</p>
-                <NuxtLink to="/login" class="submit-btn" style="text-align:center;text-decoration:none">로그인으로 돌아가기</NuxtLink>
+                <p class="success-msg">{{ t('forgotPassword.sent') }}</p>
+                <NuxtLink to="/login" class="submit-btn" style="text-align:center;text-decoration:none">{{ t('auth.backToLogin') }}</NuxtLink>
             </template>
             <form v-else id="login-form" @submit.prevent="submit">
-                <p class="lead-text">가입하신 이메일을 입력하시면 비밀번호 재설정 링크를 보내드려요.</p>
+                <p class="lead-text">{{ t('forgotPassword.lead') }}</p>
                 <div class="field">
-                    <label>이메일</label>
+                    <label>{{ t('auth.emailLabel') }}</label>
                     <input v-model="email" type="email" placeholder="example@email.com" autocomplete="email" required autofocus />
                 </div>
 
                 <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
 
                 <button type="submit" class="submit-btn" :disabled="loading">
-                    {{ loading ? '전송 중...' : '재설정 링크 보내기' }}
+                    {{ loading ? t('forgotPassword.sending') : t('forgotPassword.submit') }}
                 </button>
-                <NuxtLink to="/login" class="forgot-link" style="align-self:center">로그인으로 돌아가기</NuxtLink>
+                <NuxtLink to="/login" class="forgot-link" style="align-self:center">{{ t('auth.backToLogin') }}</NuxtLink>
             </form>
         </div>
     </div>

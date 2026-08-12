@@ -1,0 +1,121 @@
+{
+    "auth": {
+        "loginTab": "登录",
+        "registerTab": "注册",
+        "handleLabel": "用户名",
+        "handleHint": "（无法更改）",
+        "handlePlaceholder": "英文字母和数字",
+        "emailLabel": "邮箱",
+        "passwordLabel": "密码",
+        "passwordPlaceholder": "至少6位",
+        "forgotPassword": "忘记密码了吗？",
+        "backToLogin": "返回登录",
+        "processing": "处理中...",
+        "submitLogin": "登录",
+        "submitRegister": "注册",
+        "genericError": "发生错误",
+        "resendVerification": "重新发送验证邮件",
+        "resendSent": "已重新发送",
+        "resending": "发送中...",
+        "pendingApprovalMsg": "注册申请已提交，管理员审核通过后即可登录。",
+        "pendingVerificationMsg": "注册已完成，请点击邮件中的验证链接后登录。"
+    },
+    "forgotPassword": {
+        "lead": "输入您注册时使用的邮箱，我们会向您发送密码重置链接。",
+        "sent": "如果该邮箱已注册，我们已发送密码重置链接，请查收邮件（也请检查垃圾邮件箱）。",
+        "submit": "发送重置链接",
+        "sending": "发送中..."
+    },
+    "resetPassword": {
+        "invalidLink": "链接无效。",
+        "lead": "请输入新密码。",
+        "newPasswordLabel": "新密码",
+        "confirmLabel": "确认密码",
+        "confirmPlaceholder": "请再次输入",
+        "submit": "修改密码",
+        "submitting": "修改中...",
+        "done": "密码已修改，即将跳转到登录页面。",
+        "retry": "重新申请",
+        "mismatch": "两次输入的密码不一致"
+    },
+    "chrome": {
+        "openMenu": "打开菜单",
+        "serverInfo": "服务器信息",
+        "members": "成员",
+        "settings": "设置"
+    },
+    "village": {
+        "continueHere": "在此标签页继续",
+        "loadingMore": "加载中...",
+        "loadMoreMessages": "加载更多消息",
+        "mutedMessage": "已屏蔽的消息",
+        "viewAnyway": "仍要查看",
+        "editedTag": "（已编辑）",
+        "edit": "编辑",
+        "delete": "删除",
+        "mute": "屏蔽",
+        "softMute": "软屏蔽",
+        "hardMute": "硬屏蔽",
+        "cancel": "取消",
+        "save": "保存",
+        "hideMutedAgain": "重新隐藏屏蔽消息",
+        "emoji": "表情",
+        "sendMessagePlaceholder": "发送消息",
+        "send": "发送",
+        "chat": "聊天",
+        "board": "版块",
+        "voiceChatRoom": "语音聊天室",
+        "wiki": "Wiki",
+        "openWindow": "打开{name}",
+        "decorateRoom": "✎ 装饰房间",
+        "kickedDuplicateSession": "已在其他设备或标签页重新登录，此连接已断开。",
+        "kickedBanned": "账号已被封禁，连接已断开。",
+        "kickedPasswordReset": "密码已修改，请重新登录。",
+        "kickedAccountDeleted": "注销已完成。",
+        "kickedDeleted": "该账号已注销。",
+        "kickedGeneric": "连接已断开。"
+    },
+    "profilebar": {
+        "defaultCurrencyName": "可可",
+        "attendance": "签到",
+        "notCheckedInToday": "今天还没签到",
+        "shop": "商店",
+        "mySettings": "个人设置",
+        "notLoggedIn": "尚未登录",
+        "tapToLogin": "点击登录／注册"
+    },
+    "sidebar": {
+        "basic": "基本",
+        "timeline": "动态时间线",
+        "newPost": "有新帖子",
+        "defaultVillageName": "村庄",
+        "defaultNoticeBoardName": "公告板"
+    },
+    "profileCard": {
+        "goToProfile": "查看主页"
+    },
+    "notifications": {
+        "title": "通知",
+        "empty": "还没有通知。",
+        "unknownUser": "未知用户",
+        "followedYouSuffix": " 关注了你"
+    },
+    "errors": {
+        "MISSING_FIELDS": "请填写所有字段",
+        "AUTH_REQUIRED": "需要登录",
+        "PASSWORD_TOO_SHORT": "密码至少需要6位",
+        "EMAIL_TAKEN": "该邮箱已被使用",
+        "USERNAME_TAKEN": "该用户名已被使用",
+        "REGISTRATION_CLOSED": "目前暂不开放注册",
+        "INVALID_CREDENTIALS": "邮箱或密码不正确",
+        "NO_PASSWORD_SET": "该账号尚未设置密码",
+        "PENDING_APPROVAL": "账号正在等待管理员审核",
+        "EMAIL_VERIFICATION_REQUIRED": "需要完成邮箱验证，请查收邮件",
+        "ACCOUNT_DELETED": "该账号已注销",
+        "ACCOUNT_BANNED": "该账号已被永久封禁",
+        "ACCOUNT_SUSPENDED": "该账号已被暂时封禁",
+        "EMAIL_REQUIRED": "请输入邮箱",
+        "INVALID_LINK": "链接无效或已被使用",
+        "LINK_EXPIRED": "重置链接已过期，请重新申请"
+    }
+}

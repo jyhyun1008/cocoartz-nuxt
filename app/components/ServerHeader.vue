@@ -1,6 +1,6 @@
 <template>
     <div id="header-wrapper">
-        <button id="mobile-nav-toggle" type="button" @click="toggleMobileNav" aria-label="메뉴 열기">
+        <button id="mobile-nav-toggle" type="button" @click="toggleMobileNav" :aria-label="t('chrome.openMenu')">
             <i class="hgi hgi-stroke hgi-menu-01"></i>
         </button>
         <div id="title-wrapper">
@@ -10,14 +10,14 @@
             </NuxtLink>
         </div>
         <div id="shortcut-wrapper">
-            <NuxtLink :to="infoPath" class="shortcut" title="서버 정보">
+            <NuxtLink :to="infoPath" class="shortcut" :title="t('chrome.serverInfo')">
                 <i class="hgi hgi-stroke hgi-information-square"></i>
             </NuxtLink>
-            <NuxtLink :to="membersPath" class="shortcut" title="멤버">
+            <NuxtLink :to="membersPath" class="shortcut" :title="t('chrome.members')">
                 <i class="hgi hgi-stroke hgi-user-group"></i>
             </NuxtLink>
             <NotificationBell v-if="isLoggedIn" />
-            <NuxtLink v-if="isAdmin" :to="settingsPath" class="shortcut" title="설정">
+            <NuxtLink v-if="isAdmin" :to="settingsPath" class="shortcut" :title="t('chrome.settings')">
                 <i class="hgi hgi-stroke hgi-setting-07"></i>
             </NuxtLink>
         </div>
@@ -36,6 +36,7 @@ const props = defineProps({
 
 const { toggle: toggleMobileNav } = useMobileNav()
 const { isLoggedIn } = useCurrentUser()
+const { t } = useI18n()
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 // RoomMap.vue/UserRoomEmbed.vue와 같은 문제: onMounted(클라이언트 전용) 안에서 부르면 SSR
 // 땐 이 데이터 없이 렌더돼서 새로고침 시 관리자 아이콘 등이 잠깐 빠졌다가 나타나는 깜빡임이

@@ -1,0 +1,121 @@
+{
+    "auth": {
+        "loginTab": "로그인",
+        "registerTab": "회원가입",
+        "handleLabel": "핸들",
+        "handleHint": "(변경할 수 없습니다)",
+        "handlePlaceholder": "영문, 숫자",
+        "emailLabel": "이메일",
+        "passwordLabel": "비밀번호",
+        "passwordPlaceholder": "6자 이상",
+        "forgotPassword": "비밀번호를 잊으셨나요?",
+        "backToLogin": "로그인으로 돌아가기",
+        "processing": "처리 중...",
+        "submitLogin": "로그인",
+        "submitRegister": "가입하기",
+        "genericError": "오류가 발생했습니다",
+        "resendVerification": "인증 메일 재전송",
+        "resendSent": "재전송했어요",
+        "resending": "전송 중...",
+        "pendingApprovalMsg": "가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있어요.",
+        "pendingVerificationMsg": "가입이 완료되었습니다. 메일함에서 인증 링크를 눌러야 로그인할 수 있어요."
+    },
+    "forgotPassword": {
+        "lead": "가입하신 이메일을 입력하시면 비밀번호 재설정 링크를 보내드려요.",
+        "sent": "가입하신 이메일이 맞다면, 비밀번호 재설정 링크를 보냈어요. 메일함(스팸함도)을 확인해주세요.",
+        "submit": "재설정 링크 보내기",
+        "sending": "전송 중..."
+    },
+    "resetPassword": {
+        "invalidLink": "유효하지 않은 링크입니다.",
+        "lead": "새로 쓸 비밀번호를 입력해주세요.",
+        "newPasswordLabel": "새 비밀번호",
+        "confirmLabel": "비밀번호 확인",
+        "confirmPlaceholder": "다시 입력",
+        "submit": "비밀번호 변경",
+        "submitting": "변경 중...",
+        "done": "비밀번호가 변경됐어요. 잠시 후 로그인 화면으로 이동해요.",
+        "retry": "다시 요청하기",
+        "mismatch": "비밀번호가 서로 달라요"
+    },
+    "chrome": {
+        "openMenu": "메뉴 열기",
+        "serverInfo": "서버 정보",
+        "members": "멤버",
+        "settings": "설정"
+    },
+    "village": {
+        "continueHere": "이 탭에서 계속하기",
+        "loadingMore": "불러오는 중...",
+        "loadMoreMessages": "이전 메시지 더보기",
+        "mutedMessage": "뮤트된 메시지입니다",
+        "viewAnyway": "그래도 보기",
+        "editedTag": "(수정됨)",
+        "edit": "수정",
+        "delete": "삭제",
+        "mute": "뮤트",
+        "softMute": "소프트 뮤트",
+        "hardMute": "하드 뮤트",
+        "cancel": "취소",
+        "save": "저장",
+        "hideMutedAgain": "뮤트 다시 숨기기",
+        "emoji": "이모지",
+        "sendMessagePlaceholder": "메시지 보내기",
+        "send": "전송",
+        "chat": "채팅",
+        "board": "게시판",
+        "voiceChatRoom": "음성채팅방",
+        "wiki": "위키",
+        "openWindow": "{name} 열기",
+        "decorateRoom": "✎ 방 꾸미기",
+        "kickedDuplicateSession": "다른 기기나 탭에서 새로 접속해서 이 연결은 끊겼어요.",
+        "kickedBanned": "계정이 정지되어 연결이 끊겼어요.",
+        "kickedPasswordReset": "비밀번호가 변경되어 다시 로그인해주세요.",
+        "kickedAccountDeleted": "탈퇴 처리가 완료되었습니다.",
+        "kickedDeleted": "탈퇴한 계정입니다.",
+        "kickedGeneric": "연결이 끊겼어요."
+    },
+    "profilebar": {
+        "defaultCurrencyName": "코코아",
+        "attendance": "출석체크",
+        "notCheckedInToday": "오늘 출석 안 함",
+        "shop": "상점",
+        "mySettings": "내 설정",
+        "notLoggedIn": "로그인하지 않음",
+        "tapToLogin": "눌러서 로그인 / 가입"
+    },
+    "sidebar": {
+        "basic": "기본",
+        "timeline": "타임라인",
+        "newPost": "새 글이 있어요",
+        "defaultVillageName": "마을",
+        "defaultNoticeBoardName": "공지 게시판"
+    },
+    "profileCard": {
+        "goToProfile": "프로필로 이동"
+    },
+    "notifications": {
+        "title": "알림",
+        "empty": "아직 알림이 없습니다.",
+        "unknownUser": "알 수 없음",
+        "followedYouSuffix": "님이 회원님을 팔로우했습니다"
+    },
+    "errors": {
+        "MISSING_FIELDS": "모든 필드를 입력해주세요",
+        "AUTH_REQUIRED": "로그인이 필요합니다",
+        "PASSWORD_TOO_SHORT": "비밀번호는 6자 이상이어야 합니다",
+        "EMAIL_TAKEN": "이미 사용 중인 이메일입니다",
+        "USERNAME_TAKEN": "이미 사용 중인 아이디입니다",
+        "REGISTRATION_CLOSED": "현재 신규 가입이 제한되어 있습니다",
+        "INVALID_CREDENTIALS": "이메일 또는 비밀번호가 올바르지 않습니다",
+        "NO_PASSWORD_SET": "비밀번호가 설정되지 않은 계정입니다",
+        "PENDING_APPROVAL": "관리자 승인 대기 중인 계정입니다",
+        "EMAIL_VERIFICATION_REQUIRED": "이메일 인증이 필요합니다. 메일함을 확인해주세요",
+        "ACCOUNT_DELETED": "탈퇴한 계정입니다",
+        "ACCOUNT_BANNED": "영구정지된 계정입니다",
+        "ACCOUNT_SUSPENDED": "일시정지된 계정입니다",
+        "EMAIL_REQUIRED": "이메일을 입력해주세요",
+        "INVALID_LINK": "유효하지 않거나 이미 사용된 링크입니다",
+        "LINK_EXPIRED": "재설정 링크가 만료되었습니다. 다시 요청해주세요"
+    }
+}

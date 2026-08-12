@@ -5,6 +5,7 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const route = useRoute()
 const router = useRouter()
+const { t, errT } = useI18n()
 
 const { server } = await useServer()
 useHead({ title: server?.title || 'CocoArtz' })
@@ -16,15 +17,17 @@ const passwordConfirm = ref('')
 const loading = ref(false)
 const done = ref(false)
 const errorMsg = ref('')
+const errorCode = ref('')
 
 async function submit() {
     errorMsg.value = ''
+    errorCode.value = ''
     if (password.value.length < 6) {
-        errorMsg.value = '비밀번호는 6자 이상이어야 합니다'
+        errorMsg.value = t('errors.PASSWORD_TOO_SHORT')
         return
     }
     if (password.value !== passwordConfirm.value) {
-        errorMsg.value = '비밀번호가 서로 달라요'
+        errorMsg.value = t('resetPassword.mismatch')
         return
     }
     loading.value = true
@@ -38,7 +41,8 @@ async function submit() {
         // 3초 뒤 로그인 화면으로 자연스럽게 넘겨줌
         setTimeout(() => router.push('/login'), 3000)
     } catch (e) {
-        errorMsg.value = e?.data?.message ?? '오류가 발생했습니다'
+        errorMsg.value = errT(e)
+        errorCode.value = e?.data?.data?.code ?? ''
     } finally {
         loading.value = false
     }
@@ -50,29 +54,29 @@ async function submit() {
         <div id="login-card">
             <div id="login-logo">{{ server?.title || 'CocoArtz' }}</div>
 
-            <p v-if="!token" class="error-msg">유효하지 않은 링크입니다.</p>
+            <p v-if="!token" class="error-msg">{{ t('resetPassword.invalidLink') }}</p>
             <template v-else-if="done">
-                <p class="success-msg">비밀번호가 변경됐어요. 잠시 후 로그인 화면으로 이동해요.</p>
+                <p class="success-msg">{{ t('resetPassword.done') }}</p>
             </template>
             <form v-else id="login-form" @submit.prevent="submit">
-                <p class="lead-text">새로 쓸 비밀번호를 입력해주세요.</p>
+                <p class="lead-text">{{ t('resetPassword.lead') }}</p>
                 <div class="field">
-                    <label>새 비밀번호</label>
-                    <input v-model="password" type="password" placeholder="6자 이상" autocomplete="new-password" required autofocus />
+                    <label>{{ t('resetPassword.newPasswordLabel') }}</label>
+                    <input v-model="password" type="password" :placeholder="t('auth.passwordPlaceholder')" autocomplete="new-password" required autofocus />
                 </div>
                 <div class="field">
-                    <label>비밀번호 확인</label>
-                    <input v-model="passwordConfirm" type="password" placeholder="다시 입력" autocomplete="new-password" required />
+                    <label>{{ t('resetPassword.confirmLabel') }}</label>
+                    <input v-model="passwordConfirm" type="password" :placeholder="t('resetPassword.confirmPlaceholder')" autocomplete="new-password" required />
                 </div>
 
                 <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
 
                 <button type="submit" class="submit-btn" :disabled="loading">
-                    {{ loading ? '변경 중...' : '비밀번호 변경' }}
+                    {{ loading ? t('resetPassword.submitting') : t('resetPassword.submit') }}
                 </button>
             </form>
 
-            <NuxtLink v-if="!token || errorMsg.includes('만료')" to="/forgot-password" class="submit-btn" style="text-align:center;text-decoration:none">다시 요청하기</NuxtLink>
+            <NuxtLink v-if="!token || errorCode === 'LINK_EXPIRED'" to="/forgot-password" class="submit-btn" style="text-align:center;text-decoration:none">{{ t('resetPassword.retry') }}</NuxtLink>
         </div>
     </div>
 </template>

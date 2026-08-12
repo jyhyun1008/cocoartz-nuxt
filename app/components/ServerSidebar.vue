@@ -2,7 +2,7 @@
     <div v-if="isOpen" id="mobile-nav-backdrop" @click="close"></div>
     <div id="sidebar-wrapper" :class="{ open: isOpen }">
         <div id="basic-wrapper">
-            <div class="side-title">기본</div>
+            <div class="side-title">{{ t('sidebar.basic') }}</div>
             <NuxtLink :to="fullPath">
                 <div class="side-items" :class="{ thispage: props.path === fullPath }">
                     <i class="hgi hgi-stroke hgi-home-07 side-icon"></i>
@@ -32,7 +32,7 @@
             <NuxtLink to="/timeline">
                 <div class="side-items" :class="{ thispage: route.path === '/timeline' }">
                     <i class="hgi hgi-stroke hgi-globe-02 side-icon"></i>
-                    <span>타임라인</span>
+                    <span>{{ t('sidebar.timeline') }}</span>
                 </div>
             </NuxtLink>
         </div>
@@ -50,7 +50,7 @@
                         <i v-else class="hgi hgi-stroke hgi-meeting-room side-icon"></i>
                         <span>{{ pageitem.knownas }}</span>
                         <!-- 새 글 스트리밍(연합 게시판은 제외 — server/api/createPost.ts 참고) -->
-                        <span v-if="isUnread(pageitem.path)" class="unread-dot" title="새 글이 있어요"></span>
+                        <span v-if="isUnread(pageitem.path)" class="unread-dot" :title="t('sidebar.newPost')"></span>
                     </div>
                     <!-- 채널 내 접속 유저 (디스코드 음성채널 스타일) -->
                     <div v-if="roomPresence(pageitem.path).length" class="side-presence">
@@ -90,6 +90,7 @@ const props = defineProps({
 const { presenceByRoom, unreadRooms, markRoomRead } = useRoomSocket()
 const { isOpen, close } = useMobileNav()
 const { openProfileCard } = useProfileCard()
+const { t } = useI18n()
 // 개인 타임라인은 settings.vue처럼 마을(path='/')을 배경으로 재사용해서 props.path만으로는
 // 구분이 안 됨 — 실제 주소(route.path)로 현재 페이지인지 판단해야 함
 const route = useRoute()
@@ -138,10 +139,10 @@ const resolvedRooms = computed(() => {
 
 // "마을"/"공지 게시판"도 관리자가 이름을 바꿀 수 있어서 하드코딩 대신 실제 room 데이터를 봐야 함
 const homeRoomName = computed(() =>
-    (roomsData.value as any[])?.find(r => r.path === fullPath)?.knownas ?? '마을'
+    (roomsData.value as any[])?.find(r => r.path === fullPath)?.knownas ?? t('sidebar.defaultVillageName')
 )
 const notiRoomName = computed(() =>
-    (roomsData.value as any[])?.find(r => r.path === notiPath)?.knownas ?? '공지 게시판'
+    (roomsData.value as any[])?.find(r => r.path === notiPath)?.knownas ?? t('sidebar.defaultNoticeBoardName')
 )
 
 const fullPath = '/'

@@ -5,30 +5,31 @@ import bcrypt from 'bcryptjs'
 import { getUserBlockStatus } from '../../utils/userStatus'
 import { createAuthSession } from '../../utils/session'
 import { isEmailVerificationRequired, isVerified } from '../../utils/emailVerification'
+import { apiError } from '../../utils/apiError'
 
 export default eventHandler(async (event) => {
     const { email, password } = await readBody(event)
 
     if (!email?.trim() || !password?.trim()) {
-        throw createError({ statusCode: 400, message: '이메일과 비밀번호를 입력해주세요' })
+        throw apiError(400, 'MISSING_FIELDS', '이메일과 비밀번호를 입력해주세요')
     }
 
     const [user] = await db.select().from(users).where(eq(users.email, email.trim()))
     if (!user) {
-        throw createError({ statusCode: 401, message: '이메일 또는 비밀번호가 올바르지 않습니다' })
+        throw apiError(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다')
     }
 
     if (!user.password) {
-        throw createError({ statusCode: 401, message: '비밀번호가 설정되지 않은 계정입니다' })
+        throw apiError(401, 'NO_PASSWORD_SET', '비밀번호가 설정되지 않은 계정입니다')
     }
 
     const ok = await bcrypt.compare(password, user.password)
     if (!ok) {
-        throw createError({ statusCode: 401, message: '이메일 또는 비밀번호가 올바르지 않습니다' })
+        throw apiError(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다')
     }
 
     if (!user.approved) {
-        throw createError({ statusCode: 403, message: '관리자 승인 대기 중인 계정입니다' })
+        throw apiError(403, 'PENDING_APPROVAL', '관리자 승인 대기 중인 계정입니다')
     }
 
     // 이메일 인증 게이트 — SMTP가 켜진 서버의 신규 가입자(register.ts 참고)만 실제로 걸림.
@@ -39,16 +40,15 @@ export default eventHandler(async (event) => {
     if (!user.isAdmin) {
         const verificationRequired = await isEmailVerificationRequired()
         if (!isVerified(user, verificationRequired)) {
-            throw createError({ statusCode: 403, message: '이메일 인증이 필요합니다. 메일함을 확인해주세요' })
+            throw apiError(403, 'EMAIL_VERIFICATION_REQUIRED', '이메일 인증이 필요합니다. 메일함을 확인해주세요')
         }
     }
 
     const status = getUserBlockStatus(user)
     if (status.blocked) {
-        throw createError({
-            statusCode: 403,
-            message: status.kind === 'deleted' ? '탈퇴한 계정입니다' : status.kind === 'banned' ? '영구정지된 계정입니다' : '일시정지된 계정입니다',
-        })
+        const code = status.kind === 'deleted' ? 'ACCOUNT_DELETED' : status.kind === 'banned' ? 'ACCOUNT_BANNED' : 'ACCOUNT_SUSPENDED'
+        const message = status.kind === 'deleted' ? '탈퇴한 계정입니다' : status.kind === 'banned' ? '영구정지된 계정입니다' : '일시정지된 계정입니다'
+        throw apiError(403, code, message)
     }
 
     await db.update(users).set({ lastLogin: new Date() }).where(eq(users.id, user.id))

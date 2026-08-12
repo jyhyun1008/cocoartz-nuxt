@@ -108,12 +108,12 @@
 
         <!-- 방 꾸미기 버튼 -->
         <button v-if="isOwn && !isEditMode" id="ure-edit-btn" @click="isEditMode = true">
-            ✎ 방 꾸미기
+            {{ t('village.decorateRoom') }}
         </button>
 
         <!-- 작물 수확 피드백 — RoomMap.vue의 코인 토스트와 같은 방식 -->
         <div v-if="harvestToastAmount !== null" class="ure-harvest-toast">
-            +{{ harvestToastAmount }} {{ server?.currencyName ?? '코코아' }}
+            +{{ harvestToastAmount }} {{ server?.currencyName ?? t('profilebar.defaultCurrencyName') }}
         </div>
     </div>
 </template>
@@ -131,6 +131,7 @@ const props = defineProps({
 
 const emit = defineEmits(['map-saved'])
 
+const { t } = useI18n()
 const { getItemDef, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl

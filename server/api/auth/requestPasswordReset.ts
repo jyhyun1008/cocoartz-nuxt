@@ -2,6 +2,7 @@ import { db } from '../../utils/db'
 import { users } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { issueAndSendPasswordResetEmail, canResendPasswordReset } from '../../utils/passwordReset'
+import { apiError } from '../../utils/apiError'
 
 // 로그인 여부와 무관하게(당연히 못 들어가고 있어서 재설정하려는 거니) 이메일 하나로 호출.
 // ⚠️ 이메일이 실제로 가입돼 있는지/발송이 실제로 됐는지와 무관하게 항상 같은 응답을 줌 —
@@ -9,7 +10,7 @@ import { issueAndSendPasswordResetEmail, canResendPasswordReset } from '../../ut
 // 계정 존재 유추(user enumeration) 취약점이 됨
 export default eventHandler(async (event) => {
     const { email } = await readBody(event)
-    if (!email?.trim()) throw createError({ statusCode: 400, message: '이메일을 입력해주세요' })
+    if (!email?.trim()) throw apiError(400, 'EMAIL_REQUIRED', '이메일을 입력해주세요')
 
     const config = useRuntimeConfig()
     const [user] = await db.select().from(users).where(eq(users.email, email.trim()))

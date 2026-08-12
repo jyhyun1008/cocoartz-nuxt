@@ -13,17 +13,17 @@
                 <div id="text-wrapper">
                     <div class="knownas">{{ i?.knownas ?? i?.username ?? '...' }}</div>
                     <div class="username">@{{ i?.username ?? '' }}</div>
-                    <div class="balance"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ balanceData?.balance ?? 0 }} {{ server?.currencyName ?? '코코아' }}</div>
+                    <div class="balance"><i class="hgi hgi-stroke hgi-coins-01"></i> {{ balanceData?.balance ?? 0 }} {{ server?.currencyName ?? t('profilebar.defaultCurrencyName') }}</div>
                 </div>
             </NuxtLink>
-            <NuxtLink to="/attendance" id="attendance-wrapper" title="출석체크">
+            <NuxtLink to="/attendance" id="attendance-wrapper" :title="t('profilebar.attendance')">
                 <i class="hgi hgi-stroke hgi-calendar-01"></i>
-                <span v-if="attendanceData && !attendanceData.claimedToday" class="attendance-dot" title="오늘 출석 안 함"></span>
+                <span v-if="attendanceData && !attendanceData.claimedToday" class="attendance-dot" :title="t('profilebar.notCheckedInToday')"></span>
             </NuxtLink>
-            <NuxtLink to="/shop" id="shop-wrapper" title="상점">
+            <NuxtLink to="/shop" id="shop-wrapper" :title="t('profilebar.shop')">
                 <i class="hgi hgi-stroke hgi-shopping-bag-01"></i>
             </NuxtLink>
-            <NuxtLink to="/preferences" id="preferences-wrapper" title="내 설정">
+            <NuxtLink to="/preferences" id="preferences-wrapper" :title="t('profilebar.mySettings')">
                 <i class="hgi hgi-stroke hgi-user-settings-01"></i>
             </NuxtLink>
         </div>
@@ -37,11 +37,11 @@
                     </div>
                 </div>
                 <div id="text-wrapper">
-                    <div class="knownas">로그인하지 않음</div>
-                    <div class="username">눌러서 로그인 / 가입</div>
+                    <div class="knownas">{{ t('profilebar.notLoggedIn') }}</div>
+                    <div class="username">{{ t('profilebar.tapToLogin') }}</div>
                 </div>
             </div>
-            <div id="settings-wrapper" title="로그인">
+            <div id="settings-wrapper" :title="t('auth.loginTab')">
                 <i class="hgi hgi-stroke hgi-login-02"></i>
             </div>
         </NuxtLink>
@@ -53,6 +53,7 @@ const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId, isLoggedIn } = useCurrentUser()
 const { isOpen } = useMobileNav()
+const { t } = useI18n()
 const { server } = await useServer()
 
 const { data: iData } = await useAsyncData(
