@@ -22,6 +22,7 @@ onMounted(() => useTheme().init())
 @font-face {
     font-family: 'cocoartz';
     src: url('https://blog.howeverina.studio/font/Griun_Cocoartz-Rg.woff2') format('woff2');
+    unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+0020-007E; 
     font-weight: 400;
     font-display: swap;
     ascent-override: 80%;
@@ -31,11 +32,28 @@ onMounted(() => useTheme().init())
 @font-face {
     font-family: 'cocoartz';
     src: url('https://blog.howeverina.studio/font/Griun_DarkCocoartz-Rg.woff2') format('woff2');
+    unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+0020-007E; 
     font-weight: 700;
     font-display: swap;
     ascent-override: 80%;
     descent-override: 20%;
 }
+
+@font-face { 
+    font-family: "cocoartz"; src: 
+    url("https://raw.githubusercontent.com/jyhyun1008/font/main/ZenMaruGothic-Medium.ttf") format("truetype"); 
+    font-weight: 400; 
+    font-display: swap; 
+    unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF; 
+} 
+
+@font-face { 
+    font-family: "cocoartz"; 
+    src: url("https://raw.githubusercontent.com/jyhyun1008/font/main/ZenMaruGothic-Bold.ttf") format("truetype"); 
+    font-weight: 700; 
+    font-display: swap; 
+    unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF; 
+} 
 
 :root {
     --accent: #D21F3C;
