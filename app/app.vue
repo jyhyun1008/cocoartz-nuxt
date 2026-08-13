@@ -19,10 +19,14 @@ onMounted(() => useTheme().init())
 </template>
 
 <style>
+/* 한국어/라틴 문자용 — 예전엔 'cocoartz' 하나로 일본어 폰트까지 unicode-range로 묶여있었는데,
+   같은 family 이름 아래 여러 실제 폰트 파일이 걸리니까 브라우저가 line-height(strut) 계산에
+   쓸 대표 메트릭을 헷갈려하면서 ascent/descent-override가 안 먹히는 것처럼 보였음.
+   family를 언어별로 쪼개서 각자 자기 override만 확실히 적용받게 함 */
 @font-face {
-    font-family: 'cocoartz';
+    font-family: 'cocoartz-kr';
     src: url('https://blog.howeverina.studio/font/Griun_Cocoartz-Rg.woff2') format('woff2');
-    unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+0020-007E; 
+    unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+0020-007E;
     font-weight: 400;
     font-display: swap;
     ascent-override: 80%;
@@ -30,34 +34,35 @@ onMounted(() => useTheme().init())
 }
 
 @font-face {
-    font-family: 'cocoartz';
+    font-family: 'cocoartz-kr';
     src: url('https://blog.howeverina.studio/font/Griun_DarkCocoartz-Rg.woff2') format('woff2');
-    unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+0020-007E; 
+    unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+0020-007E;
     font-weight: 700;
     font-display: swap;
     ascent-override: 80%;
     descent-override: 20%;
 }
 
-@font-face { 
-    font-family: "cocoartz"; src: 
-    url("https://raw.githubusercontent.com/jyhyun1008/font/main/ZenMaruGothic-Medium.ttf") format("truetype"); 
-    font-weight: 400; 
-    font-display: swap; 
-    unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF; 
+/* 일본어용 */
+@font-face {
+    font-family: "cocoartz-jp"; src:
+    url("https://raw.githubusercontent.com/jyhyun1008/font/main/ZenMaruGothic-Medium.ttf") format("truetype");
+    font-weight: 400;
+    font-display: swap;
+    unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF;
     ascent-override: 80%;
     descent-override: 20%;
-} 
+}
 
-@font-face { 
-    font-family: "cocoartz"; 
-    src: url("https://raw.githubusercontent.com/jyhyun1008/font/main/ZenMaruGothic-Bold.ttf") format("truetype"); 
-    font-weight: 700; 
-    font-display: swap; 
-    unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF; 
+@font-face {
+    font-family: "cocoartz-jp";
+    src: url("https://raw.githubusercontent.com/jyhyun1008/font/main/ZenMaruGothic-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-display: swap;
+    unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF;
     ascent-override: 80%;
     descent-override: 20%;
-} 
+}
 
 :root {
     --accent: #D21F3C;
@@ -106,7 +111,7 @@ onMounted(() => useTheme().init())
 
 * {
     box-sizing: border-box;
-    font-family: 'cocoartz', sans-serif;
+    font-family: 'cocoartz-kr', 'cocoartz-jp', sans-serif;
 }
 
 body {
