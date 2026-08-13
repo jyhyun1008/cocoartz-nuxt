@@ -45,6 +45,8 @@ onMounted(() => useTheme().init())
     font-weight: 400; 
     font-display: swap; 
     unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF; 
+    ascent-override: 80%;
+    descent-override: 20%;
 } 
 
 @font-face { 
@@ -53,6 +55,8 @@ onMounted(() => useTheme().init())
     font-weight: 700; 
     font-display: swap; 
     unicode-range: U+3000-303F, U+3040-309F, U+30A0-30FF, U+FF00-FFEF, U+4E00-9FAF; 
+    ascent-override: 80%;
+    descent-override: 20%;
 } 
 
 :root {
