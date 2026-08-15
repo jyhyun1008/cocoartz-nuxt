@@ -1,5 +1,10 @@
 <template>
     <div class="avatar-part-icon" :style="wrapperStyle">
+        <!-- 뒷머리 — hair 아이템일 때만, 몸(body)보다도 더 뒤에 한 번 더 겹침. 같은 파일의 시트
+             마지막 줄(뒷모습 프레임, row 3)을 크롭해서 씀 — 실제 맵 렌더링(CharacterMoving.vue/
+             OtherCharacter.vue)과 같은 이유(긴 머리가 몸에 안 가려지고 뒤로 흘러나온 것처럼 보이게)를
+             상점/인벤토리 미리보기에도 그대로 반영 -->
+        <img v-if="part === 'hair'" :src="targetSrc" class="avatar-part-icon-layer" :style="backHairLayerStyle" />
         <!-- body 파트 자체를 보여줄 땐 바디 한 장만, 나머지 파츠는 기본 바디 위에 그 파츠를 겹쳐서
              "실제로 착용했을 때" 느낌으로 보여줌(파츠 혼자면 허공에 뜬 조각처럼 보여서 뭔지 알아보기 어려움) -->
         <img v-if="part !== 'body'" :src="getAvatarPartImage('body', 1)" class="avatar-part-icon-layer" :style="bodyLayerStyle" />
@@ -78,6 +83,15 @@ const targetLayerStyle = computed(() => {
         height: `${SPRITE_H * scale.value}px`,
     }
 })
+
+// 뒷머리 미리보기 크롭 — targetLayerStyle과 같은 셀(col=1)이지만 row만 3(시트 마지막 줄,
+// 뒷모습 프레임)으로 고정. hair는 deco가 아니므로 scale은 항상 CELL 기준(= props.size/CELL)
+const backHairLayerStyle = computed(() => ({
+    top: `-${3 * props.size}px`,
+    left: `-${props.size}px`,
+    width: `${SPRITE_W * scale.value}px`,
+    height: `${SPRITE_H * scale.value}px`,
+}))
 
 // 데코 뒤에 겹쳐 보여주는 기본 바디 레이어 — 데코와 같은 scale을 쓰다 보니 바디의 셀 폭(256)도
 // 정사각형 파츠 때와 다른 비율로 축소되므로, targetLayerStyle의 데코와 똑같은 방식으로 가운데
