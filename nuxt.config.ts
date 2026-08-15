@@ -41,7 +41,12 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
         { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
-        { rel: 'stylesheet', href: 'https://cdn.hugeicons.com/font/hgi-stroke-rounded.css' },
+        // 예전엔 cdn.hugeicons.com에서 직접 불러왔는데, 그 폰트가 아이콘 모양을 "실제 존재하는
+        // 한자 코드포인트" 자리에 그려두는 방식이라, CDN 로드가 한 번이라도 실패하면(네트워크
+        // 지연/CORS/광고차단기 등) 폴백 폰트가 그 코드포인트를 진짜 한자로 그려버려서 아이콘이
+        // 전부 한자로 보이는 사고가 남 — public/fonts로 내려받아 같은 origin에서 서빙해서
+        // 서드파티 CDN 가용성에 아이콘 렌더링이 흔들리지 않게 함
+        { rel: 'stylesheet', href: '/fonts/hgi-stroke-rounded/hgi-stroke-rounded.css' },
       ],
       // 하이드레이션 전에 테마부터 정해서 라이트모드 유저가 잠깐 다크로 번쩍이는 걸 방지
       script: [
