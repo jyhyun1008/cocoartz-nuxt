@@ -13,6 +13,10 @@
             <div v-if="frontDeco" class="oc-deco-viewport" :style="{ zIndex: frontDecoZIndex }">
                 <img class="oc-deco-sprite" :src="frontDeco" :style="decoImgStyle" />
             </div>
+            <!-- 뒷머리 — CharacterMoving.vue와 동일한 이유/방식(정면에서만 몸통 뒤에 보임) -->
+            <div v-if="backHair" class="oc-back-hair-viewport" :style="{ display: frame.row === 0 ? 'block' : 'none' }">
+                <img class="oc-back-hair-sprite" :src="backHair" :style="backHairImgStyle" />
+            </div>
             <div class="oc-slice-top">
                 <img
                     v-for="layer in layers"
@@ -65,6 +69,8 @@ const props = defineProps({
     // 앞/뒤 중 실제로 있는 쪽 하나만 채워져 있고 나머진 null
     backDeco: { type: String, default: null },
     frontDeco: { type: String, default: null },
+    // 뒷머리(useCharacter.ts getCharacterLayers가 hair와 같은 파일을 그대로 내려줌) — 정면에서만 보임
+    backHair: { type: String, default: null },
 })
 
 // 아바타 몸통/닉네임을 클릭하면 부모(RoomMap.vue)에 알려서 프로필 카드를 띄우게 함 — userId만
@@ -175,6 +181,10 @@ const botImgStyle = computed(() => {
 const decoImgStyle = computed(() =>
     `top:${-178 * frame.value.row}px; left:${-128 * frame.value.col}px;`)
 
+// 뒷머리 — row는 항상 3(뒷모습 프레임, 시트의 마지막 줄) 고정, col만 앞머리와 맞춰서 같이 흔들리게 함
+const backHairImgStyle = computed(() =>
+    `top:${-128 * 3}px; left:${-128 * frame.value.col}px;`)
+
 // row===3(KeyW, 뒷모습)일 때만 앞/뒤 데코의 z-index를 서로 바꿈 — 템플릿 주석 참고
 const isBackView = computed(() => frame.value.row === 3)
 const backDecoZIndex = computed(() => isBackView.value ? 1 : -1)
@@ -275,6 +285,26 @@ onUnmounted(() => {
     position: absolute;
     width: 384px;
     height: 712px;
+    top: 0;
+    left: -128px;
+}
+
+/* 뒷머리 — CharacterMoving.vue의 .char-back-hair-viewport/.char-back-hair-sprite와 동일한 이유/치수 */
+.oc-back-hair-viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 128px;
+    height: 128px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.oc-back-hair-sprite {
+    position: absolute;
+    width: 384px;
+    height: 512px;
     top: 0;
     left: -128px;
 }

@@ -17,6 +17,12 @@
             <div v-if="props.frontDeco" class="char-deco-viewport" :ref="el => { if (el) charDecoFrontContainerEl = el }">
                 <img :ref="el => { if (el) charDecoFrontEl = el }" class="char-deco-sprite" :src="props.frontDeco" />
             </div>
+            <!-- 뒷머리 — 정면(row===0)에서만 몸통 뒤에 보여줌(applyFrame이 display 토글).
+                 hair와 같은 파일을 시트의 마지막 줄(뒷모습 프레임, row 3)로만 다르게 크롭해서
+                 긴 머리가 몸에 안 가려지고 뒤로 흘러나온 것처럼 보이게 함 -->
+            <div v-if="props.backHair" class="char-back-hair-viewport" :ref="el => { if (el) charBackHairContainerEl = el }">
+                <img :ref="el => { if (el) charBackHairEl = el }" class="char-back-hair-sprite" :src="props.backHair" />
+            </div>
             <div class="char-slice char-slice-top" :style="charTopSliceStyle">
                 <img
                     v-for="(layer, i) in props.layers"
@@ -62,6 +68,8 @@ const props = defineProps({
     // 앞/뒤 중 실제로 있는 쪽 하나만 채워져 있고 나머진 null
     backDeco: { type: String, default: null },
     frontDeco: { type: String, default: null },
+    // 뒷머리(useCharacter.ts getCharacterLayers가 hair와 같은 파일을 그대로 내려줌) — 정면에서만 보임
+    backHair: { type: String, default: null },
 })
 
 const { bubbles } = useSpeechBubbles()
@@ -122,6 +130,8 @@ let charDecoBackEl = null
 let charDecoFrontEl = null
 let charDecoBackContainerEl = null
 let charDecoFrontContainerEl = null
+let charBackHairEl = null
+let charBackHairContainerEl = null
 
 const charBottomH = computed(() => {
     if (props.tileMode) return 64
@@ -165,6 +175,12 @@ function applyFrame({ row, col }) {
     const isBackView = row === 3
     charDecoBackContainerEl?.style.setProperty('z-index', isBackView ? '1' : '-1')
     charDecoFrontContainerEl?.style.setProperty('z-index', isBackView ? '-1' : '1')
+
+    // 뒷머리 — row는 항상 3(뒷모습 프레임) 고정, col만 앞머리와 맞춰서 걸을 때 같이 흔들리게 함.
+    // 정면(row===0)이 아니면 통째로 숨김(측면/후면은 기존 hair 레이어 하나로 이미 충분함)
+    const backHairStyle = `top:${-128 * 3}px; left:${-128 * col}px;`
+    charBackHairEl?.setAttribute('style', backHairStyle)
+    charBackHairContainerEl?.style.setProperty('display', row === 0 ? 'block' : 'none')
 }
 
 onMounted(() => {
@@ -301,6 +317,29 @@ onMounted(() => {
     position: absolute;
     width: 384px;
     height: 712px;
+    top: 0px;
+    left: -128px;
+}
+
+/* 뒷머리 — 몸통과 같은 128x128 셀 치수(hair와 같은 파일이라 위치 계산도 char-sprite와 동일).
+   deco처럼 top/bottom 슬라이스 분할 없이 통짜로 렌더(몸통 뒤 한 겹으로만 살짝 보이는 용도라
+   isometric 층 차이에 따른 하단 클리핑까지는 필요 없음). z-index:-1로 body/hair 스택(auto,
+   즉 0 취급) 뒤에 고정 — deco처럼 뒤집을 필요가 없으니 always -1 */
+.char-back-hair-viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 128px;
+    height: 128px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.char-back-hair-sprite {
+    position: absolute;
+    width: 384px;
+    height: 512px;
     top: 0px;
     left: -128px;
 }

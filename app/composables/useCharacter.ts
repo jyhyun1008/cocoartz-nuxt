@@ -28,6 +28,12 @@ export interface CharacterLayers {
     // 따로 붙어야 해서 layers와 분리해서 내려줌. 한 번에 하나만 장착 가능하니 always 둘 중 하나만 참
     backDeco: string | null
     frontDeco: string | null
+    // 뒷머리 — hair와 완전히 같은 스프라이트 파일(다른 파일이 아님!)을 CharacterMoving.vue/
+    // OtherCharacter.vue가 시트의 마지막 줄(뒷모습 프레임, row 3)만 다르게 크롭해서 몸통 뒤에
+    // 한 번 더 그림. 정면(row===0)일 때 긴 머리가 몸에 다 가려지지 않고 뒤로 흘러나온 것처럼
+    // 보이게 하려는 용도라 hair가 장착돼 있을 때만 채워짐 — layers 안의 hair(앞머리, 그대로 유지)와
+    // 별개로 항상 같이 붙여서 내려줌(개별 아이템 설정이 아니라 모든 머리에 일괄 적용)
+    backHair: string | null
 }
 
 // character JSON 문자열 → 레이어 정보. 기본 렌더링 순서는 body → shoes → bottom → top → face → hair.
@@ -71,5 +77,8 @@ export function getCharacterLayers(
         else backDeco = decoUrl
     }
 
-    return { layers, backDeco, frontDeco }
+    // hair와 같은 파일을 그대로 재사용(별도 업로드/카탈로그 항목 없음) — 크롭만 렌더러 쪽에서 다르게 함
+    const backHair: string | null = config.hair ? resolve('hair', config.hair) : null
+
+    return { layers, backDeco, frontDeco, backHair }
 }
