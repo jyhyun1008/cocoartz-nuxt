@@ -839,9 +839,16 @@ function closeChatPanel() {
     mapBlurred.value = false
 }
 
+// 메인 경로(/)랑 같은 맵(path='/')을 그냥 그 위에 얹어서 보여주는 페이지들 — 각자 독립된 URL로
+// 들어와 있어도 실제로는 다 "/"의 맵 위에 뜨는 창일 뿐이라, 닫을 때 그 URL(/settings 등)에
+// 그대로 남는 것보다 "/"로 돌아가는 게 자연스러움. 게시판/음성/위키는 채널마다 다른 맵(path)일
+// 수 있어서 여기서 제외 — 그런 채널은 닫아도 지금 보고 있던 그 채널에 남아있는 게 맞음
+const SHARED_MAP_PAGES = ['info', 'members', 'settings', 'timeline', 'preferences', 'shop', 'attendance']
+
 function closeOverlay() {
     showOverlay.value = false
     mapBlurred.value = false
+    if (SHARED_MAP_PAGES.includes(props.page)) navigateTo('/')
 }
 
 function openOverlay() {
