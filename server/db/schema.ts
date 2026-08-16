@@ -75,6 +75,12 @@ export const servers = pgTable('servers', {
     map: text(),
     // 'open'(자유 가입) | 'approval'(승인제) | 'closed'(가입 차단)
     registrationMode: text().default('open').notNull(),
+    // 가입 시 아이디로 못 쓰게 막을 목록 — 한 줄에 하나씩(register.ts가 줄 단위로 갈라서 대소문자
+    // 무시하고 정확히 일치하는지 검사함). 사칭/혼동 방지(관리자·시스템 계정 사칭) + 예약어 성격의
+    // 흔한 단어들을 기본값으로 미리 채워둠 — 관리자가 설정(서버 정보 탭)에서 자유롭게 추가/삭제 가능
+    reservedUsernames: text().default(
+        'admin\nadministrator\nroot\nsystem\nmoderator\nstaff\nofficial\nsupport\nhelp\nnull\nundefined\napi\ntest\nguest\neveryone\nhere'
+    ).notNull(),
     // 맵 아이템 코인 수집 등에서 쓰는 재화 이름(서버별로 다르게 부를 수 있게) — 기본 "코코아"
     currencyName: text().default('코코아'),
     // 가입 완료 시 자동으로 지급하는 재화(server/api/auth/register.ts) — 0이면 지급 안 함

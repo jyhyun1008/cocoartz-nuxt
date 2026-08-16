@@ -6,7 +6,7 @@ import { requirePermission } from '../../utils/permissions'
 const REGISTRATION_MODES = ['open', 'approval', 'closed']
 
 export default eventHandler(async (event) => {
-    const { slug, title, themecolor, info, avatar, registrationMode, currencyName, signupBonus } = await readBody(event)
+    const { slug, title, themecolor, info, avatar, registrationMode, currencyName, signupBonus, reservedUsernames } = await readBody(event)
     await requirePermission(event, 'accessAdminSettings')
     if (!slug) throw createError({ statusCode: 400, message: 'slug가 필요합니다' })
     if (registrationMode !== undefined && !REGISTRATION_MODES.includes(registrationMode)) {
@@ -41,6 +41,7 @@ export default eventHandler(async (event) => {
             ...(registrationMode !== undefined ? { registrationMode } : {}),
             currencyName: currencyName?.trim() || '코코아',
             ...(signupBonus !== undefined ? { signupBonus } : {}),
+            ...(reservedUsernames !== undefined ? { reservedUsernames } : {}),
         }).returning()
         return created
     }
@@ -54,6 +55,7 @@ export default eventHandler(async (event) => {
             ...(registrationMode !== undefined ? { registrationMode } : {}),
             ...(currencyName !== undefined ? { currencyName: currencyName.trim() || '코코아' } : {}),
             ...(signupBonus !== undefined ? { signupBonus } : {}),
+            ...(reservedUsernames !== undefined ? { reservedUsernames } : {}),
         })
         .where(eq(servers.slug, slug))
         .returning()

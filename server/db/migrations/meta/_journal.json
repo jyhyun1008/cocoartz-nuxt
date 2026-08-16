@@ -281,6 +281,13 @@
       "when": 1786851120727,
       "tag": "0039_giant_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1786854641555,
+      "tag": "0040_amused_bromley",
+      "breakpoints": true
     }
   ]
 }

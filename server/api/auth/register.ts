@@ -18,6 +18,19 @@ export default eventHandler(async (event) => {
         throw apiError(400, 'PASSWORD_TOO_SHORT', '비밀번호는 6자 이상이어야 합니다')
     }
 
+    // 가입 보너스/등록 모드 판정에도 필요해서 여기서 한 번만 조회해 아래까지 재사용함
+    const config = useRuntimeConfig()
+    const slug = config.public.serverSlug as string
+    const [server] = await db.select().from(servers).where(eq(servers.slug, slug))
+
+    // 관리자가 설정(서버 정보 탭)에서 지정한 금지 아이디 — 한 줄에 하나씩 저장돼 있음(servers.reservedUsernames).
+    // 대소문자 무시하고 정확히 일치할 때만 막음(부분 문자열 포함은 오탐이 너무 많아서 — 예: "admin"을
+    // 막으려고 "admin"만 넣었는데 "adminlove" 같은 정상 아이디까지 막히면 안 되니까)
+    const reservedUsernames = (server?.reservedUsernames ?? '').split('\n').map((s) => s.trim().toLowerCase()).filter(Boolean)
+    if (reservedUsernames.includes(username.trim().toLowerCase())) {
+        throw apiError(409, 'USERNAME_RESERVED', '사용할 수 없는 아이디입니다')
+    }
+
     const existing = await db.select().from(users).where(
         or(eq(users.email, email.trim()), eq(users.username, username.trim()))
     )
@@ -32,11 +45,6 @@ export default eventHandler(async (event) => {
     // 가입 모드(차단/승인제)와 무관하게 항상 통과시켜야 부트스트랩이 가능함
     const [{ value: userCount }] = await db.select({ value: count() }).from(users)
     const isFirstUser = Number(userCount) === 0
-
-    // 가입 보너스 지급 여부에도 필요해서 첫 유저든 아니든 항상 서버 row를 조회함
-    const config = useRuntimeConfig()
-    const slug = config.public.serverSlug as string
-    const [server] = await db.select().from(servers).where(eq(servers.slug, slug))
 
     let approved = true
     if (!isFirstUser) {

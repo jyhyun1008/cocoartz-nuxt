@@ -85,6 +85,9 @@
                     <i class="hgi hgi-stroke hgi-map-01"></i> 맵 편집
                 </button>
 
+                <label class="admin-label">금지 아이디 <span class="admin-label-hint">한 줄에 하나씩 — 대소문자 무관하게 정확히 일치하는 아이디로 가입을 막음</span></label>
+                <textarea v-model="serverForm.reservedUsernames" placeholder="admin&#10;root&#10;..." class="post-textarea" style="min-height:160px;font-family:monospace"></textarea>
+
                 <p v-if="serverError" class="admin-error">{{ serverError }}</p>
                 <button class="submit-btn" style="margin-top:8px;align-self:flex-start" @click="submitServerInfo" :disabled="serverSaving">
                     {{ serverSaving ? '저장 중...' : '서버 정보 저장' }}
@@ -877,7 +880,7 @@ const { data: serverData, refresh: refreshServer } = await useAsyncData(
 )
 
 // 서버 정보 편집
-const serverForm = reactive({ title: '', themecolor: '#D21F3C', currencyName: '코코아', signupBonus: 100, info: '', avatar: '', registrationMode: 'open', defaultUserMap: null })
+const serverForm = reactive({ title: '', themecolor: '#D21F3C', currencyName: '코코아', signupBonus: 100, info: '', avatar: '', registrationMode: 'open', defaultUserMap: null, reservedUsernames: '' })
 const serverSaving = ref(false)
 const serverSaveMsg = ref('')
 const serverError = ref('')
@@ -894,6 +897,7 @@ watch(serverData, (data) => {
     serverForm.avatar = data.avatar ?? ''
     serverForm.registrationMode = data.registrationMode ?? 'open'
     serverForm.defaultUserMap = data.defaultUserMap ?? null
+    serverForm.reservedUsernames = data.reservedUsernames ?? ''
 }, { immediate: true })
 
 // 승인 대기 중인 가입 신청
