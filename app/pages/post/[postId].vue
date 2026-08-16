@@ -5,6 +5,7 @@ const router = useRouter()
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const { userId } = useCurrentUser()
+const { t } = useI18n()
 
 // 우리 서버 커스텀 이모지(:shortcode:) — 글/댓글/리액션 표시 시점에 치환
 const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()
@@ -196,7 +197,7 @@ onMounted(() => {
         <div id="post-nav">
             <button id="post-back-btn" @click="router.back()">
                 <i class="hgi hgi-stroke hgi-arrow-left-01"></i>
-                뒤로가기
+                {{ t('board.backToList') }}
             </button>
             <span id="post-nav-title">{{ post?.title }}</span>
         </div>
@@ -222,7 +223,7 @@ onMounted(() => {
                         </button>
                         <div class="post-meta-actions">
                             <div class="share-btn-wrap">
-                                <button class="post-icon-btn" @click="sharePost" title="공유">
+                                <button class="post-icon-btn" @click="sharePost" :title="t('board.share')">
                                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <circle cx="18" cy="5" r="3" />
                                         <circle cx="6" cy="12" r="3" />
@@ -231,21 +232,21 @@ onMounted(() => {
                                         <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                                     </svg>
                                 </button>
-                                <span v-if="shareCopied" class="share-toast">링크 복사됨</span>
+                                <span v-if="shareCopied" class="share-toast">{{ t('board.linkCopied') }}</span>
                             </div>
-                            <button v-if="isOwnPost && !post?.objectId" class="post-icon-btn" @click="startEdit" title="수정">
+                            <button v-if="isOwnPost && !post?.objectId" class="post-icon-btn" @click="startEdit" :title="t('village.edit')">
                                 <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
                             </button>
-                            <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" title="삭제">
+                            <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" :title="t('village.delete')">
                                 <i class="hgi hgi-stroke hgi-delete-02"></i>
                             </button>
                             <div v-if="!isOwnPost && userId" class="mute-action-wrap">
-                                <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: post.userid })" title="뮤트">
+                                <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: post.userid })" :title="t('village.mute')">
                                     <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                                 </button>
                                 <div v-if="activeMuteKey === muteKeyFor({ userid: post.userid })" class="mute-menu" @click.stop>
-                                    <button @click="confirmMute({ userid: post.userid }, 'soft')">소프트 뮤트</button>
-                                    <button @click="confirmMute({ userid: post.userid }, 'hard')">하드 뮤트</button>
+                                    <button @click="confirmMute({ userid: post.userid }, 'soft')">{{ t('village.softMute') }}</button>
+                                    <button @click="confirmMute({ userid: post.userid }, 'hard')">{{ t('village.hardMute') }}</button>
                                 </div>
                             </div>
                         </div>
@@ -257,19 +258,19 @@ onMounted(() => {
 
                 <!-- 수정 폼 -->
                 <div v-else class="create-form">
-                    <input v-model="editTitleVal" placeholder="제목" class="post-input" />
+                    <input v-model="editTitleVal" :placeholder="t('board.titlePlaceholder')" class="post-input" />
                     <div class="editor-tabs">
-                        <button class="editor-tab-btn" :class="{ active: editorTab === 'write' }" @click="editorTab = 'write'">작성</button>
-                        <button class="editor-tab-btn" :class="{ active: editorTab === 'preview' }" @click="editorTab = 'preview'">미리보기</button>
+                        <button class="editor-tab-btn" :class="{ active: editorTab === 'write' }" @click="editorTab = 'write'">{{ t('board.write') }}</button>
+                        <button class="editor-tab-btn" :class="{ active: editorTab === 'preview' }" @click="editorTab = 'preview'">{{ t('board.preview') }}</button>
                     </div>
                     <template v-if="editorTab === 'write'">
                         <div class="wiki-toolbar">
-                            <button class="toolbar-btn" @click="insertEditMarkdown('**', '**')" title="굵게"><b>B</b></button>
-                            <button class="toolbar-btn" @click="insertEditMarkdown('*', '*')" title="기울임"><i>I</i></button>
-                            <button class="toolbar-btn" @click="insertEditMarkdown('## ', '')" title="제목">H</button>
-                            <button class="toolbar-btn" @click="insertEditMarkdown('- ', '')" title="목록">•</button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('**', '**')" :title="t('board.bold')"><b>B</b></button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('*', '*')" :title="t('board.italic')"><i>I</i></button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('## ', '')" :title="t('board.titlePlaceholder')">H</button>
+                            <button class="toolbar-btn" @click="insertEditMarkdown('- ', '')" :title="t('board.list')">•</button>
                             <div class="toolbar-emoji-wrap" ref="emojiWrapRef">
-                                <button ref="emojiBtnRef" class="toolbar-btn" @click.stop="showEmojiPicker = !showEmojiPicker" title="이모지">
+                                <button ref="emojiBtnRef" class="toolbar-btn" @click.stop="showEmojiPicker = !showEmojiPicker" :title="t('village.emoji')">
                                     <i class="hgi hgi-stroke hgi-smile"></i>
                                 </button>
                                 <EmojiPicker
@@ -280,19 +281,19 @@ onMounted(() => {
                                 />
                             </div>
                             <span class="toolbar-sep"></span>
-                            <span class="toolbar-hint">마크다운 지원</span>
+                            <span class="toolbar-hint">{{ t('board.markdownSupported') }}</span>
                         </div>
                         <textarea
                             ref="editorRef"
                             v-model="editContentVal"
-                            placeholder="내용을 입력하세요... (마크다운 사용 가능)"
+                            :placeholder="t('board.contentPlaceholder')"
                             class="post-textarea wiki-textarea"
                         ></textarea>
                     </template>
-                    <div v-else class="pd-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(editContentVal.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
+                    <div v-else class="pd-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(editContentVal.trim() || `_${t('board.noPreviewContent')}_`, { breaks: true })))"></div>
                     <div class="wiki-form-actions">
-                        <button class="back-btn-header" @click="isEditing = false">취소</button>
-                        <button class="submit-btn" @click="saveEdit" :disabled="!editTitleVal.trim() || !editContentVal.trim()">수정 완료</button>
+                        <button class="back-btn-header" @click="isEditing = false">{{ t('village.cancel') }}</button>
+                        <button class="submit-btn" @click="saveEdit" :disabled="!editTitleVal.trim() || !editContentVal.trim()">{{ t('board.submitEdit') }}</button>
                     </div>
                 </div>
 
@@ -315,17 +316,17 @@ onMounted(() => {
 
                 <!-- 댓글 -->
                 <div class="pd-comments">
-                    <div class="pd-comments-title">댓글 {{ post?.comments?.length ?? 0 }}</div>
+                    <div class="pd-comments-title">{{ t('board.commentsCount', { count: post?.comments?.length ?? 0 }) }}</div>
 
                     <div v-for="comment in post?.comments" :key="comment.id" class="pd-comment">
                         <div v-if="comment.muted === 'soft' && !revealedMuted[`comment-${comment.id}`]" class="remote-cw-gate">
-                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 댓글입니다</div>
-                            <button class="submit-btn" @click="revealedMuted[`comment-${comment.id}`] = true">그래도 보기</button>
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('board.mutedComment') }}</div>
+                            <button class="submit-btn" @click="revealedMuted[`comment-${comment.id}`] = true">{{ t('village.viewAnyway') }}</button>
                         </div>
                         <template v-else>
                             <div class="pd-comment-meta">
                                 <template v-if="comment.remoteActorHandle">
-                                    <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="pd-author remote-author" title="fediverse에서 온 답글">
+                                    <a :href="comment.remoteActorUrl" target="_blank" rel="noopener noreferrer" class="pd-author remote-author" :title="t('board.remoteReplyBadge')">
                                         <i class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
                                         <span v-else>{{ comment.remoteActorHandle }}</span>
@@ -343,7 +344,7 @@ onMounted(() => {
                                     <button
                                         class="post-icon-btn"
                                         @click.stop="toggleMuteMenu(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
-                                        title="뮤트"
+                                        :title="t('village.mute')"
                                     >
                                         <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                                     </button>
@@ -352,29 +353,29 @@ onMounted(() => {
                                         class="mute-menu"
                                         @click.stop
                                     >
-                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">소프트 뮤트</button>
-                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">하드 뮤트</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">{{ t('village.softMute') }}</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">{{ t('village.hardMute') }}</button>
                                     </div>
                                 </div>
                             </div>
                             <div v-if="comment.remoteActorHandle" class="pd-comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                             <div v-else class="pd-comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                             <button v-if="comment.muted === 'soft'" class="cw-hide-btn" @click="revealedMuted[`comment-${comment.id}`] = false">
-                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                             </button>
                         </template>
                     </div>
 
-                    <div v-if="!post?.comments?.length" class="pd-empty">댓글이 없습니다.</div>
+                    <div v-if="!post?.comments?.length" class="pd-empty">{{ t('board.noComments') }}</div>
 
                     <div class="pd-comment-form">
                         <input
                             v-model="commentContent"
-                            placeholder="댓글 작성..."
+                            :placeholder="t('board.commentPlaceholder')"
                             class="pd-input"
                             @keydown.enter="submitComment"
                         />
-                        <button class="pd-submit-btn" @click="submitComment" :disabled="!commentContent.trim()">작성</button>
+                        <button class="pd-submit-btn" @click="submitComment" :disabled="!commentContent.trim()">{{ t('board.write') }}</button>
                     </div>
                 </div>
 
@@ -384,11 +385,11 @@ onMounted(() => {
         <!-- 삭제 확인 -->
         <div v-if="showDeleteConfirm" class="admin-confirm-overlay" @click.self="showDeleteConfirm = false">
             <div class="admin-confirm-box">
-                <p class="admin-confirm-msg">이 글을 정말 삭제할까요?<br /><span style="font-size:0.82rem;opacity:0.55">삭제하면 되돌릴 수 없습니다.</span></p>
+                <p class="admin-confirm-msg">{{ t('board.deleteConfirmTitle') }}<br /><span style="font-size:0.82rem;opacity:0.55">{{ t('board.deleteConfirmSub') }}</span></p>
                 <div class="admin-confirm-actions">
-                    <button class="back-btn-header" @click="showDeleteConfirm = false">취소</button>
+                    <button class="back-btn-header" @click="showDeleteConfirm = false">{{ t('village.cancel') }}</button>
                     <button class="submit-btn danger-btn" @click="doDeletePost" :disabled="deletingPost">
-                        {{ deletingPost ? '삭제 중...' : '삭제' }}
+                        {{ deletingPost ? t('board.deleting') : t('village.delete') }}
                     </button>
                 </div>
             </div>

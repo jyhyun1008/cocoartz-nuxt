@@ -6,6 +6,7 @@ import { buildLikeActivity, actorUrl } from '../utils/ap/activitypub'
 import { deliverToInbox } from '../utils/ap/deliver'
 import { requireUserId } from '../utils/session'
 import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
+import { apiError } from '../utils/apiError'
 
 export default eventHandler(async (event) => {
     const { postid } = await readBody(event)
@@ -30,7 +31,7 @@ export default eventHandler(async (event) => {
         if (verificationRequired) {
             const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
             if (!author || !isVerified(author, verificationRequired)) {
-                throw createError({ statusCode: 403, message: '이메일 인증을 완료해야 좋아요를 누를 수 있어요' })
+                throw apiError(403, 'LIKE_EMAIL_VERIFICATION_REQUIRED', '이메일 인증을 완료해야 좋아요를 누를 수 있어요')
             }
         }
     }

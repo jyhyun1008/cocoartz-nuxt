@@ -4,12 +4,12 @@
         <!-- 헤더 (뷰에 따라 변경) -->
         <div class="window-header">
             <i class="hgi hgi-stroke hgi-grid"></i>
-            <span v-if="currentView === 'create'" class="board-header-title">새 글 작성</span>
-            <span v-else-if="currentView === 'edit'" class="board-header-title">글 수정</span>
-            <span v-else class="board-header-title">{{ props.roomName || '게시판' }}</span>
+            <span v-if="currentView === 'create'" class="board-header-title">{{ t('board.newPostTitle') }}</span>
+            <span v-else-if="currentView === 'edit'" class="board-header-title">{{ t('board.editPostTitle') }}</span>
+            <span v-else class="board-header-title">{{ props.roomName || t('village.board') }}</span>
             <div class="board-header-actions">
-                <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'; postEditorTab = 'write'">+ 새 글</button>
-                <button v-else class="back-btn-header" @click="goBack">← {{ currentView === 'edit' ? '취소' : '목록' }}</button>
+                <button v-if="currentView === 'list'" class="write-btn-header" @click="currentView = 'create'; postEditorTab = 'write'">{{ t('board.newPostBtn') }}</button>
+                <button v-else class="back-btn-header" @click="goBack">← {{ currentView === 'edit' ? t('village.cancel') : t('board.list') }}</button>
                 <button class="window-close-btn board-close-btn" @click="$emit('close')">✕</button>
             </div>
         </div>
@@ -23,8 +23,8 @@
                         v-if="entry.post.muted === 'soft' && !revealedMuted[`${entry.kind}-${entry.post.id}`]"
                         class="post-card remote-cw-gate"
                     >
-                        <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 게시물입니다</div>
-                        <button class="submit-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = true">그래도 보기</button>
+                        <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('board.mutedPost') }}</div>
+                        <button class="submit-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = true">{{ t('village.viewAnyway') }}</button>
                     </div>
                     <!-- 로컬 글 -->
                     <div v-else-if="entry.kind === 'local'" class="post-card" @click="openPost(entry.post.id)">
@@ -38,7 +38,7 @@
                             <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
                         </div>
                         <button v-if="entry.post.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = false">
-                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                         </button>
                     </div>
                     <!-- 연합 팔로잉 피드(외부) 글 -->
@@ -52,7 +52,7 @@
                             <div v-if="entry.post.boostedByName || entry.post.boostedByHandle" class="boost-banner">
                                 <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
                                 <span class="boost-banner-text">
-                                    <span v-if="entry.post.boostedByName" v-html="entry.post.boostedByName"></span><span v-else>{{ entry.post.boostedByHandle }}</span>님이 재게시했습니다
+                                    <span v-if="entry.post.boostedByName" v-html="entry.post.boostedByName"></span><span v-else>{{ entry.post.boostedByHandle }}</span>{{ t('board.boostedBySuffix') }}
                                 </span>
                             </div>
                             <div class="post-card-title">
@@ -65,13 +65,13 @@
                                     <span class="title-text" v-html="singleLine(entry.post.summary)"></span>
                                 </template>
                                 <template v-else-if="entry.post.summary">
-                                    <i class="hgi hgi-stroke hgi-alert-02 cw-icon" title="열람주의(CW)"></i>
+                                    <i class="hgi hgi-stroke hgi-alert-02 cw-icon" :title="t('board.cwLabel')"></i>
                                     <span class="title-text" v-html="singleLine(entry.post.summary)"></span>
                                 </template>
                                 <span
                                     v-else
                                     class="title-text preview-text"
-                                    v-html="stripHtmlKeepEmoji(entry.post.content, entry.post.quoteUrl || entry.post.linkUrl, entry.post.quoteUrl ? '[인용]' : '[링크]')"
+                                    v-html="stripHtmlKeepEmoji(entry.post.content, entry.post.quoteUrl || entry.post.linkUrl, entry.post.quoteUrl ? t('board.quoteTag') : t('board.linkTag'))"
                                 ></span>
                             </div>
                             <div class="post-card-meta">
@@ -84,7 +84,7 @@
                                 <span class="datetime">{{ formatDate(entry.post.published) }}</span>
                             </div>
                             <button v-if="entry.post.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = false">
-                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                             </button>
                         </div>
                         <a
@@ -116,8 +116,8 @@
                         v-if="entry.post.muted === 'soft' && !revealedMuted[`${entry.kind}-${entry.post.id}`]"
                         class="gallery-card gallery-card-muted"
                     >
-                        <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 게시물입니다</div>
-                        <button class="submit-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = true">그래도 보기</button>
+                        <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('board.mutedPost') }}</div>
+                        <button class="submit-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = true">{{ t('village.viewAnyway') }}</button>
                     </div>
                     <div v-else class="gallery-card" @click="openPost(entry.post.id)">
                         <div class="gallery-thumb">
@@ -134,15 +134,15 @@
                             <span class="datetime">{{ formatDate(entry.post.createdAt) }}</span>
                         </div>
                         <button v-if="entry.post.muted === 'soft'" class="cw-hide-btn" @click.stop="revealedMuted[`${entry.kind}-${entry.post.id}`] = false">
-                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                            <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                         </button>
                     </div>
                 </template>
             </div>
 
-            <div v-else class="empty">게시물이 없습니다.</div>
+            <div v-else class="empty">{{ t('board.noPostsYet') }}</div>
             <button v-if="hasMoreToShow" class="load-more-btn" :disabled="loadingMore" @click="loadMore">
-                {{ loadingMore ? '불러오는 중...' : '더보기' }}
+                {{ loadingMore ? t('village.loadingMore') : t('board.loadMore') }}
             </button>
         </div>
 
@@ -153,25 +153,25 @@
                      답답하니, 작성 화면에 들어오는 즉시 막혀있다는 걸 알리고 입력 자체를 비활성화함
                      (서버(createPost.ts)도 동일하게 막아주니 이건 UX용, 실제 방어는 서버 쪽) -->
                 <p v-if="writeBlocked && currentView === 'create'" class="admin-error">
-                    <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 글을 쓸 수 있어요.
-                    <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                    <i class="hgi hgi-stroke hgi-mail-validation-02"></i> {{ t('board.emailVerifyRequiredPost') }}
+                    <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">{{ t('board.verifyInSettings') }}</NuxtLink>
                 </p>
                 <p v-if="announcementBlocked && currentView === 'create'" class="admin-error">
-                    <i class="hgi hgi-stroke hgi-megaphone-01"></i> 이 게시판은 권한이 있는 사람만 글을 쓸 수 있어요.
+                    <i class="hgi hgi-stroke hgi-megaphone-01"></i> {{ t('board.announcementBlocked') }}
                 </p>
-                <input v-model="newTitle" placeholder="제목" class="post-input" :disabled="createBlocked && currentView === 'create'" />
+                <input v-model="newTitle" :placeholder="t('board.titlePlaceholder')" class="post-input" :disabled="createBlocked && currentView === 'create'" />
                 <div class="editor-tabs">
-                    <button class="editor-tab-btn" :class="{ active: postEditorTab === 'write' }" @click="postEditorTab = 'write'">작성</button>
-                    <button class="editor-tab-btn" :class="{ active: postEditorTab === 'preview' }" @click="postEditorTab = 'preview'">미리보기</button>
+                    <button class="editor-tab-btn" :class="{ active: postEditorTab === 'write' }" @click="postEditorTab = 'write'">{{ t('board.write') }}</button>
+                    <button class="editor-tab-btn" :class="{ active: postEditorTab === 'preview' }" @click="postEditorTab = 'preview'">{{ t('board.preview') }}</button>
                 </div>
                 <template v-if="postEditorTab === 'write'">
                     <div class="wiki-toolbar">
-                        <button class="toolbar-btn" @click="insertPostMarkdown('**', '**')" title="굵게"><b>B</b></button>
-                        <button class="toolbar-btn" @click="insertPostMarkdown('*', '*')" title="기울임"><i>I</i></button>
-                        <button class="toolbar-btn" @click="insertPostMarkdown('## ', '')" title="제목">H</button>
-                        <button class="toolbar-btn" @click="insertPostMarkdown('- ', '')" title="목록">•</button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('**', '**')" :title="t('board.bold')"><b>B</b></button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('*', '*')" :title="t('board.italic')"><i>I</i></button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('## ', '')" :title="t('board.titlePlaceholder')">H</button>
+                        <button class="toolbar-btn" @click="insertPostMarkdown('- ', '')" :title="t('board.list')">•</button>
                         <div class="toolbar-emoji-wrap" ref="postEmojiWrapRef">
-                            <button ref="postEmojiBtnRef" class="toolbar-btn" @click.stop="showPostEmojiPicker = !showPostEmojiPicker" title="이모지">
+                            <button ref="postEmojiBtnRef" class="toolbar-btn" @click.stop="showPostEmojiPicker = !showPostEmojiPicker" :title="t('village.emoji')">
                                 <i class="hgi hgi-stroke hgi-smile"></i>
                             </button>
                             <EmojiPicker
@@ -183,30 +183,30 @@
                         </div>
                         <template v-if="objectStorageEnabled">
                             <input type="file" ref="postAttachmentFileInput" style="display:none" @change="handlePostAttachmentFile" />
-                            <button class="toolbar-btn" @click="postAttachmentFileInput?.click()" :disabled="postAttachmentUploading" title="파일 첨부">
+                            <button class="toolbar-btn" @click="postAttachmentFileInput?.click()" :disabled="postAttachmentUploading" :title="t('board.attachFile')">
                                 <i v-if="!postAttachmentUploading" class="hgi hgi-stroke hgi-attachment-01"></i>
-                                <span v-else class="toolbar-hint">업로드 중...</span>
+                                <span v-else class="toolbar-hint">{{ t('board.uploading') }}</span>
                             </button>
                         </template>
                         <span class="toolbar-sep"></span>
-                        <span class="toolbar-hint">마크다운 지원</span>
+                        <span class="toolbar-hint">{{ t('board.markdownSupported') }}</span>
                     </div>
                     <p v-if="postAttachmentError" class="admin-error">{{ postAttachmentError }}</p>
                     <textarea
                         ref="postEditorRef"
                         v-model="newContent"
-                        placeholder="내용을 입력하세요... (마크다운 사용 가능)"
+                        :placeholder="t('board.contentPlaceholder')"
                         class="post-textarea wiki-textarea"
                         :disabled="createBlocked && currentView === 'create'"
                     ></textarea>
                 </template>
-                <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
+                <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || `_${t('board.noPreviewContent')}_`, { breaks: true })))"></div>
                 <p v-if="postError" class="admin-error">{{ postError }}</p>
                 <button
                     class="submit-btn" @click="submitPost"
                     :disabled="!newTitle.trim() || !newContent.trim() || (createBlocked && currentView === 'create')"
                 >
-                    {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
+                    {{ currentView === 'edit' ? t('board.submitEdit') : t('board.submitCreate') }}
                 </button>
             </div>
         </div>
@@ -230,10 +230,10 @@
                         ♥ {{ currentPost.likeCount }}
                     </button>
                     <span v-if="likeError" class="admin-error" style="padding:4px 8px">{{ likeError }}</span>
-                    <span v-if="currentPost.boostCount" class="boost-count" title="fediverse 부스트"><i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i> {{ currentPost.boostCount }}</span>
+                    <span v-if="currentPost.boostCount" class="boost-count" :title="t('board.fediverseBoost')"><i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i> {{ currentPost.boostCount }}</span>
                     <div class="post-meta-actions">
                         <div class="share-btn-wrap">
-                            <button class="post-icon-btn" @click="sharePost" title="공유">
+                            <button class="post-icon-btn" @click="sharePost" :title="t('board.share')">
                                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="18" cy="5" r="3" />
                                     <circle cx="6" cy="12" r="3" />
@@ -242,21 +242,21 @@
                                     <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                                 </svg>
                             </button>
-                            <span v-if="shareCopied" class="share-toast">링크 복사됨</span>
+                            <span v-if="shareCopied" class="share-toast">{{ t('board.linkCopied') }}</span>
                         </div>
-                        <button v-if="isOwnPost && !props.isFederated" class="post-icon-btn" @click="startEditPost" title="수정">
+                        <button v-if="isOwnPost && !props.isFederated" class="post-icon-btn" @click="startEditPost" :title="t('village.edit')">
                             <i class="hgi hgi-stroke hgi-pencil-edit-02"></i>
                         </button>
-                        <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" title="삭제">
+                        <button v-if="isOwnPost" class="post-icon-btn danger" @click="showDeleteConfirm = true" :title="t('village.delete')">
                             <i class="hgi hgi-stroke hgi-delete-02"></i>
                         </button>
                         <div v-if="!isOwnPost && userId" class="mute-action-wrap">
-                            <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: currentPost.userid })" title="뮤트">
+                            <button class="post-icon-btn" @click.stop="toggleMuteMenu({ userid: currentPost.userid })" :title="t('village.mute')">
                                 <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                             </button>
                             <div v-if="activeMuteKey === muteKeyFor({ userid: currentPost.userid })" class="mute-menu" @click.stop>
-                                <button @click="confirmMute({ userid: currentPost.userid }, 'soft')">소프트 뮤트</button>
-                                <button @click="confirmMute({ userid: currentPost.userid }, 'hard')">하드 뮤트</button>
+                                <button @click="confirmMute({ userid: currentPost.userid }, 'soft')">{{ t('village.softMute') }}</button>
+                                <button @click="confirmMute({ userid: currentPost.userid }, 'hard')">{{ t('village.hardMute') }}</button>
                             </div>
                         </div>
                     </div>
@@ -281,16 +281,16 @@
                 </div>
 
                 <div class="comments-section">
-                    <div class="comments-title">댓글 {{ currentPost.comments?.length ?? 0 }}</div>
+                    <div class="comments-title">{{ t('board.commentsCount', { count: currentPost.comments?.length ?? 0 }) }}</div>
                     <div v-for="comment in currentPost.comments" :key="comment.id" class="comment">
                         <div v-if="comment.muted === 'soft' && !revealedMuted[`comment-${comment.id}`]" class="remote-cw-gate">
-                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 댓글입니다</div>
-                            <button class="submit-btn" @click="revealedMuted[`comment-${comment.id}`] = true">그래도 보기</button>
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('board.mutedComment') }}</div>
+                            <button class="submit-btn" @click="revealedMuted[`comment-${comment.id}`] = true">{{ t('village.viewAnyway') }}</button>
                         </div>
                         <template v-else>
                             <div class="comment-meta">
                                 <template v-if="comment.remoteActorHandle">
-                                    <NuxtLink :to="remoteProfilePath(comment.remoteActorHandle)" class="post-author remote-author" title="fediverse 프로필로 이동">
+                                    <NuxtLink :to="remoteProfilePath(comment.remoteActorHandle)" class="post-author remote-author" :title="t('board.remoteProfileLink')">
                                         <NuxtImg v-if="comment.remoteActorIconUrl" class="avatar avatar-sm" :src="comment.remoteActorIconUrl" />
                                         <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
@@ -311,7 +311,7 @@
                                     <button
                                         class="post-icon-btn"
                                         @click.stop="toggleMuteMenu(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
-                                        title="뮤트"
+                                        :title="t('village.mute')"
                                     >
                                         <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                                     </button>
@@ -320,38 +320,38 @@
                                         class="mute-menu"
                                         @click.stop
                                     >
-                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">소프트 뮤트</button>
-                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">하드 뮤트</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">{{ t('village.softMute') }}</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">{{ t('village.hardMute') }}</button>
                                     </div>
                                 </div>
                             </div>
                             <div v-if="comment.summary && !revealedCw[`comment-${comment.id}`]" class="remote-cw-gate">
                                 <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="comment.summary"></span></div>
-                                <button class="submit-btn" @click="revealedCw[`comment-${comment.id}`] = true">내용 보기</button>
+                                <button class="submit-btn" @click="revealedCw[`comment-${comment.id}`] = true">{{ t('board.viewContent') }}</button>
                             </div>
                             <template v-else>
                                 <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                                 <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                                 <button v-if="comment.summary" class="cw-hide-btn" @click="revealedCw[`comment-${comment.id}`] = false">
-                                    <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
+                                    <i class="hgi hgi-stroke hgi-alert-02"></i> {{ t('board.hideAgain') }}
                                 </button>
                             </template>
                             <button v-if="comment.muted === 'soft'" class="cw-hide-btn" @click="revealedMuted[`comment-${comment.id}`] = false">
-                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                             </button>
                         </template>
                     </div>
-                    <div class="empty" v-if="!currentPost.comments?.length">댓글이 없습니다.</div>
+                    <div class="empty" v-if="!currentPost.comments?.length">{{ t('board.noComments') }}</div>
                 </div>
 
                 <p v-if="writeBlocked" class="admin-error">
-                    <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 댓글을 쓸 수 있어요.
-                    <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                    <i class="hgi hgi-stroke hgi-mail-validation-02"></i> {{ t('board.emailVerifyRequiredComment') }}
+                    <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">{{ t('board.verifyInSettings') }}</NuxtLink>
                 </p>
                 <p v-if="commentError" class="admin-error">{{ commentError }}</p>
                 <div class="comment-form">
-                    <input v-model="commentContent" placeholder="댓글 작성..." class="post-input" :disabled="writeBlocked" @keydown.enter="submitComment" />
-                    <button class="submit-btn" @click="submitComment" :disabled="!commentContent.trim() || writeBlocked">작성</button>
+                    <input v-model="commentContent" :placeholder="t('board.commentPlaceholder')" class="post-input" :disabled="writeBlocked" @keydown.enter="submitComment" />
+                    <button class="submit-btn" @click="submitComment" :disabled="!commentContent.trim() || writeBlocked">{{ t('board.write') }}</button>
                 </div>
             </div>
         </div>
@@ -364,7 +364,7 @@
                 <div v-if="currentRemotePost.boostedByName || currentRemotePost.boostedByHandle" class="boost-banner">
                     <i class="hgi hgi-stroke hgi-arrow-reload-horizontal"></i>
                     <span class="boost-banner-text boost-banner-text-wrap">
-                        <span v-if="currentRemotePost.boostedByName" v-html="currentRemotePost.boostedByName"></span><span v-else>{{ currentRemotePost.boostedByHandle }}</span>님이 재게시했습니다
+                        <span v-if="currentRemotePost.boostedByName" v-html="currentRemotePost.boostedByName"></span><span v-else>{{ currentRemotePost.boostedByHandle }}</span>{{ t('board.boostedBySuffix') }}
                     </span>
                 </div>
                 <div class="post-meta">
@@ -377,12 +377,12 @@
                     </NuxtLink>
                     <span class="datetime">{{ formatDate(currentRemotePost.published) }}</span>
                     <div v-if="userId" class="mute-action-wrap">
-                        <button class="post-icon-btn" @click.stop="toggleMuteMenu({ actorUrl: currentRemotePost.sourceActorUrl })" title="뮤트">
+                        <button class="post-icon-btn" @click.stop="toggleMuteMenu({ actorUrl: currentRemotePost.sourceActorUrl })" :title="t('village.mute')">
                             <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                         </button>
                         <div v-if="activeMuteKey === muteKeyFor({ actorUrl: currentRemotePost.sourceActorUrl })" class="mute-menu" @click.stop>
-                            <button @click="confirmMute({ actorUrl: currentRemotePost.sourceActorUrl }, 'soft')">소프트 뮤트</button>
-                            <button @click="confirmMute({ actorUrl: currentRemotePost.sourceActorUrl }, 'hard')">하드 뮤트</button>
+                            <button @click="confirmMute({ actorUrl: currentRemotePost.sourceActorUrl }, 'soft')">{{ t('village.softMute') }}</button>
+                            <button @click="confirmMute({ actorUrl: currentRemotePost.sourceActorUrl }, 'hard')">{{ t('village.hardMute') }}</button>
                         </div>
                     </div>
                 </div>
@@ -393,12 +393,12 @@
 
                 <div v-if="currentRemotePost.summary && !currentRemotePost.summaryIsTitle && !showRemoteContent" class="remote-cw-gate">
                     <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="currentRemotePost.summary"></span></div>
-                    <button class="submit-btn" @click="showRemoteContent = true">내용 보기</button>
+                    <button class="submit-btn" @click="showRemoteContent = true">{{ t('board.viewContent') }}</button>
                 </div>
                 <template v-else>
                     <div class="post-content md-content" v-html="stripEmbeddedLink(currentRemotePost.content, currentRemotePost.quoteUrl || currentRemotePost.linkUrl)"></div>
                     <button v-if="currentRemotePost.summary && !currentRemotePost.summaryIsTitle" class="cw-hide-btn" @click="showRemoteContent = false">
-                        <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
+                        <i class="hgi hgi-stroke hgi-alert-02"></i> {{ t('board.hideAgain') }}
                     </button>
                 </template>
 
@@ -427,7 +427,7 @@
                     rel="noopener noreferrer"
                     class="quote-embed-card quote-embed-fallback"
                 >
-                    인용된 글 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
+                    {{ t('board.viewQuotedPost') }} <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
                 </a>
 
                 <!-- 링크 미리보기 / 유튜브·사운드클라우드 임베드 -->
@@ -454,26 +454,26 @@
 
                 <div v-if="userId" class="post-meta">
                     <button class="like-btn" :class="{ liked: currentRemotePost.liked }" @click="toggleRemoteLike">
-                        ♥ {{ currentRemotePost.liked ? '좋아요 취소' : '좋아요' }}
+                        ♥ {{ currentRemotePost.liked ? t('board.likeCancel') : t('board.like') }}
                     </button>
                     <span v-if="likeError" class="admin-error" style="padding:4px 8px">{{ likeError }}</span>
                 </div>
 
                 <a :href="currentRemotePost.sourceActorUrl" target="_blank" rel="noopener noreferrer" class="remote-original-link">
-                    원 계정에서 보기 <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
+                    {{ t('board.viewOriginal') }} <i class="hgi hgi-stroke hgi-arrow-up-right-01"></i>
                 </a>
 
                 <div class="comments-section">
-                    <div class="comments-title">댓글 {{ remoteReplies.length }}</div>
+                    <div class="comments-title">{{ t('board.commentsCount', { count: remoteReplies.length }) }}</div>
                     <div v-for="comment in remoteReplies" :key="comment.id" class="comment">
                         <div v-if="comment.muted === 'soft' && !revealedMuted[`reply-${comment.id}`]" class="remote-cw-gate">
-                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트된 댓글입니다</div>
-                            <button class="submit-btn" @click="revealedMuted[`reply-${comment.id}`] = true">그래도 보기</button>
+                            <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('board.mutedComment') }}</div>
+                            <button class="submit-btn" @click="revealedMuted[`reply-${comment.id}`] = true">{{ t('village.viewAnyway') }}</button>
                         </div>
                         <template v-else>
                             <div class="comment-meta">
                                 <template v-if="comment.remoteActorHandle">
-                                    <NuxtLink :to="remoteProfilePath(comment.remoteActorHandle)" class="post-author remote-author" title="fediverse 프로필로 이동">
+                                    <NuxtLink :to="remoteProfilePath(comment.remoteActorHandle)" class="post-author remote-author" :title="t('board.remoteProfileLink')">
                                         <NuxtImg v-if="comment.remoteActorIconUrl" class="avatar avatar-sm" :src="comment.remoteActorIconUrl" />
                                         <i v-else class="hgi hgi-stroke hgi-globe-02"></i>
                                         <span v-if="comment.remoteActorName" v-html="comment.remoteActorName"></span>
@@ -494,7 +494,7 @@
                                     <button
                                         class="post-icon-btn"
                                         @click.stop="toggleMuteMenu(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid })"
-                                        title="뮤트"
+                                        :title="t('village.mute')"
                                     >
                                         <i class="hgi hgi-stroke hgi-volume-mute-01"></i>
                                     </button>
@@ -503,53 +503,53 @@
                                         class="mute-menu"
                                         @click.stop
                                     >
-                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">소프트 뮤트</button>
-                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">하드 뮤트</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'soft')">{{ t('village.softMute') }}</button>
+                                        <button @click="confirmMute(comment.remoteActorHandle ? { actorUrl: comment.remoteActorUrl } : { userid: comment.userid }, 'hard')">{{ t('village.hardMute') }}</button>
                                     </div>
                                 </div>
                             </div>
                             <div v-if="comment.summary && !revealedCw[`reply-${comment.id}`]" class="remote-cw-gate">
                                 <div class="remote-cw-text"><i class="hgi hgi-stroke hgi-alert-02"></i> <span v-html="comment.summary"></span></div>
-                                <button class="submit-btn" @click="revealedCw[`reply-${comment.id}`] = true">내용 보기</button>
+                                <button class="submit-btn" @click="revealedCw[`reply-${comment.id}`] = true">{{ t('board.viewContent') }}</button>
                             </div>
                             <template v-else>
                                 <div v-if="comment.remoteActorHandle" class="comment-body remote" v-html="stripLeadingMentions(comment.content)"></div>
                                 <div v-else class="comment-body" v-html="withCustomEmoji(escapeHtml(comment.content))"></div>
                                 <button v-if="comment.summary" class="cw-hide-btn" @click="revealedCw[`reply-${comment.id}`] = false">
-                                    <i class="hgi hgi-stroke hgi-alert-02"></i> 다시 숨기기
+                                    <i class="hgi hgi-stroke hgi-alert-02"></i> {{ t('board.hideAgain') }}
                                 </button>
                             </template>
                             <button v-if="comment.muted === 'soft'" class="cw-hide-btn" @click="revealedMuted[`reply-${comment.id}`] = false">
-                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> 뮤트 다시 숨기기
+                                <i class="hgi hgi-stroke hgi-volume-mute-01"></i> {{ t('village.hideMutedAgain') }}
                             </button>
                         </template>
                     </div>
-                    <div class="empty" v-if="!remoteReplies.length">댓글이 없습니다.</div>
+                    <div class="empty" v-if="!remoteReplies.length">{{ t('board.noComments') }}</div>
                 </div>
 
                 <template v-if="userId">
                     <p v-if="writeBlocked" class="admin-error">
-                        <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 댓글을 쓸 수 있어요.
-                        <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
+                        <i class="hgi hgi-stroke hgi-mail-validation-02"></i> {{ t('board.emailVerifyRequiredComment') }}
+                        <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">{{ t('board.verifyInSettings') }}</NuxtLink>
                     </p>
                     <p v-if="remoteReplyError" class="admin-error">{{ remoteReplyError }}</p>
                     <div class="comment-form">
-                        <input v-model="remoteReplyContent" placeholder="댓글(답글로 전달됨) 작성..." class="post-input" :disabled="writeBlocked" @keydown.enter="submitRemoteReply" />
-                        <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim() || writeBlocked">작성</button>
+                        <input v-model="remoteReplyContent" :placeholder="t('board.remoteReplyPlaceholder')" class="post-input" :disabled="writeBlocked" @keydown.enter="submitRemoteReply" />
+                        <button class="submit-btn" @click="submitRemoteReply" :disabled="!remoteReplyContent.trim() || writeBlocked">{{ t('board.write') }}</button>
                     </div>
                 </template>
-                <div v-else class="empty" style="padding:8px 0">로그인 후 좋아요/댓글을 남길 수 있어요.</div>
+                <div v-else class="empty" style="padding:8px 0">{{ t('board.loginToInteract') }}</div>
             </div>
         </div>
 
         <!-- 삭제 확인 -->
         <div v-if="showDeleteConfirm" class="admin-confirm-overlay" @click.self="showDeleteConfirm = false">
             <div class="admin-confirm-box">
-                <p class="admin-confirm-msg">이 글을 정말 삭제할까요?<br /><span style="font-size:0.82rem;opacity:0.55">삭제하면 되돌릴 수 없습니다.</span></p>
+                <p class="admin-confirm-msg">{{ t('board.deleteConfirmTitle') }}<br /><span style="font-size:0.82rem;opacity:0.55">{{ t('board.deleteConfirmSub') }}</span></p>
                 <div class="admin-confirm-actions">
-                    <button class="back-btn-header" @click="showDeleteConfirm = false">취소</button>
+                    <button class="back-btn-header" @click="showDeleteConfirm = false">{{ t('village.cancel') }}</button>
                     <button class="submit-btn danger-btn" @click="doDeletePost" :disabled="deletingPost">
-                        {{ deletingPost ? '삭제 중...' : '삭제' }}
+                        {{ deletingPost ? t('board.deleting') : t('village.delete') }}
                     </button>
                 </div>
             </div>
@@ -563,6 +563,7 @@ import { marked } from 'marked'
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 const route = useRoute()
+const { t, errT } = useI18n()
 defineEmits(['close'])
 
 const props = defineProps({
@@ -896,7 +897,7 @@ async function handlePostAttachmentFile(e) {
             : `<i class="hgi hgi-stroke hgi-attachment-01"></i> [${result.filename}](${result.url})`
         insertPostMarkdown(`${markdown}\n`, '')
     } catch (err) {
-        postAttachmentError.value = err?.data?.message ?? '업로드에 실패했습니다'
+        postAttachmentError.value = errT(err)
     }
     postAttachmentUploading.value = false
     e.target.value = ''
@@ -997,7 +998,7 @@ async function toggleRemoteLike() {
             body: { id: currentRemotePost.value.id, userid: userId.value },
         })
     } catch (e) {
-        likeError.value = e?.data?.message ?? '좋아요 처리에 실패했습니다'
+        likeError.value = errT(e)
         return
     }
     currentRemotePost.value.liked = result.liked
@@ -1019,7 +1020,7 @@ async function submitRemoteReply() {
         })
         remoteReplies.value = [...remoteReplies.value, reply]
     } catch (e) {
-        remoteReplyError.value = e?.data?.message ?? '댓글 작성에 실패했습니다'
+        remoteReplyError.value = errT(e)
         return
     }
     remoteReplyContent.value = ''
@@ -1063,7 +1064,7 @@ async function submitPost() {
             },
         })
     } catch (e) {
-        postError.value = e?.data?.message ?? '글 작성에 실패했습니다'
+        postError.value = errT(e)
         return
     }
     newTitle.value = ''
@@ -1088,7 +1089,7 @@ async function submitComment() {
             },
         })
     } catch (e) {
-        commentError.value = e?.data?.message ?? '댓글 작성에 실패했습니다'
+        commentError.value = errT(e)
         return
     }
     commentContent.value = ''
@@ -1122,7 +1123,7 @@ async function toggleLike() {
             body: { postid: currentPost.value.id, userid: userId.value },
         })
     } catch (e) {
-        likeError.value = e?.data?.message ?? '좋아요 처리에 실패했습니다'
+        likeError.value = errT(e)
         return
     }
     currentPost.value.isLiked = result.liked

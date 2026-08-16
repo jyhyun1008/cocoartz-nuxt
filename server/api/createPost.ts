@@ -6,6 +6,7 @@ import { requireUserId } from '../utils/session'
 import { hasPermission } from '../utils/permissions'
 import { broadcastNewPost, broadcastFederatedBoardPost, broadcastTimelineNewPost } from '../routes/_ws'
 import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
+import { apiError } from '../utils/apiError'
 
 export default eventHandler(async (event) => {
     const { serverid, roomid, title, content, replyto } = await readBody(event)
@@ -19,7 +20,7 @@ export default eventHandler(async (event) => {
     // 달 수 있어야 하니 새 글(원 게시글)일 때만 막음
     if (room?.isAnnouncement && replyto == null) {
         if (!(await hasPermission(userid, 'postAnnouncements'))) {
-            throw createError({ statusCode: 403, message: '공지게시판은 권한이 있는 사람만 글을 쓸 수 있어요' })
+            throw apiError(403, 'ANNOUNCEMENT_WRITE_FORBIDDEN', '공지게시판은 권한이 있는 사람만 글을 쓸 수 있어요')
         }
     }
 
@@ -32,7 +33,7 @@ export default eventHandler(async (event) => {
         if (verificationRequired) {
             const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
             if (!author || !isVerified(author, verificationRequired)) {
-                throw createError({ statusCode: 403, message: '연합 게시판은 이메일 인증을 완료해야 글을 쓸 수 있어요' })
+                throw apiError(403, 'FEDERATED_WRITE_EMAIL_REQUIRED', '연합 게시판은 이메일 인증을 완료해야 글을 쓸 수 있어요')
             }
         }
     }

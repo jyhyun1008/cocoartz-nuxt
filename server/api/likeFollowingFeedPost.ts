@@ -6,6 +6,7 @@ import { actorUrl, buildLikeActivity, buildUndoActivity } from '../utils/ap/acti
 import { deliverToInbox } from '../utils/ap/deliver'
 import { requireUserId } from '../utils/session'
 import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
+import { apiError } from '../utils/apiError'
 
 // 개인 팔로잉 피드(remoteFeedPosts)에 뜬 원격 글에 좋아요 — 마스토돈의 "즐겨찾기"에 해당하는
 // Like 액티비티를 원 작성자에게 보냄. (서버 공용 연합 게시판용 likeRemoteFeedPost.ts와는 별개 —
@@ -13,20 +14,20 @@ import { isEmailVerificationRequired, isVerified } from '../utils/emailVerificat
 export default eventHandler(async (event) => {
     const { id } = await readBody(event)
     const userid = await requireUserId(event)
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
+    if (!userid) throw apiError(401, 'AUTH_REQUIRED', '로그인이 필요합니다')
 
     // 좋아요/좋아요 취소 둘 다 원 작성자 서버로 실제 배포됨 — createPost.ts 등과 동일한 이메일 인증 게이트
     const verificationRequired = await isEmailVerificationRequired()
     if (verificationRequired) {
         const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
         if (!author || !isVerified(author, verificationRequired)) {
-            throw createError({ statusCode: 403, message: '이메일 인증을 완료해야 좋아요를 누를 수 있어요' })
+            throw apiError(403, 'LIKE_EMAIL_VERIFICATION_REQUIRED', '이메일 인증을 완료해야 좋아요를 누를 수 있어요')
         }
     }
 
     const [feedPost] = await db.select().from(remoteFeedPosts).where(eq(remoteFeedPosts.id, id))
     if (!feedPost || feedPost.userid !== userid) {
-        throw createError({ statusCode: 404, message: '글을 찾을 수 없습니다' })
+        throw apiError(404, 'POST_NOT_FOUND', '글을 찾을 수 없습니다')
     }
 
     const [follow] = await db.select().from(remoteFollows)

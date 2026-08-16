@@ -8,6 +8,7 @@ import { extractMarkdownImages } from '../utils/ap/attachments'
 import { marked } from 'marked'
 import { requireUserId } from '../utils/session'
 import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
+import { apiError } from '../utils/apiError'
 
 // 개인 팔로잉 피드(remoteFeedPosts)에 뜬 원격 글에 댓글을 달면, 로컬에는 글타래 없이 posts에만
 // 저장해두고(목록/타임라인엔 안 보임 — remoteParentObjectId 필터로 제외됨) 원 작성자에게는 실제
@@ -16,9 +17,9 @@ import { isEmailVerificationRequired, isVerified } from '../utils/emailVerificat
 export default eventHandler(async (event) => {
     const { feedPostId, content } = await readBody(event)
     const userid = await requireUserId(event)
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
+    if (!userid) throw apiError(401, 'AUTH_REQUIRED', '로그인이 필요합니다')
     const trimmed = String(content || '').trim()
-    if (!trimmed) throw createError({ statusCode: 400, message: '내용을 입력해주세요' })
+    if (!trimmed) throw apiError(400, 'COMMENT_CONTENT_REQUIRED', '내용을 입력해주세요')
 
     // 이것도 항상 원 작성자의 원격 서버로 실제 배포됨 — replyToRemoteFeedPost.ts/createPost.ts와
     // 동일한 이메일 인증 게이트를 적용(미인증 계정이 fediverse로 그대로 뿌리는 걸 막기 위함)
@@ -26,20 +27,20 @@ export default eventHandler(async (event) => {
     if (verificationRequired) {
         const [author] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userid))
         if (!author || !isVerified(author, verificationRequired)) {
-            throw createError({ statusCode: 403, message: '이메일 인증을 완료해야 댓글을 쓸 수 있어요' })
+            throw apiError(403, 'COMMENT_EMAIL_VERIFICATION_REQUIRED', '이메일 인증을 완료해야 댓글을 쓸 수 있어요')
         }
     }
 
     const [feedPost] = await db.select().from(remoteFeedPosts).where(eq(remoteFeedPosts.id, feedPostId))
     if (!feedPost || feedPost.userid !== userid) {
-        throw createError({ statusCode: 404, message: '글을 찾을 수 없습니다' })
+        throw apiError(404, 'POST_NOT_FOUND', '글을 찾을 수 없습니다')
     }
 
     const [follow] = await db.select().from(remoteFollows)
         .where(and(eq(remoteFollows.userid, userid), eq(remoteFollows.targetActorUrl, feedPost.sourceActorUrl)))
     const [user] = await db.select().from(users).where(eq(users.id, userid))
     const actor = await ensureActor(userid)
-    if (!follow || !user || !actor) throw createError({ statusCode: 500, message: '답글을 보낼 수 없습니다' })
+    if (!follow || !user || !actor) throw apiError(500, 'REPLY_SEND_FAILED', '답글을 보낼 수 없습니다')
 
     const config = useRuntimeConfig()
     const domain = config.domain as string
