@@ -1,13 +1,7 @@
 import { db } from '../../utils/db'
-import { servers, users } from '../../db/schema'
+import { servers } from '../../db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../utils/session'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
+import { requirePermission } from '../../utils/permissions'
 
 // 새 유저(혹은 아직 자기 방을 안 꾸민 유저)의 개인 방 기본 모습을 관리자가 정하는 템플릿을 저장.
 // saveUserMap.ts(유저 본인 방)/admin/saveRoomMap.ts(채널 방)와 달리 특정 room/user가 아니라
@@ -15,8 +9,7 @@ async function checkAdmin(userid: number) {
 // (이 배포가 서비스하는 서버가 어차피 하나뿐이라 클라이언트가 정할 이유가 없음).
 export default eventHandler(async (event) => {
     const { map } = await readBody(event)
-    const userid = await requireUserId(event)
-    await checkAdmin(userid)
+    await requirePermission(event, 'accessAdminSettings')
 
     const config = useRuntimeConfig()
     const slug = config.public.serverSlug as string

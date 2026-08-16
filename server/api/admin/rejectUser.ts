@@ -1,18 +1,11 @@
 import { db } from '../../utils/db'
 import { users } from '../../db/schema'
 import { eq, and } from 'drizzle-orm'
-import { requireUserId } from '../../utils/session'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
+import { requirePermission } from '../../utils/permissions'
 
 export default eventHandler(async (event) => {
     const { id } = await readBody(event)
-    const userid = await requireUserId(event)
-    await checkAdmin(userid)
+    await requirePermission(event, 'accessAdminSettings')
     if (!id) throw createError({ statusCode: 400, message: '대상 유저가 필요합니다' })
 
     // 승인 대기 상태인 가입 신청만 거절(삭제) 가능 — 이미 승인된 계정을 실수로 지우는 것 방지

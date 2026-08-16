@@ -17,7 +17,7 @@
                 <i class="hgi hgi-stroke hgi-user-group"></i>
             </NuxtLink>
             <NotificationBell v-if="isLoggedIn" />
-            <NuxtLink v-if="isAdmin" :to="settingsPath" class="shortcut" :title="t('chrome.settings')">
+            <NuxtLink v-if="canAccessAdminSettings" :to="settingsPath" class="shortcut" :title="t('chrome.settings')">
                 <i class="hgi hgi-stroke hgi-setting-07"></i>
             </NuxtLink>
         </div>
@@ -48,7 +48,8 @@ const infoPath = '/info'
 const membersPath = '/members'
 const settingsPath = '/settings'
 
-const isAdmin = computed(() => !!currentUserData.value?.isAdmin)
+// isAdmin(전체 관리자)뿐 아니라 accessAdminSettings 권한만 따로 받은 유저도 설정 진입점이 보여야 함
+const canAccessAdminSettings = computed(() => userHasPermission(currentUserData.value, 'accessAdminSettings'))
 </script>
 
 <style>

@@ -3,6 +3,7 @@ import { posts, users, rooms, follows } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { publishPostIfFederated } from '../utils/ap/publishPost'
 import { requireUserId } from '../utils/session'
+import { hasPermission } from '../utils/permissions'
 import { broadcastNewPost, broadcastFederatedBoardPost, broadcastTimelineNewPost } from '../routes/_ws'
 import { isEmailVerificationRequired, isVerified } from '../utils/emailVerification'
 
@@ -12,7 +13,15 @@ export default eventHandler(async (event) => {
 
     // 인서트 전에 미리 조회 — 연합 게시판이면 아래에서 이메일 인증 여부부터 확인해야 하고(글쓴이가
     // 이메일 인증한 유저인지), 통과하면 이 room 값을 아래 브로드캐스트에서도 그대로 재사용함
-    const [room] = await db.select({ path: rooms.path, federated: rooms.federated }).from(rooms).where(eq(rooms.id, roomid))
+    const [room] = await db.select({ path: rooms.path, federated: rooms.federated, isAnnouncement: rooms.isAnnouncement }).from(rooms).where(eq(rooms.id, roomid))
+
+    // 공지게시판(rooms.isAnnouncement) — 댓글(replyto 있음)은 원 글 작성자와 무관하게 누구나
+    // 달 수 있어야 하니 새 글(원 게시글)일 때만 막음
+    if (room?.isAnnouncement && replyto == null) {
+        if (!(await hasPermission(userid, 'postAnnouncements'))) {
+            throw createError({ statusCode: 403, message: '공지게시판은 권한이 있는 사람만 글을 쓸 수 있어요' })
+        }
+    }
 
     // 연합 게시판(댓글 포함 — 부모 글타래가 연합돼있으면 댓글도 함께 fediverse로 나감)은 이메일
     // 인증한 유저만 쓸 수 있게 함 — 미인증 계정이 그대로 다른 서버로 글을 뿌리는 걸 막기 위한 최소

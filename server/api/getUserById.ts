@@ -15,6 +15,7 @@ export default eventHandler(async (event) => {
         bio: users.bio,
         character: users.character,
         isAdmin: users.isAdmin,
+        permissions: users.permissions,
     }).from(users).where(eq(users.id, Number(userid)))
 
     return user ?? null

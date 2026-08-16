@@ -156,7 +156,10 @@
                     <i class="hgi hgi-stroke hgi-mail-validation-02"></i> 이 게시판은 이메일 인증을 완료한 계정만 글을 쓸 수 있어요.
                     <NuxtLink to="/preferences" style="color:inherit;text-decoration:underline">내 설정에서 인증하기</NuxtLink>
                 </p>
-                <input v-model="newTitle" placeholder="제목" class="post-input" :disabled="writeBlocked && currentView === 'create'" />
+                <p v-if="announcementBlocked && currentView === 'create'" class="admin-error">
+                    <i class="hgi hgi-stroke hgi-megaphone-01"></i> 이 게시판은 권한이 있는 사람만 글을 쓸 수 있어요.
+                </p>
+                <input v-model="newTitle" placeholder="제목" class="post-input" :disabled="createBlocked && currentView === 'create'" />
                 <div class="editor-tabs">
                     <button class="editor-tab-btn" :class="{ active: postEditorTab === 'write' }" @click="postEditorTab = 'write'">작성</button>
                     <button class="editor-tab-btn" :class="{ active: postEditorTab === 'preview' }" @click="postEditorTab = 'preview'">미리보기</button>
@@ -194,14 +197,14 @@
                         v-model="newContent"
                         placeholder="내용을 입력하세요... (마크다운 사용 가능)"
                         class="post-textarea wiki-textarea"
-                        :disabled="writeBlocked && currentView === 'create'"
+                        :disabled="createBlocked && currentView === 'create'"
                     ></textarea>
                 </template>
                 <div v-else class="post-content md-content preview-pane" v-html="withCustomEmoji(String(marked.parse(newContent.trim() || '_미리볼 내용이 없습니다._', { breaks: true })))"></div>
                 <p v-if="postError" class="admin-error">{{ postError }}</p>
                 <button
                     class="submit-btn" @click="submitPost"
-                    :disabled="!newTitle.trim() || !newContent.trim() || (writeBlocked && currentView === 'create')"
+                    :disabled="!newTitle.trim() || !newContent.trim() || (createBlocked && currentView === 'create')"
                 >
                     {{ currentView === 'edit' ? '수정 완료' : '작성 완료' }}
                 </button>
@@ -577,6 +580,12 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    // 관리자가 채널 관리에서 켠 값(rooms.isAnnouncement) — postAnnouncements 권한 없는 유저는
+    // 새 글을 못 쓰게 막음(댓글은 예외 — createPost.ts도 replyto가 있으면 이 검사를 안 함)
+    isAnnouncement: {
+        type: Boolean,
+        default: false,
+    },
     roomName: {
         type: String,
         default: '',
@@ -600,6 +609,16 @@ const writeBlocked = computed(() => {
     const d = emailVerificationData.value
     return !!d?.required && !d?.verified
 })
+
+// 공지 채널(rooms.isAnnouncement) — postAnnouncements 권한(또는 전체 관리자)이 없으면 새 글을
+// 못 쓰게 막음. writeBlocked와 합치지 않고 따로 둔 이유: writeBlocked는 댓글 입력창(344/528줄
+// 근처)에도 그대로 재사용되는데, 댓글은 공지 채널이어도 누구나 달 수 있어야 하기 때문
+// (createPost.ts가 replyto 있는 요청은 이 권한 검사를 안 함) — 그래서 "새 글" 작성 화면에서만
+// createBlocked로 따로 합쳐서 씀.
+const { userData: currentUserData, ensureLoaded: ensureCurrentUserLoaded } = useCurrentUserData()
+await ensureCurrentUserLoaded()
+const announcementBlocked = computed(() => props.isAnnouncement && !userHasPermission(currentUserData.value, 'postAnnouncements'))
+const createBlocked = computed(() => writeBlocked.value || announcementBlocked.value)
 
 // 우리 서버 커스텀 이모지(:shortcode:) — 글/댓글/리액션 표시 시점에 치환
 const { map: customEmojiMap, ensureLoaded: ensureCustomEmojisLoaded } = useCustomEmojis()

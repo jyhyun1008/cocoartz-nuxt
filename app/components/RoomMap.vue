@@ -242,7 +242,7 @@
             <i class="hgi hgi-stroke hgi-setting-07"></i> {{ t('village.openWindow', { name: t('chrome.settings') }) }}
         </div>
 
-        <WindowBoard v-if="props.page === 'board' && showOverlay" :ids="serverAndRoomId" :is-federated="!!roomData?.federated" :gallery-view="!!roomData?.galleryView" :room-name="roomData?.knownas" @close="closeOverlay" />
+        <WindowBoard v-if="props.page === 'board' && showOverlay" :ids="serverAndRoomId" :is-federated="!!roomData?.federated" :gallery-view="!!roomData?.galleryView" :is-announcement="!!roomData?.isAnnouncement" :room-name="roomData?.knownas" @close="closeOverlay" />
         <div v-if="props.page === 'board' && !showOverlay"
              class="reopen-btn" @click="openOverlay">
             <i class="hgi hgi-stroke hgi-grid"></i> {{ t('village.openWindow', { name: t('village.board') }) }}

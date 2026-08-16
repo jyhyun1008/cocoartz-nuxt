@@ -1,20 +1,13 @@
 import { db } from '../../utils/db'
-import { servers, users, emailSettings } from '../../db/schema'
+import { servers, emailSettings } from '../../db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../utils/session'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
+import { requirePermission } from '../../utils/permissions'
 
 const REGISTRATION_MODES = ['open', 'approval', 'closed']
 
 export default eventHandler(async (event) => {
     const { slug, title, themecolor, info, avatar, registrationMode, currencyName, signupBonus } = await readBody(event)
-    const userid = await requireUserId(event)
-    await checkAdmin(userid)
+    await requirePermission(event, 'accessAdminSettings')
     if (!slug) throw createError({ statusCode: 400, message: 'slug가 필요합니다' })
     if (registrationMode !== undefined && !REGISTRATION_MODES.includes(registrationMode)) {
         throw createError({ statusCode: 400, message: '올바르지 않은 가입 방식입니다' })

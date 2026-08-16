@@ -38,6 +38,11 @@ export const users = pgTable('users', {
     passwordResetToken: text(),
     passwordResetTokenExpiresAt: timestamp({ withTimezone: true }),
     passwordResetSentAt: timestamp({ withTimezone: true }),
+    // 관리자가 개별 유저에게 세세하게 부여하는 권한 — JSON 문자열 배열(예: '["deletePosts","postAnnouncements"]').
+    // null/빈 배열이면 추가 권한 없음(그냥 일반 유저). isAdmin(전체 관리자)과 별개로, 관리자가 아니어도
+    // 특정 권한만 콕 집어 줄 수 있게 하려고 도입 — 값의 의미는 server/utils/permissions.ts의
+    // PERMISSION_KEYS 참고. isAdmin=true인 유저는 이 배열과 무관하게 항상 모든 권한을 가진 것으로 취급함.
+    permissions: text(),
     // 회원 탈퇴(server/api/deleteAccount.ts) — null이 아니면 탈퇴한 계정. 행 자체는 안 지움(그
     // 유저가 쓴 글/댓글의 답글이 안 끊기게, FK 대신 관행으로 참조하는 다른 테이블들이 안 깨지게)
     // — 대신 username/email/password/avatar/character 등 개인정보를 여기서 지워서 익명화하고,
@@ -106,6 +111,10 @@ export const rooms = pgTable('rooms', {
     // 관리 화면에서 켤 수 있고(유저가 직접 바꾸는 옵션 아님), 연합 게시판은 카드에 원격 글까지
     // 섞여서 정사각형 썸네일 레이아웃이 안 어울려서 못 켜게 막음(setFederatedRoom.ts 참고)
     galleryView: boolean().default(false).notNull(),
+    // 공지게시판 전용 플래그 — true인 방은 createPost.ts가 postAnnouncements 권한(또는 전체 관리자)
+    // 보유자만 글을 쓸 수 있게 막음(server/utils/permissions.ts). 예전엔 이 구분 자체가 없어서 로그인만
+    // 하면 누구든 아무 방에나 글을 쓸 수 있었음(공지게시판도 예외 없이) — 그 구멍을 막으려고 추가.
+    isAnnouncement: boolean().default(false).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 })

@@ -2,13 +2,17 @@ import { db } from '../utils/db'
 import { posts, rooms } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { requireUserId } from '../utils/session'
+import { hasPermission } from '../utils/permissions'
 
 export default eventHandler(async (event) => {
     const { postid, title, content } = await readBody(event)
     const userid = await requireUserId(event)
     const [post] = await db.select().from(posts).where(eq(posts.id, postid))
     if (!post) throw createError({ statusCode: 404, message: '게시글을 찾을 수 없습니다' })
-    if (!post.userid || post.userid !== userid) throw createError({ statusCode: 403, message: '본인 글만 수정할 수 있습니다' })
+    // 본인 글이거나, 관리자가 부여한 deletePosts 권한(모더레이션)이 있으면 수정 가능
+    if (post.userid !== userid && !(await hasPermission(userid, 'deletePosts'))) {
+        throw createError({ statusCode: 403, message: '본인 글만 수정할 수 있습니다' })
+    }
 
     // 연합 게시판 글은 이미 원격에 배포된 내용이라 로컬만 조용히 고치는 게 의미 없어서 편집 자체를 막음
     if (!post.replyto) {

@@ -1,17 +1,11 @@
 import { db } from '../../utils/db'
-import { users, items } from '../../db/schema'
+import { items } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 import { createId } from '@paralleldrive/cuid2'
 import { isValidCategory } from '../../../lib/shopCategories'
-import { requireUserId } from '../../utils/session'
+import { requirePermission } from '../../utils/permissions'
 import { compositeIconFromLayerUrls } from '../../utils/shopItemAssets'
 import { uploadImage } from '../../utils/objectStorage'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
 
 // itemKey는 카테고리 상관없이 전부 자동 배정(등록 후 DB가 발급한 자기 id를 그대로 문자열로 씀) —
 // 예전엔 아바타/지형/기능/소모품은 관리자가 직접 번호·문자열을 입력해야 했고 겹치면 등록이 막혔는데,
@@ -24,8 +18,7 @@ async function checkAdmin(userid: number) {
 export default eventHandler(async (event) => {
     const body = await readBody(event)
     const { category, name, description, price, active, icon, isDefault, blocksMovement, decoLayer, isCrop, behindAvatar } = body
-    const userid = await requireUserId(event)
-    await checkAdmin(userid)
+    await requirePermission(event, 'accessAdminSettings')
 
     if (!isValidCategory(category)) throw createError({ statusCode: 400, message: '올바르지 않은 카테고리입니다' })
 

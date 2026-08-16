@@ -1,14 +1,5 @@
-import { db } from '../../utils/db'
-import { users } from '../../db/schema'
-import { eq } from 'drizzle-orm'
 import { isObjectStorageConfigured, uploadImage, ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../../utils/objectStorage'
-import { requireUserId } from '../../utils/session'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
+import { requirePermission } from '../../utils/permissions'
 
 export default eventHandler(async (event) => {
     if (!isObjectStorageConfigured()) {
@@ -16,8 +7,7 @@ export default eventHandler(async (event) => {
     }
 
     const parts = await readMultipartFormData(event)
-    const userid = await requireUserId(event)
-    await checkAdmin(userid)
+    await requirePermission(event, 'accessAdminSettings')
 
     const file = parts?.find((p) => p.name === 'file')
     if (!file?.data || !file.type) {

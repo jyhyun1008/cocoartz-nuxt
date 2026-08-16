@@ -1,15 +1,9 @@
 import { db } from '../../utils/db'
-import { users, items } from '../../db/schema'
+import { items } from '../../db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../utils/session'
+import { requirePermission } from '../../utils/permissions'
 import { compositeIconFromLayerUrls } from '../../utils/shopItemAssets'
 import { uploadImage } from '../../utils/objectStorage'
-
-async function checkAdmin(userid: number) {
-    if (!userid) throw createError({ statusCode: 401, message: '로그인이 필요합니다' })
-    const [user] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.id, userid))
-    if (!user?.isAdmin) throw createError({ statusCode: 403, message: '관리자 권한이 필요합니다' })
-}
 
 // category/itemKey는 여기서 못 바꿈 — 이미 인벤토리·캐릭터·맵에 그 값으로 참조가 걸려있어서
 // 바꾸면 기존 보유자/배치가 다 깨짐. 다른 카테고리/키로 옮기고 싶으면 새로 등록하고 이건 지울 것.
@@ -17,8 +11,7 @@ async function checkAdmin(userid: number) {
 export default eventHandler(async (event) => {
     const body = await readBody(event)
     const { id, name, description, price, active, icon, layers, isDefault, blocksMovement, decoLayer, growSeconds, rewardMin, rewardMax, behindAvatar } = body
-    const userid = await requireUserId(event)
-    await checkAdmin(userid)
+    await requirePermission(event, 'accessAdminSettings')
 
     if (!id) throw createError({ statusCode: 400, message: 'id가 필요합니다' })
     const [existing] = await db.select().from(items).where(eq(items.id, id))

@@ -59,6 +59,7 @@ async function seed() {
         knownas: '공지 게시판',
         type: 'board',
         info: '공지사항을 올리는 곳입니다.',
+        isAnnouncement: true,
     }).returning()
 
     console.log('✅ Rooms:', gallery.knownas, practiceroom.knownas, noti.knownas)

@@ -244,6 +244,17 @@
                                     <button class="admin-add-btn danger-btn" style="margin-left:0" @click="banTarget = m">영구정지</button>
                                 </template>
                             </div>
+
+                            <!-- 세부 권한 — isAdmin은 이미 전부 갖고 있어서(permissions.ts) 의미가 없으니 숨김 -->
+                            <div v-if="!m.isAdmin" class="member-action-row" style="margin-top:10px;flex-wrap:wrap">
+                                <label class="admin-label" style="margin:0;width:100%">권한 부여</label>
+                                <label v-for="p in PERMISSION_OPTIONS" :key="p.key" class="admin-checkbox-row" style="margin:0">
+                                    <input type="checkbox" :checked="permissionsDraft[m.id]?.includes(p.key)" @change="togglePermissionDraft(m.id, p.key)" />
+                                    <span>{{ p.label }}</span>
+                                </label>
+                                <button class="admin-add-btn" style="margin-left:auto" @click="doSavePermissions(m.id)">저장</button>
+                            </div>
+                            <p v-if="permissionMsg[m.id]" class="admin-save-msg" style="margin:2px 0 0">{{ permissionMsg[m.id] }}</p>
                         </div>
                     </template>
                     <div v-if="!filteredMembers.length" class="empty" style="padding:20px 0">멤버가 없습니다.</div>
@@ -325,6 +336,7 @@
                             <span class="admin-ch-type-badge">{{ typeLabel(entry.type) }}</span>
                             <span v-if="entry.federated" class="admin-ch-type-badge admin-ch-federated-badge"><i class="hgi hgi-stroke hgi-globe-02"></i> 연합</span>
                             <span v-if="entry.galleryView" class="admin-ch-type-badge"><i class="hgi hgi-stroke hgi-grid"></i> 갤러리</span>
+                            <span v-if="entry.isAnnouncement" class="admin-ch-type-badge"><i class="hgi hgi-stroke hgi-megaphone-01"></i> 공지</span>
                             <div class="admin-ch-actions">
                                 <button class="admin-icon-btn" @click="moveUp(i)" :disabled="i === 0" title="위로">↑</button>
                                 <button class="admin-icon-btn" @click="moveDown(i)" :disabled="i === orderedList.length - 1" title="아래로">↓</button>
@@ -707,6 +719,12 @@
                     <span>갤러리 보기로 표시</span>
                     <span class="admin-label-hint">— 글 목록을 2단 그리드 카드로 보여줍니다(정사각형 썸네일 + 제목/작성자/작성시각). 연합 게시판은 지원하지 않아요.</span>
                 </label>
+                <label v-if="form.type === 'board'" class="admin-checkbox-row">
+                    <input type="checkbox" v-model="form.isAnnouncement" />
+                    <i class="hgi hgi-stroke hgi-megaphone-01"></i>
+                    <span>공지 채널로 지정</span>
+                    <span class="admin-label-hint">— postAnnouncements 권한(회원 관리 탭에서 부여)이 있는 사람만 이 채널에 글을 쓸 수 있게 막습니다. 댓글은 누구나 달 수 있어요.</span>
+                </label>
 
                 <p v-if="formError" class="admin-error">{{ formError }}</p>
                 <button class="submit-btn" style="align-self:flex-start" @click="submitCreate" :disabled="!form.knownas.trim() || !form.path.trim() || saving">
@@ -746,6 +764,12 @@
                     <i class="hgi hgi-stroke hgi-grid"></i>
                     <span>갤러리 보기로 표시</span>
                     <span class="admin-label-hint">— 글 목록을 2단 그리드 카드로 보여줍니다(정사각형 썸네일 + 제목/작성자/작성시각). 연합 게시판은 지원하지 않아요.</span>
+                </label>
+                <label v-if="form.type === 'board'" class="admin-checkbox-row">
+                    <input type="checkbox" v-model="form.isAnnouncement" />
+                    <i class="hgi hgi-stroke hgi-megaphone-01"></i>
+                    <span>공지 채널로 지정</span>
+                    <span class="admin-label-hint">— postAnnouncements 권한(회원 관리 탭에서 부여)이 있는 사람만 이 채널에 글을 쓸 수 있게 막습니다. 댓글은 누구나 달 수 있어요.</span>
                 </label>
 
                 <p v-if="formError" class="admin-error">{{ formError }}</p>
@@ -936,7 +960,16 @@ const filteredMembers = computed(() => {
 
 const expandedMemberId = ref(null)
 function toggleMemberPanel(id) {
-    expandedMemberId.value = expandedMemberId.value === id ? null : id
+    const opening = expandedMemberId.value !== id
+    expandedMemberId.value = opening ? id : null
+    // 패널을 열 때마다 서버에 저장된 값으로 다시 seed — 직전에 다른 멤버 걸 고쳤다가 취소한
+    // draft가 남아있는 채로 보이지 않게 함
+    if (opening) {
+        const m = membersForAdmin.value.find(x => x.id === id)
+        let saved = []
+        try { saved = m?.permissions ? JSON.parse(m.permissions) : [] } catch { saved = [] }
+        permissionsDraft[id] = Array.isArray(saved) ? saved : []
+    }
 }
 
 function isSuspended(m) {
@@ -1018,6 +1051,37 @@ async function doBan() {
         memberActionBusy.value = false
     }
 }
+// 세부 권한(server/utils/permissions.ts의 PERMISSION_KEYS와 이름을 맞춰야 함 — 서버 유틸은
+// server-only라 프론트에서 못 불러와서 라벨만 여기 따로 둠) — isAdmin이면 이미 전부 갖고 있어서
+// 대상에서 뺌(updateUserPermissions.ts도 isAdmin 대상이면 거절함)
+const PERMISSION_OPTIONS = [
+    { key: 'deletePosts', label: '글 삭제/수정(모더레이션)' },
+    { key: 'postAnnouncements', label: '공지 채널 글쓰기' },
+    { key: 'moderateUsers', label: '유저 정지/영구정지' },
+    { key: 'accessAdminSettings', label: '관리자 설정 전체 접근' },
+]
+const permissionsDraft = reactive({})
+const permissionMsg = reactive({})
+function togglePermissionDraft(id, key) {
+    const current = permissionsDraft[id] ?? []
+    permissionsDraft[id] = current.includes(key) ? current.filter(k => k !== key) : [...current, key]
+}
+async function doSavePermissions(id) {
+    memberActionError.value = ''
+    permissionMsg[id] = ''
+    try {
+        await $fetch(`${apiBaseUrl}/api/admin/updateUserPermissions`, {
+            method: 'POST',
+            body: { userid: userId.value, id, permissions: permissionsDraft[id] ?? [] },
+        })
+        permissionMsg[id] = '저장되었습니다!'
+        await refreshMembersForAdmin()
+        setTimeout(() => { permissionMsg[id] = '' }, 2500)
+    } catch (e) {
+        memberActionError.value = e?.data?.message ?? '권한 저장에 실패했습니다'
+    }
+}
+
 async function doUnban(id) {
     memberActionError.value = ''
     try {
@@ -1546,7 +1610,7 @@ async function savePinnedName(pinned) {
     pinnedSaving.value = ''
 }
 
-const form = reactive({ knownas: '', path: '', type: 'room', info: '', galleryView: false })
+const form = reactive({ knownas: '', path: '', type: 'room', info: '', galleryView: false, isAnnouncement: false })
 
 // 연합 게시판은 갤러리 보기를 지원 안 하니(정사각형 그리드에 원격 글까지 섞이면 안 어울림),
 // 연합 체크를 켜는 순간 갤러리 체크는 자동으로 꺼줌 — 서버(setFederatedRoom.ts)도 같은 규칙을
@@ -1631,6 +1695,7 @@ function openCreate() {
     form.type = 'room'
     form.info = ''
     form.galleryView = false
+    form.isAnnouncement = false
     federatedChecked.value = false
     formError.value = ''
     view.value = 'create'
@@ -1700,6 +1765,7 @@ function openEdit(room) {
     form.type = room.type
     form.info = room.info ?? ''
     form.galleryView = !!room.galleryView
+    form.isAnnouncement = !!room.isAnnouncement
     federatedChecked.value = !!room.federated
     formError.value = ''
     view.value = 'edit'
