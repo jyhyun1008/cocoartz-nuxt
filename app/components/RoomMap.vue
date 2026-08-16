@@ -1082,14 +1082,13 @@ function getTileContainerStyle(tile) {
 // 타일 전체 CSS scale
 // transformOrigin = 스크린 상 캐릭터 발 위치 (동적 추적)
 //
-// 문제 1: transformOrigin은 .maptiles1 로컬 좌표 기준.
-//         WASD로 #map이 이동하면 스크린 기준 고정점이 어긋남.
-// 문제 2: topRatio에 따라 charBottomSlice 높이가 바뀌고,
-//         #character element 높이도 바뀜 → 발 위치(element bottom)도 변함.
+// 문제: transformOrigin은 .maptiles1 로컬 좌표 기준.
+//       WASD로 #map이 이동하면 스크린 기준 고정점이 어긋남.
 //
 // 해결:
 //   ox = position.x * 32  (맵 좌우 이동 역보정)
-//   charH = 64 (top slice) + charBottomH (topRatio에 따라 64~0)
+//   charH = 128 (CharacterMoving.vue #character 고정 높이 — 예전엔 줌에 따라 상/하 슬라이스
+//     비율이 바뀌는 걸 가정했었는데, 그 슬라이스 분할 자체를 없애고 통짜 128px로 고정함)
 //   feetOffset = charH / 2  (flex center → element bottom = center + charH/2)
 //   oy = feetOffset - position.y * 32
 const tilesScaleStyle = computed(() => {

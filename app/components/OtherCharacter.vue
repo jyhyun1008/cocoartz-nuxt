@@ -17,22 +17,15 @@
             <div v-if="backHair" class="oc-back-hair-viewport" :style="{ display: frame.row === 0 ? 'block' : 'none' }">
                 <img class="oc-back-hair-sprite" :src="backHair" :style="backHairImgStyle" />
             </div>
-            <div class="oc-slice-top">
+            <!-- CharacterMoving.vue와 같은 이유로 상/하 슬라이스 분할(줌아웃 시 압축 연출 의도)을
+                 걷어내고 셀 전체(128px)를 통짜 한 장으로 렌더함 -->
+            <div class="oc-slice">
                 <img
                     v-for="layer in layers"
                     :key="layer"
                     class="oc-sprite"
                     :src="layer"
-                    :style="topImgStyle"
-                />
-            </div>
-            <div class="oc-slice-bottom" :style="botSliceStyle">
-                <img
-                    v-for="layer in layers"
-                    :key="layer"
-                    class="oc-sprite"
-                    :src="layer"
-                    :style="botImgStyle"
+                    :style="imgStyle"
                 />
             </div>
         </div>
@@ -157,25 +150,11 @@ const bodyStyle = computed(() => ({
     zIndex: props.zIndex ?? 'auto',
 }))
 
-const botSliceStyle = computed(() => {
-    const ratio = props.topRatio
-    const base = { height: '64px', overflow: 'hidden' }
-    if (ratio <= 0.5) return base
-    const t = (ratio - 0.5) / 0.5
-    const margin = Math.round(t * 20)
-    return { ...base, clipPath: `polygon(0% 0%, 100% 0%, ${100 - margin}% 100%, ${margin}% 100%)` }
-})
-
 // 현재 프레임 (reactive로 관리 → computed style로 연결)
 const frame = ref({ row: 0, col: 1 })
 
-const topImgStyle = computed(() =>
+const imgStyle = computed(() =>
     `top:${-128 * frame.value.row}px; left:${-128 * frame.value.col}px;`)
-
-const botImgStyle = computed(() => {
-    const h = 64
-    return `top:${-(2 * frame.value.row + 1) * h}px; left:${-128 * frame.value.col}px; height:${8 * h}px; width:384px;`
-})
 
 // 데코는 몸통과 셀 높이가 달라서(178 vs 128) 자기만의 top 계산을 씀 — col은 몸통과 동일
 const decoImgStyle = computed(() =>
@@ -250,15 +229,10 @@ onUnmounted(() => {
     animation: jump-hop 0.4s linear;
 }
 
-.oc-slice-top {
-    height: 64px;
+.oc-slice {
+    height: 128px;
     width: 128px;
     overflow: hidden;
-    position: relative;
-}
-
-.oc-slice-bottom {
-    width: 128px;
     position: relative;
 }
 

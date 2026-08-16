@@ -23,21 +23,18 @@
             <div v-if="props.backHair" class="char-back-hair-viewport" :ref="el => { if (el) charBackHairContainerEl = el }">
                 <img :ref="el => { if (el) charBackHairEl = el }" class="char-back-hair-sprite" :src="props.backHair" />
             </div>
-            <div class="char-slice char-slice-top" :style="charTopSliceStyle">
+            <!-- 예전엔 상단 64px/하단 나머지로 슬라이스를 나눠서, 줌아웃하면 하단 높이를 줄여
+                 캐릭터가 위에서 내려다보이는 것처럼 압축되는 연출을 노리고 있었음 — 근데
+                 tileMode(맵 화면의 유일한 실사용 경로)에서는 그 하단 높이 계산이 항상 고정값(64)만
+                 돌려주게 돼 있어서 실제로는 전혀 줄어들지 않았고(=의도한 압축 효과 자체가 무동작),
+                 남은 건 topRatio 기반 하단 모서리 대각선 클리핑뿐이라 효과가 거의 안 느껴졌음.
+                 그래서 그 이원화를 걷어내고 셀 전체(128px)를 통짜 한 장으로 렌더함 -->
+            <div class="char-slice">
                 <img
                     v-for="(layer, i) in props.layers"
                     :key="layer"
-                    :ref="el => { if (el) charTopRefs[i] = el }"
+                    :ref="el => { if (el) charRefs[i] = el }"
                     class="char-sprite"
-                    :src="layer"
-                />
-            </div>
-            <div class="char-slice char-slice-bottom" :style="charBottomSliceStyle">
-                <img
-                    v-for="(layer, i) in props.layers"
-                    :key="layer"
-                    :ref="el => { if (el) charBotRefs[i] = el }"
-                    class="char-sprite char-sprite-bottom"
                     :src="layer"
                 />
             </div>
@@ -124,8 +121,7 @@ const characterScale = computed(() => {
     }
 })
 
-const charTopRefs = []
-const charBotRefs = []
+const charRefs = []
 let charDecoBackEl = null
 let charDecoFrontEl = null
 let charDecoBackContainerEl = null
@@ -133,38 +129,12 @@ let charDecoFrontContainerEl = null
 let charBackHairEl = null
 let charBackHairContainerEl = null
 
-const charBottomH = computed(() => {
-    if (props.tileMode) return 64
-    const z = props.zoomLevel
-    if (z >= 1) return 64
-    const t = (z - 0.7) / 0.3
-    return Math.round(31 + 33 * t)
-})
-
-const charTopSliceStyle = computed(() => ({
-    height: '64px',
-    overflow: 'hidden',
-}))
-
-const charBottomSliceStyle = computed(() => {
-    const ratio = props.topRatio
-    const h = charBottomH.value
-    const base = { height: `${h}px`, overflow: 'hidden' }
-    if (ratio <= 0.5 || h <= 0) return base
-    const t = (ratio - 0.5) / 0.5
-    const margin = Math.round(t * 20)
-    return { ...base, clipPath: `polygon(0% 0%, 100% 0%, ${100 - margin}% 100%, ${margin}% 100%)` }
-})
-
 let currentFrame = { row: 0, col: 1 }
 
 function applyFrame({ row, col }) {
     currentFrame = { row, col }
-    const topStyle = `top:${-128 * row}px; left:${-128 * col}px;`
-    charTopRefs.forEach(el => el?.setAttribute('style', topStyle))
-    const h = charBottomH.value
-    const botStyle = `top:${-(2 * row + 1) * h}px; left:${-128 * col}px; height:${8 * h}px; width:384px;`
-    charBotRefs.forEach(el => el?.setAttribute('style', botStyle))
+    const style = `top:${-128 * row}px; left:${-128 * col}px;`
+    charRefs.forEach(el => el?.setAttribute('style', style))
 
     // 데코는 몸통과 셀 높이가 달라서(178 vs 128) 자기만의 top 계산을 씀 — col(좌우/방향)은 몸통과 동일
     const decoStyle = `top:${-178 * row}px; left:${-128 * col}px;`
@@ -190,8 +160,6 @@ onMounted(() => {
         KeyD: [{ row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }, { row: 1, col: 1 }],
         KeyA: [{ row: 2, col: 0 }, { row: 2, col: 1 }, { row: 2, col: 2 }, { row: 2, col: 1 }],
     }
-
-    watch(charBottomH, () => { applyFrame(currentFrame) })
 
     applyFrame({ row: 0, col: 1 })
 
@@ -295,6 +263,7 @@ onMounted(() => {
 
 .char-slice {
     width: 128px;
+    height: 128px;
     overflow: hidden;
     position: relative;
 }
@@ -386,10 +355,6 @@ onMounted(() => {
 }
 .bubble-fade-enter-from, .bubble-fade-leave-to {
     opacity: 0;
-}
-
-.char-sprite-bottom {
-    top: -64px;
 }
 
 /* 점프 스프라이트가 따로 없어서 CSS로만 살짝 튀어오르는 연출 — #character를 움직여서 tile-mode의
