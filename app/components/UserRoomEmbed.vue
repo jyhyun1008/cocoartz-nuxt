@@ -134,6 +134,7 @@ const props = defineProps({
 const emit = defineEmits(['map-saved'])
 
 const { t } = useI18n()
+const { reduceEffects } = usePerformanceMode()
 const { getItemDef, getItemLayers, getItemFlipBackOffsets } = useItemCatalog()
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
@@ -190,7 +191,9 @@ const joystickKnobStyle = computed(() => ({
 
 // 피사계심도(초점 흐림) — RoomMap.vue와 같은 방식(캐릭터가 있는 깊이에서 멀어질수록 흐려짐).
 // 타일/아이템 둘 다 적용 — 원래 있던 걸 공용 composable로 옮기면서 실수로 타일 쪽만 빠뜨렸었음
+// 사양 옵션 꺼짐이면 0 고정 — RoomMap.vue getDepthBlur와 동일한 이유
 function getDepthBlur(depth) {
+    if (reduceEffects.value) return 0
     const depthDiff = Math.abs(depth - charDepth.value)
     return Number((Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1))
 }

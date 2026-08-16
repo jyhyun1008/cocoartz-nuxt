@@ -333,6 +333,7 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const apiBaseUrl = config.public.apiBaseUrl
 
+const { reduceEffects } = usePerformanceMode()
 const { userData: currentUserData, ensureLoaded: ensureUserLoaded } = useCurrentUserData()
 // ⚠️ onMounted(클라이언트 전용) 안에서 부르던 걸 여기 top-level await로 옮김 — 예전엔 SSR 시점엔
 // 캐릭터 데이터가 전혀 없어서 서버가 내려주는 초기 HTML에 항상 기본 파츠로 그려졌고, 그 뒤
@@ -1055,7 +1056,10 @@ const charZ = ref(0)
 // 아이템에도 그대로 씀 — depth(=x+y)만 넣어주면 동일한 흐림값을 돌려줌. 이건 이 화면(방 안에서
 // 실시간으로 돌아다니는 캐릭터가 있는 화면) 전용 연출이라 공용 composable엔 안 넣고 여기서만 씀
 // — UserRoomEmbed.vue도 자기 charDepth를 기준으로 똑같은 방식을 로컬에서 따로 적용함.
+// 사양 옵션 꺼짐이면 0 고정 — 화면당 타일/아이템 수만큼 매번 filter:blur를 새로 계산/합성하는
+// 게 handheld/맵 블러보다 오히려 더 무거워서, 여기가 진짜 "블러가 계속 남아있다"의 범인이었음
 function getDepthBlur(depth) {
+    if (reduceEffects.value) return '0.0'
     const depthDiff = Math.abs(depth - charDepth.value)
     // zoom이 클수록 화면에서 커지므로 blur도 같이 강해보임 → zoomLevel로 보정
     return (Math.min(depthDiff * 1.2, 6) / Math.max(zoomLevel.value, 1)).toFixed(1)
@@ -1692,21 +1696,18 @@ onMounted(() => {
     filter: blur(1rem);
 }
 
-/* 사양 옵션(usePerformanceMode.ts)이 꺼져있을 때 — 이 흔들림/블러는 순수 연출이라 지속적인
-   GPU 합성 비용이 큰데(특히 iOS Safari), 저사양 기기에서 끌 수 있게 함. #map은 위 fixed 자식이
+/* 사양 옵션(usePerformanceMode.ts)이 꺼져있을 때 — 이 흔들림은 순수 연출이라 지속적인 GPU
+   합성 비용이 큰데(특히 iOS Safari), 저사양 기기에서 끌 수 있게 함. #map은 위 fixed 자식이
    없어서 그냥 꺼도 되지만, #map-front는 바로 위 주석대로 애니메이션의 transform이 안쪽
    position:fixed 요소(CharacterMoving.vue #character-wrapper)의 containing block 역할도 겸하고
-   있어서 애니메이션만 멈추고 transform 자체는 정적으로 남겨둠(안 그러면 캐릭터 위치 계산이 깨짐) */
+   있어서 애니메이션만 멈추고 transform 자체는 정적으로 남겨둠(안 그러면 캐릭터 위치 계산이 깨짐).
+   ⚠️ .blur(모달 열렸을 때 배경 흐림)는 일부러 안 건드림 — 요청으로 사양 옵션과 무관하게 항상 유지 */
 :root[data-reduce-effects="true"] #map {
     animation: none;
 }
 :root[data-reduce-effects="true"] #map-front {
     animation: none;
     transform: translateZ(0);
-}
-:root[data-reduce-effects="true"] #map.blur,
-:root[data-reduce-effects="true"] #map-front.blur {
-    filter: none;
 }
 
 /* 타일 그룹 pan 래퍼: mapStyle(left/top)을 받아 타일 좌표계를 팬 */

@@ -30,7 +30,7 @@
                     <span class="admin-section-title">화면 효과</span>
                 </div>
                 <div class="pref-theme-row">
-                    <span class="pref-theme-label">카메라 흔들림 · 배경 블러</span>
+                    <span class="pref-theme-label">카메라 흔들림 · 초점 흐림(피사계심도)</span>
                     <button class="pref-theme-btn" type="button" @click="toggleReduceEffects">
                         <i class="hgi hgi-stroke" :class="reduceEffects ? 'hgi-circle' : 'hgi-checkmark-circle-01'"></i>
                         {{ reduceEffects ? '꺼짐' : '켜짐' }}
