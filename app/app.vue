@@ -6,7 +6,10 @@
 const config = useRuntimeConfig()
 useHead({ htmlAttrs: { lang: config.public.locale } })
 
-onMounted(() => useTheme().init())
+onMounted(() => {
+    useTheme().init()
+    usePerformanceMode().init()
+})
 </script>
 
 <template>

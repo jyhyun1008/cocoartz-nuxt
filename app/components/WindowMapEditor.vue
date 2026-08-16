@@ -792,6 +792,13 @@ onMounted(() => {
     animation: handheld 9s ease-in-out infinite;
 }
 
+/* 사양 옵션 꺼짐 — 맵 편집기는 CharacterMoving을 렌더하지 않아서(position:fixed 자식 없음)
+   RoomMap.vue #map-front와 달리 transform 보존 없이 그냥 꺼도 됨 */
+:root[data-reduce-effects="true"] #wme-map-front,
+:root[data-reduce-effects="true"] #wme-edit-grid-layer {
+    animation: none;
+}
+
 #wme-edit-grid-layer .maptiles-pan {
     position: absolute;
     top: 0; left: 0;

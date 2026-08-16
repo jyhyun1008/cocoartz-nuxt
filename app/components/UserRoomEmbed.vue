@@ -756,6 +756,13 @@ onUnmounted(() => {
     animation: handheld 9s ease-in-out infinite;
 }
 
+/* 사양 옵션 꺼짐 — RoomMap.vue #map-front와 동일한 이유(CharacterMoving.vue #character-wrapper가
+   안에 있어서 transform 자체는 남겨둠) */
+:root[data-reduce-effects="true"] #ure-map-front {
+    animation: none;
+    transform: translateZ(0);
+}
+
 #ure-map-front .maptiles-pan {
     position: absolute;
     top: 0; left: 0;

@@ -23,6 +23,24 @@
                 </div>
             </div>
 
+            <!-- 사양 옵션 — 카메라 흔들림/배경 블러처럼 순수 연출이라 성능에만 영향 주는 효과를 끔.
+                 저사양 기기(특히 iPad 등 iOS Safari)에서 맵 화면이 버벅일 때 쓰라고 안내 -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    <span class="admin-section-title">화면 효과</span>
+                </div>
+                <div class="pref-theme-row">
+                    <span class="pref-theme-label">카메라 흔들림 · 배경 블러</span>
+                    <button class="pref-theme-btn" type="button" @click="toggleReduceEffects">
+                        <i class="hgi hgi-stroke" :class="reduceEffects ? 'hgi-circle' : 'hgi-checkmark-circle-01'"></i>
+                        {{ reduceEffects ? '꺼짐' : '켜짐' }}
+                    </button>
+                </div>
+                <p class="admin-label-hint" style="margin-top:6px">
+                    맵 화면이 버벅이면 꺼보세요 — 순수 연출 효과라 꺼도 이용엔 지장 없어요.
+                </p>
+            </div>
+
             <!-- 이메일 인증 — 이 서버가 SMTP를 설정해서 인증을 요구할 때만(required) 뜸.
                  로그인/글쓰기를 막는 강제 게이트가 아니라 배지 + 재전송 버튼만 있는 소프트한 안내 -->
             <div v-if="isLoggedIn && emailVerificationRequired && !emailVerified" class="admin-section">
@@ -305,6 +323,7 @@ defineEmits(['close'])
 const router = useRouter()
 const { userId, isLoggedIn } = useCurrentUser()
 const { theme, toggle: toggleTheme } = useTheme()
+const { reduceEffects, toggle: toggleReduceEffects } = usePerformanceMode()
 
 // ServerProfilebar.vue에 있던 로그아웃 버튼을 여기로 옮김 — 프로필바 하단 아이콘이
 // 출석/상점/설정/로그아웃 4개까지 붙어서 너무 빽빽해짐(비로그인 상태의 로그인 버튼은 그대로 둠)

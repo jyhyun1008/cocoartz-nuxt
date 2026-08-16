@@ -1692,6 +1692,23 @@ onMounted(() => {
     filter: blur(1rem);
 }
 
+/* 사양 옵션(usePerformanceMode.ts)이 꺼져있을 때 — 이 흔들림/블러는 순수 연출이라 지속적인
+   GPU 합성 비용이 큰데(특히 iOS Safari), 저사양 기기에서 끌 수 있게 함. #map은 위 fixed 자식이
+   없어서 그냥 꺼도 되지만, #map-front는 바로 위 주석대로 애니메이션의 transform이 안쪽
+   position:fixed 요소(CharacterMoving.vue #character-wrapper)의 containing block 역할도 겸하고
+   있어서 애니메이션만 멈추고 transform 자체는 정적으로 남겨둠(안 그러면 캐릭터 위치 계산이 깨짐) */
+:root[data-reduce-effects="true"] #map {
+    animation: none;
+}
+:root[data-reduce-effects="true"] #map-front {
+    animation: none;
+    transform: translateZ(0);
+}
+:root[data-reduce-effects="true"] #map.blur,
+:root[data-reduce-effects="true"] #map-front.blur {
+    filter: none;
+}
+
 /* 타일 그룹 pan 래퍼: mapStyle(left/top)을 받아 타일 좌표계를 팬 */
 .maptiles-pan {
     position: absolute;

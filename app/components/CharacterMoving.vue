@@ -265,6 +265,13 @@ onMounted(() => {
     animation: handheld 9s ease-in-out infinite;
 }
 
+/* 사양 옵션 꺼짐 — RoomMap.vue #map-front와 달리 이 요소 자신의 transform이 다른 fixed 자식의
+   containing block 역할을 겸하지 않으므로(자식은 .speech-bubble/#character뿐, 둘 다 fixed 아님)
+   그냥 꺼도 안전함 */
+:root[data-reduce-effects="true"] #character-wrapper.handheld-anim {
+    animation: none;
+}
+
 #character-wrapper.tile-mode {
     width: 128px;
     height: 128px;
